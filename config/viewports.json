@@ -1,0 +1,49 @@
+{
+  "$schema": "./viewports.schema.json",
+  "schemaVersion": 1,
+  "note": "One entry per device target. `dpr` is the device pixel ratio used for BOTH the web capture and the Compose render, so screenshots are directly comparable pixel for pixel. `windowSizeClass` maps to androidx.compose.material3.windowsizeclass: width < 600dp = compact, 600..839 = medium, >= 840 = expanded.",
+  "defaults": {
+    "locale": "en-US",
+    "timezone": "UTC",
+    "colorScheme": "light",
+    "fontScale": 1.0,
+    "statusBar": { "exclude": true, "note": "system bars are masked out of the diff, not emulated" }
+  },
+  "targets": {
+    "phone": {
+      "label": "Phone",
+      "width": 393,
+      "height": 852,
+      "dpr": 2,
+      "windowSizeClass": "compact",
+      "referenceDevice": "iPhone 15 / Pixel-class 393x852 @2x",
+      "notes": "Primary target of the bundled prototype: bottom nav, mini player, full-screen player."
+    },
+    "tablet": {
+      "label": "Tablet",
+      "width": 834,
+      "height": 1194,
+      "dpr": 2,
+      "windowSizeClass": "expanded",
+      "referenceDevice": "iPad Air 11-inch class",
+      "notes": "Uses the two-pane layout: rail/sidebar + content, no bottom nav."
+    },
+    "desktop": {
+      "label": "Desktop",
+      "width": 1440,
+      "height": 900,
+      "dpr": 1,
+      "windowSizeClass": "expanded",
+      "referenceDevice": "1440x900 laptop window",
+      "notes": "Compose Desktop target when the project has one (SimpMusic does); otherwise the same layout in an expanded-window Android build, with the limits documented."
+    }
+  },
+  "capture": {
+    "freezeAnimations": true,
+    "disableNetwork": true,
+    "waitForFonts": true,
+    "stableFrameMs": 250,
+    "maxWaitMs": 15000,
+    "states": ["default", "empty", "loading", "error"]
+  }
+}

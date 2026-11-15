@@ -1,0 +1,61 @@
+{
+  "$schema": "./thresholds.schema.json",
+  "schemaVersion": 1,
+  "visual": {
+    "goalPixelMatchPct": 99.9,
+    "acceptanceFloorPct": 98.5,
+    "maxIterationsPerScreenPerDevice": 5,
+    "pixelmatch": {
+      "threshold": 0.1,
+      "includeAA": false,
+      "alpha": 0.35,
+      "diffColor": [255, 0, 90]
+    },
+    "ssim": {
+      "goal": 0.999,
+      "floor": 0.995,
+      "windowSize": 11,
+      "k1": 0.01,
+      "k2": 0.03
+    },
+    "geometry": {
+      "toleranceDp": 1.0,
+      "tolerancePct": 1.0,
+      "minNodeCoveragePct": 90.0,
+      "note": "Every text node and key container in the web geometry dump must have a matching Compose semantics node within tolerance."
+    },
+    "noiseFloor": {
+      "webVsWebMinPct": 99.5,
+      "composeVsComposeMinPct": 99.5,
+      "note": "Measured before any port work. If a re-render of the same side already scores below these numbers, the capture is not deterministic and must be fixed before diffing across platforms."
+    },
+    "masks": {
+      "regions": ["system-bars", "scrollbars", "caret"],
+      "note": "Dynamic regions (clocks, progress timers, random ids) are masked per screen in the screen spec, never globally."
+    },
+    "acceptedWithNotes": {
+      "requiresAboveFloor": true,
+      "requiresExplainedResidual": true,
+      "allowedCategories": [
+        "font-rasterization",
+        "text-rendering",
+        "shadow-elevation",
+        "blur-unsupported",
+        "blend-mode-unsupported",
+        "filter-unsupported",
+        "subpixel-layout",
+        "scrollbar",
+        "platform-chrome"
+      ]
+    }
+  },
+  "loops": {
+    "maxFixAttemptsPerFailure": 6,
+    "maxScreensPerRun": 64,
+    "note": "Hard caps. Hitting a cap marks the item blocked and asks the user instead of looping forever."
+  },
+  "hooks": {
+    "maxHookMs": 2000,
+    "syntaxCheckExtensions": [".kt", ".kts", ".ts", ".tsx"]
+  }
+}

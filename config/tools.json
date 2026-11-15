@@ -1,0 +1,186 @@
+{
+  "$schema": "./tools.schema.json",
+  "schemaVersion": 1,
+  "note": "Every pin here must be resolvable from an official source. `resolvedAt` records when the version was resolved; `minAgeDays` is the policy minimum age for a version to be considered stable enough to pin. `node scripts/resolve-versions.mjs --check` verifies the npm pins still exist and reports newer stable releases without changing anything.",
+  "policy": {
+    "minAgeDays": 14,
+    "resolvedAt": "2026-11-15",
+    "resolvedBy": "phase-0",
+    "sources": [
+      "https://registry.npmjs.org/",
+      "https://repo1.maven.org/maven2/",
+      "https://dl.google.com/dl/android/maven2/index.html",
+      "https://api.github.com/repos/"
+    ]
+  },
+  "tools": [
+    {
+      "id": "playwright",
+      "purpose": "Run the prototype in a real browser, screenshot every screen/state per viewport, dump DOM geometry",
+      "type": "npm",
+      "source": "https://www.npmjs.com/package/playwright",
+      "package": "playwright",
+      "version": "1.64.1",
+      "install": "npm i -D playwright@1.64.1 && npx playwright install chromium",
+      "browser": "chromium",
+      "requiresApproval": true,
+      "phase": 0,
+      "notes": "Chromium download (~150 MB) only works on a machine with open egress to cdn.playwright.dev. In a sandbox without it, capture is CI-only (see docs/PLAN.md decision D3). Pinned to 1.64.1 (published 2026-10-14) rather than 1.65.1 (2026-11-13) because the repository policy requires a version that has been public for at least two weeks."
+    },
+    {
+      "id": "pixelmatch",
+      "purpose": "Anti-aliasing-aware pixel diff percentage and heat map",
+      "type": "npm",
+      "source": "https://www.npmjs.com/package/pixelmatch",
+      "package": "pixelmatch",
+      "version": "7.1.0",
+      "install": "npm i -D pixelmatch@7.1.0",
+      "requiresApproval": true,
+      "phase": 0
+    },
+    {
+      "id": "pngjs",
+      "purpose": "Pure-JS PNG decode/encode so the diff stack runs on Windows, macOS and Linux with no native build",
+      "type": "npm",
+      "source": "https://www.npmjs.com/package/pngjs",
+      "package": "pngjs",
+      "version": "7.0.0",
+      "install": "npm i -D pngjs@7.0.0",
+      "requiresApproval": true,
+      "phase": 0
+    },
+    {
+      "id": "ssim-js",
+      "purpose": "SSIM structural similarity score per screen",
+      "type": "npm",
+      "source": "https://www.npmjs.com/package/ssim.js",
+      "package": "ssim.js",
+      "version": "3.5.0",
+      "install": "npm i -D ssim.js@3.5.0",
+      "requiresApproval": true,
+      "phase": 0,
+      "notes": "plain JS, no native deps \u2014 chosen over sharp/opencv for cross-platform determinism"
+    },
+    {
+      "id": "yaml",
+      "purpose": "Frontmatter / workflow / config validation in scripts and tests",
+      "type": "npm",
+      "source": "https://www.npmjs.com/package/yaml",
+      "package": "yaml",
+      "version": "2.8.1",
+      "install": "npm i -D yaml@2.8.1",
+      "requiresApproval": true,
+      "phase": 0
+    },
+    {
+      "id": "roborazzi",
+      "purpose": "Compose screenshot tests on the JVM (Robolectric) so screens can be rendered and diffed on any machine, including CI without an emulator",
+      "type": "maven",
+      "source": "https://github.com/takahirom/roborazzi",
+      "coordinates": [
+        "io.github.takahirom.roborazzi:roborazzi",
+        "io.github.takahirom.roborazzi:roborazzi-compose"
+      ],
+      "version": "1.53.1",
+      "install": "gradle test -Proborazzi.test.record=true",
+      "requiresApproval": true,
+      "phase": 0,
+      "notes": "Default choice. Pure JVM, works with the project's own Compose version, no emulator, and supports capturing explicit `@Config(qualifiers=...)` sizes. Known gap: blur/backdrop-filter effects may render differently or not at all under Robolectric (see docs/LIMITS.md). Fallback: Paparazzi when the project is Android-only and does not need Robolectric-specific features."
+    },
+    {
+      "id": "paparazzi",
+      "purpose": "Fallback JVM screenshot tool (layoutlib-based) for Android-only projects",
+      "type": "maven",
+      "source": "https://github.com/cashapp/paparazzi",
+      "coordinates": [
+        "app.cash.paparazzi:paparazzi"
+      ],
+      "version": "2.0.0",
+      "install": "gradle verifyPaparazziDebug",
+      "requiresApproval": true,
+      "phase": 3,
+      "fallbackFor": "roborazzi",
+      "notes": "Pinned version must be re-resolved at run time against the project's AGP major; layoutlib is AGP-coupled and breaks across AGP majors."
+    },
+    {
+      "id": "compose-preview-screenshot-testing",
+      "purpose": "Third option: Google's preview screenshot testing plugin (AGP-coupled, alpha)",
+      "type": "maven",
+      "source": "https://developer.android.com/studio/preview/compose-screenshot-testing",
+      "coordinates": [
+        "com.android.compose.screenshot"
+      ],
+      "version": null,
+      "status": "needs-user-input",
+      "install": "see docs/LIMITS.md",
+      "requiresApproval": true,
+      "phase": 3,
+      "notes": "Alpha and AGP-version-locked; not the default because the target project's AGP (9.5.0) is ahead of the published plugin. Kept as an option, version resolved at run time."
+    },
+    {
+      "id": "ktlint",
+      "purpose": "Fast Kotlin format/lint check used by the PostToolUse hook (single file only)",
+      "type": "maven",
+      "source": "https://github.com/pinterest/ktlint",
+      "coordinates": [
+        "com.pinterest.ktlint:ktlint-cli"
+      ],
+      "version": "1.7.1",
+      "install": "gradle ktlintCheck (project-native) or ktlint single-file",
+      "requiresApproval": true,
+      "phase": 0
+    },
+    {
+      "id": "detekt",
+      "purpose": "Deeper Kotlin static analysis in the verify step (never in a hook)",
+      "type": "maven",
+      "source": "https://github.com/detekt/detekt",
+      "coordinates": [
+        "io.gitlab.arturbosch.detekt:detekt-cli"
+      ],
+      "version": "1.23.8",
+      "install": "gradle detekt",
+      "requiresApproval": true,
+      "phase": 5
+    },
+    {
+      "id": "svg-to-compose",
+      "purpose": "Convert prototype SVG assets into Compose ImageVector / vector drawables (Valkyrie or svg2vector tooling)",
+      "type": "maven",
+      "source": "https://github.com/ComposeGears/Valkyrie",
+      "coordinates": [
+        "io.github.composegears:valkyrie"
+      ],
+      "version": null,
+      "status": "needs-user-input",
+      "install": "IDE plugin (manual) or CLI equivalent",
+      "requiresApproval": true,
+      "phase": 5,
+      "notes": "Valkyrie is an IDE plugin, not a CLI. Default path is a script-based conversion of the small SVG subset the prototype uses (paths, circles, ellipses, groups) into ImageVector code; the IDE plugin is offered when the user has Android Studio."
+    },
+    {
+      "id": "ponytail",
+      "purpose": "Token-saving code simplification plugin (optional, on demand)",
+      "type": "github-plugin",
+      "source": "https://github.com/DietrichGebert/ponytail",
+      "version": null,
+      "status": "needs-user-input",
+      "install": "per its README",
+      "requiresApproval": true,
+      "phase": 6,
+      "recommendation": "not-recommended-for-ui-conversion",
+      "notes": "Simplification can erase pixel-level detail. Useful for engine-side work and reviews."
+    },
+    {
+      "id": "rea-reverse-engineer-anything",
+      "purpose": "Optional reverse-engineering helper (on demand)",
+      "type": "github-plugin",
+      "source": null,
+      "status": "needs-user-input",
+      "install": null,
+      "requiresApproval": true,
+      "phase": 6,
+      "notes": "The requested \"REA / Reverse Engineer Anything\" repo could not be verified from an official source at 2026-11-15. The plugin therefore asks the user for the link instead of inventing one."
+    }
+  ]
+}

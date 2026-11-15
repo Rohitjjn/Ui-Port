@@ -1,0 +1,23 @@
+{
+  "name": "ui-port",
+  "description": "Port a React/TSX web UI prototype into Jetpack Compose inside an existing Android project: capture the prototype in a browser, map the app and the prototype, rebuild screen by screen, diff every screen until it matches, wire the new UI to the existing engine, verify, and package with a full worklog.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Rohit Jain",
+    "url": "https://github.com/Rohitjjn"
+  },
+  "homepage": "https://github.com/Rohitjjn/Ui-Port",
+  "repository": "https://github.com/Rohitjjn/Ui-Port",
+  "license": "MIT",
+  "keywords": [
+    "compose",
+    "jetpack-compose",
+    "android",
+    "ui-port",
+    "design-to-code",
+    "screenshot-testing",
+    "playwright",
+    "react",
+    "prototype"
+  ]
+}

@@ -1,0 +1,20 @@
+node_modules/
+dist/
+build/
+out/
+coverage/
+.cache/
+.DS_Store
+*.log
+
+# Local runtime folders produced by the plugin inside a user project
+.uiport/output/
+.uiport/reference/
+
+# Testbed dependencies (testbed/ sources are committed on purpose, its
+# node_modules / gradle caches are not)
+testbed/prototype/node_modules/
+testbed/prototype/dist/
+testbed/**/.gradle/
+testbed/**/build/
+testbed/**/local.properties

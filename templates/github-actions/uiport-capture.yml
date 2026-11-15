@@ -1,0 +1,95 @@
+# Capture the web prototype references in CI.
+#
+# Copy to the target repository as .github/workflows/uiport-capture.yml.
+# Use this when the developer's machine cannot download a Chromium build
+# (execution mode CI_ONLY or HYBRID): the browser runs here instead.
+name: ui-port capture
+
+on:
+  workflow_dispatch:
+    inputs:
+      prototype:
+        description: "Path to the prototype folder inside the repo"
+        default: prototype
+        type: string
+      devices:
+        description: "Comma separated device targets"
+        default: "phone"
+        type: string
+      states:
+        description: "Comma separated states"
+        default: "default"
+        type: string
+
+concurrency:
+  group: uiport-capture-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install prototype dependencies
+        working-directory: ${{ inputs.prototype }}
+        run: npm ci
+
+      - name: Build prototype
+        working-directory: ${{ inputs.prototype }}
+        run: npm run build
+
+      - name: Serve the production build
+        working-directory: ${{ inputs.prototype }}
+        run: |
+          npx --yes serve@14 dist -l 4173 &
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:4173 >/dev/null && break
+            sleep 1
+          done
+
+      - name: Install ui-port tooling
+        run: |
+          # tools/uiport/package.json is a copy of templates/github-actions/uiport-tooling-package.json
+          npm ci --prefix tools/uiport || npm install --prefix tools/uiport --no-save
+          npx --prefix tools/uiport playwright install --with-deps chromium
+
+      - name: Plan the capture
+        run: |
+          node tools/uiport/scripts/plan-capture.mjs "${{ inputs.prototype }}" \
+            --devices "${{ inputs.devices }}" --states "${{ inputs.states }}" \
+            --out .uiport/capture-spec.json
+
+      - name: Capture
+        run: |
+          node tools/uiport/scripts/capture-reference.mjs \
+            --base-url http://localhost:4173 \
+            --spec .uiport/capture-spec.json \
+            --out .uiport/reference
+
+      - name: Noise floor (same-side re-render)
+        run: |
+          node tools/uiport/scripts/capture-reference.mjs \
+            --base-url http://localhost:4173 \
+            --spec .uiport/capture-spec.json \
+            --out .uiport/reference-run2
+          node tools/uiport/scripts/diff-all.mjs \
+            --reference .uiport/reference \
+            --candidate .uiport/reference-run2 \
+            --out .uiport/noise-floor \
+            --calibrate
+
+      - name: Upload references
+        uses: actions/upload-artifact@v4
+        with:
+          name: uiport-reference
+          path: |
+            .uiport/reference/**
+            .uiport/capture-spec.json
+          retention-days: 14
+          if-no-files-found: error
