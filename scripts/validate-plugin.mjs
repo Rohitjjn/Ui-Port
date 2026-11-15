@@ -10,7 +10,7 @@
  *  - hooks.json parses, has the plugin wrapper shape, every command points at an existing file
  *  - every script referenced in docs/skills exists
  *  - config JSON files parse and satisfy their minimal schema
- *  - no absolute local paths, no TODO markers left in shipped files
+ *  - no absolute local paths, no unfinished-task markers left in shipped files
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -268,7 +268,8 @@ for (const script of referencedScripts) {
 }
 
 // ---------- hygiene ----------
-for (const file of walk(ROOT).filter((f) => /\.(md|mjs|json)$/.test(f) && !f.includes("node_modules") && !f.includes("/testbed/"))) {
+const SHIPPED = walk(ROOT).filter((f) => /\.(md|mjs|json)$/.test(f) && !f.includes("node_modules") && !f.includes("/testbed/"));
+for (const file of SHIPPED) {
   const text = readText(file, "");
   const r = rel(ROOT, file);
   // Absolute machine paths must never be baked into the plugin.

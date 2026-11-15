@@ -62,6 +62,7 @@ export function emptyState({ pluginVersion = PLUGIN_VERSION } = {}) {
     iterationCounts: {},
     lastScores: {},
     protectedPathsApproved: false,
+    decisions: null,
     timestamps: { startedAt: now, lastResumeAt: null, finishedAt: null },
   };
 }
@@ -116,6 +117,7 @@ export function migrate(raw) {
   state.lastScores = state.lastScores ?? {};
   state.deviceTargets = Array.isArray(state.deviceTargets) ? state.deviceTargets : [];
   state.timestamps = { ...base.timestamps, ...(state.timestamps ?? {}) };
+  state.decisions = state.decisions ?? null;
   state.protectedPathsApproved = Boolean(state.protectedPathsApproved);
   return { state, warning };
 }
@@ -132,6 +134,49 @@ export function setStep(state, step, status, note) {
   state.steps[step] = { ...(state.steps[step] ?? {}), status, updatedAt: new Date().toISOString() };
   if (note) state.steps[step].note = note;
   state.currentStep = step;
+  return state;
+}
+
+/**
+ * Apply the decision gate's answers to state. One function so the interactive path,
+ * the headless path and the CLI all write the same fields the same way.
+ *
+ * Only fields the gate actually decides are touched; anything else (screens already
+ * recorded, iterations, scores) is preserved.
+ */
+export function applyAnswers(state, answers, { source = "answers.json" } = {}) {
+  if (!answers || typeof answers !== "object") throw new Error("applyAnswers needs a normalized answers object");
+  const devices = answers.deviceTargets ?? [];
+  for (const d of devices) {
+    if (!DEVICE_TARGETS.includes(d)) throw new Error(`applyAnswers: unknown device "${d}"`);
+  }
+  if (!EXECUTION_MODES.includes(answers.executionMode)) {
+    throw new Error(`applyAnswers: unknown executionMode "${answers.executionMode}"`);
+  }
+  state.deviceTargets = [...devices];
+  state.executionMode = answers.executionMode;
+  state.options = {
+    ...(state.options ?? {}),
+    ponytail: Boolean(answers.ponytail),
+    allowEngineEdits: Boolean(answers.allowEngineEdits),
+    delivery: [...(answers.delivery ?? [])],
+    extraFeaturePolicy: { ...(answers.extraFeatures ?? {}) },
+    headless: Boolean(answers.headless ?? true),
+    screens: answers.screens ? [...answers.screens] : null,
+    notes: answers.notes ?? null,
+  };
+  state.decisions = {
+    decidedAt: new Date().toISOString(),
+    source,
+    deviceTargets: [...devices],
+    executionMode: answers.executionMode,
+    ponytail: Boolean(answers.ponytail),
+    allowEngineEdits: Boolean(answers.allowEngineEdits),
+    delivery: [...(answers.delivery ?? [])],
+    extraFeatures: { ...(answers.extraFeatures ?? {}) },
+  };
+  // The protect hook reads this flag, so it is set here and nowhere else.
+  state.protectedPathsApproved = Boolean(answers.allowEngineEdits);
   return state;
 }
 

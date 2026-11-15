@@ -8,9 +8,9 @@
  *  - trailing whitespace, tabs
  *  - unclosed code fences
  *  - relative links that do not resolve
- *  - lines over 200 characters inside prose (tables and code are exempt)
- *  - bare localhost/127.0.0.1 instructions in plugin docs (browser-side code must
- *    use relative URLs)
+ *  - lines over 200 characters inside prose (tables, code and verbatim documents are exempt)
+ *  - localhost URLs in documentation as if they were the way to reach a service
+ *    (browser-side code must use relative URLs)
  *
  *   node scripts/lint-markdown.mjs [--fix-trailing-whitespace] [paths...]
  */
@@ -27,8 +27,16 @@ const explicit = args.filter((a) => !a.startsWith("--"));
 // Third-party code is never linted: the upstream test bed must stay byte-identical
 // and its style is not ours to change.
 const SKIP = ["node_modules", ".git", "build", "dist", "testbed/SimpMusic", "testbed/prototype", "Unselected files"];
+// An explicit path may be a file or a directory (CI passes `.`), so expand it.
+const fromArg = (p) => {
+  const abs = path.resolve(p);
+  if (fs.existsSync(abs) && fs.statSync(abs).isDirectory()) {
+    return walk(abs).filter((f) => f.endsWith(".md"));
+  }
+  return [abs];
+};
 const files = explicit.length
-  ? explicit.map((p) => path.resolve(p))
+  ? explicit.flatMap(fromArg)
   : walk(ROOT)
       .filter((f) => f.endsWith(".md"))
       .filter((f) => !SKIP.some((s) => toPosix(path.relative(ROOT, f)).startsWith(s)));
@@ -49,6 +57,9 @@ for (const file of files) {
   // Long description lines in frontmatter are unavoidable: a skill's description
   // has to state when to trigger, and it is a single YAML scalar.
   let inFrontmatter = lines[0]?.trim() === "---";
+  // A verbatim document (a preserved upstream specification, a licence, a quoted
+  // transcript) must not be reflowed: reformatting it would falsify the copy.
+  let verbatim = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -62,6 +73,10 @@ for (const file of files) {
       continue;
     }
     if (fence !== null) continue;
+    if (/<!--\s*lint-verbatim\s*-->/.test(line)) {
+      verbatim = true;
+      continue;
+    }
     if (inFrontmatter) {
       if (line.trim() === "---" && i > 0) inFrontmatter = false;
       continue;
@@ -74,6 +89,14 @@ for (const file of files) {
     if (/\t/.test(line)) issues.push({ line: lineNo, msg: "tab character (use spaces)" });
 
     const heading = line.match(/^(#{1,6})\s+(.*)$/);
+    if (verbatim) {
+      // Only whitespace hygiene is enforced inside verbatim text.
+      if (line !== line.replace(/[ \t]+$/, "")) {
+        issues.push({ line: lineNo, msg: "trailing whitespace" });
+        if (fixWhitespace) lines[i] = line.replace(/[ \t]+$/, "");
+      }
+      continue;
+    }
     if (heading) {
       const level = heading[1].length;
       if (level === 1) h1Count++;
@@ -98,7 +121,7 @@ for (const file of files) {
     }
   }
 
-  if (h1Count > 1) issues.push({ line: 1, msg: `${h1Count} H1 headings (expected at most 1)` });
+  if (h1Count > 1 && !verbatim) issues.push({ line: 1, msg: `${h1Count} H1 headings (expected at most 1)` });
   if (fence !== null) issues.push({ line: lines.length, msg: "unclosed code fence" });
 
   if (fixWhitespace && lines.join("\n") !== original) {

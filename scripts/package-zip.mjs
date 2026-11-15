@@ -2,11 +2,14 @@
 /**
  * Package a ported project into a ZIP that a human can open.
  *
- * Excludes build outputs, caches, IDE files and secrets. Includes `.uiport/`
+ * Excludes build outputs, caches, IDE files, secrets and — by default — the plugin's own
+ * deletable test bed (`testbed/`), which must never travel with a delivery.
+ * Includes `.uiport/`
  * (worklog, maps, reports, reference screenshots) but not `.uiport/output/`
  * unless --include-output is passed.
  *
- *   node scripts/package-zip.mjs --project ../myapp --out myapp-uiport.zip [--include-output] [--max-mb 200] [--dry-run]
+ *   node scripts/package-zip.mjs --project ../myapp --out myapp-uiport.zip [--include-output]
+ *     [--include-testbed] [--max-mb 200] [--dry-run]
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -25,6 +28,7 @@ const flag = (name, fallback = null) => {
 const project = path.resolve(String(flag("project", ".")));
 const out = path.resolve(String(flag("out", `${path.basename(project)}-uiport.zip`)));
 const includeOutput = Boolean(flag("include-output", false));
+const includeTestbed = Boolean(flag("include-testbed", false));
 const maxMb = Number(flag("max-mb", 200));
 const dryRun = Boolean(flag("dry-run", false));
 
@@ -49,6 +53,8 @@ const EXCLUDE_DIRS = new Set([
   "__pycache__",
   ".cache",
 ]);
+// Plugin-development fixtures: deleted before delivery, never shipped inside one.
+if (!includeTestbed) EXCLUDE_DIRS.add("testbed");
 const EXCLUDE_FILES = [
   /(^|\/)local\.properties$/,
   /\.jks$/,

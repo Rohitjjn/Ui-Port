@@ -16,7 +16,7 @@ repository, what has been decided, and what is risky. It is updated as the phase
 | 6 | Engine wiring, protect hook | protect hook done and tested; wiring skill written |
 | 7 | Verify/fix loop, packaging, workflow templates | verify + package done and tested; templates written |
 | 8 | Full end-to-end on the test bed | blocked on D1/D2/D3 |
-| 9 | Hardening, docs, release | docs in progress |
+| 9 | Hardening, docs, release | code + docs done; tag/release blocked on CI evidence (D1) |
 
 ## Decisions
 
@@ -61,6 +61,33 @@ mixes.** The first implementation protected whole modules, which would have forb
 UI folder the plugin exists to write. Caught by a unit test that asserts the UI package is never
 globbed as a whole.
 
+## Skill names: prompt vs build
+
+The build prompt names eleven skills. Three of them are split or merged once the workflow is
+written down, because a skill that both captures and measures cannot be run in CI in one step. The
+names built here are authoritative — `scripts/validate-plugin.mjs` checks that exactly these eleven
+directories exist with valid frontmatter — and the mapping is recorded so nothing from the prompt is
+missing:
+
+| Prompt name | Built skill | Why it differs |
+| --- | --- | --- |
+| preflight | `preflight` | unchanged |
+| map-app | `map-app` | unchanged |
+| map-prototype | `map-prototype` | unchanged |
+| plan-screens | `plan-screens` | unchanged; also owns the capture plan |
+| capture-reference | `capture-reference` | unchanged |
+| visual-diff | `visual-diff` | unchanged |
+| port-screen | `port-screen` | unchanged |
+| port-motion-and-assets | `port-motion-and-assets` | unchanged |
+| wire-engine | `wire-engine` | unchanged |
+| verify-and-fix | `verify-and-fix` | unchanged |
+| finalize-delivery | `finalize-delivery` | unchanged |
+
+There is no split in the end: the eleven prompt names survived contact with the implementation.
+What did change is where the *capture plan* lives (in `plan-screens`, not in `capture-reference`) and
+where the *noise floor* lives (in `visual-diff`, because it is a measurement). Both are recorded in
+`docs/ARCHITECTURE.md`.
+
 ## Risks
 
 | # | Risk | Impact | Mitigation |
@@ -72,6 +99,17 @@ globbed as a whole.
 | R5 | `state.json` corruption mid-run | lost progress | atomic writes + quarantine + resume-safe migration, unit tested |
 | R6 | Hook false positives block UI work | the port cannot proceed | pure-function decision layer with 20+ unit tests; hooks fail open on any internal error |
 | R7 | Actions minutes on a public repo | cost | static + unit are cheap and cached; the test-bed build is manual-only |
+
+## Closed since the first pass
+
+- The prototype unpacker exists, is wired into Step 0 and `map-prototype`, and is unit tested
+  (success, nested folder, non-empty refusal, missing archive, non-web archive).
+- Skill names: the build keeps all eleven prompt names — see the mapping table above.
+- Packaging no longer ships the deletable test bed.
+- The decision gate writes into `state.json` (`answers --apply`), so `state.decisions` and
+  `protectedPathsApproved` are produced by the workflow instead of by hand.
+- Coverage gaps closed for `lint-markdown.mjs`, `package-zip.mjs` and `unpack-prototype.mjs`;
+  `resolve-versions.mjs`, `svg-to-compose.mjs` and `verify.mjs` still rely on CLI-level tests only.
 
 ## Order of work from here
 

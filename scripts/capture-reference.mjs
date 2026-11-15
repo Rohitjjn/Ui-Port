@@ -20,6 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { buildCapturePlan, hashUrl, validateSpec } from "./lib/capture-spec.mjs";
+import { FREEZE_CSS, GEOMETRY_SCRIPT, SEED_SCRIPT, STATE_SCRIPT, STABILITY_SCRIPT, validateInjection } from "./lib/browser-inject.mjs";
 import { readJson, readJsonSafe, walk } from "./lib/fs-utils.mjs";
 
 const args = process.argv.slice(2);
@@ -57,6 +58,14 @@ if (specFile) {
   process.exit(2);
 }
 
+{
+  const problems = validateInjection();
+  if (problems.length) {
+    process.stderr.write(`capture-reference: injected scripts are invalid:\n- ${problems.join("\n- ")}\n`);
+    process.exit(2);
+  }
+}
+
 let chromium;
 try {
   ({ chromium } = await import("playwright"));
@@ -65,64 +74,12 @@ try {
   process.exit(EXIT_NO_BROWSER);
 }
 
-const FREEZE_CSS = `
-  *, *::before, *::after {
-    animation-delay: 0s !important;
-    animation-duration: 0s !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0s !important;
-    transition-delay: 0s !important;
-    caret-color: transparent !important;
-    scroll-behavior: auto !important;
-  }
-  html { scrollbar-width: none !important; }
-  ::-webkit-scrollbar { display: none !important; }
-`;
-
-const GEOMETRY_SCRIPT = () => {
-  const out = [];
-  const SEL = "h1,h2,h3,h4,h5,h6,p,span,a,button,input,textarea,label,li,img,svg,[role],[data-testid]";
-  const seen = new Set();
-  for (const el of document.querySelectorAll(SEL)) {
-    const r = el.getBoundingClientRect();
-    if (r.width === 0 || r.height === 0) continue;
-    const style = getComputedStyle(el);
-    if (style.visibility === "hidden" || style.display === "none" || Number(style.opacity) === 0) continue;
-    const text = (el.innerText ?? "").trim().replace(/\s+/g, " ").slice(0, 120);
-    const role = el.getAttribute("role") ?? el.tagName.toLowerCase();
-    const key = `${role}|${text}|${Math.round(r.x)}|${Math.round(r.y)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({
-      text: text || null,
-      role,
-      testId: el.getAttribute("data-testid"),
-      x: round(r.x),
-      y: round(r.y),
-      w: round(r.width),
-      h: round(r.height),
-      fontSize: style.fontSize,
-      fontWeight: style.fontWeight,
-      color: style.color,
-      background: style.backgroundColor,
-      radius: style.borderRadius,
-    });
-  }
-  return out;
-  function round(n) {
-    return Math.round(n * 100) / 100;
-  }
-};
-
 async function waitForStable(page, maxMs = 15000) {
   const start = Date.now();
   let last = -1;
   let stableSince = 0;
   while (Date.now() - start < maxMs) {
-    const sig = await page.evaluate(() => {
-      const el = document.querySelector("main") ?? document.body;
-      return `${el.scrollHeight}:${document.querySelectorAll("*").length}`;
-    });
+    const sig = await page.evaluate(STABILITY_SCRIPT);
     if (sig === last) {
       if (Date.now() - stableSince > 250) return true;
     } else {
@@ -135,30 +92,17 @@ async function waitForStable(page, maxMs = 15000) {
 }
 
 /** Trigger a non-default state without inventing behaviour the app does not have. */
-async function applyState(page, state, screenRoute) {
+async function applyState(page, state) {
   switch (state) {
     case "default":
       return true;
     case "overlay": {
-      // Open the first obvious affordance that yields a sheet/dialog.
-      const opened = await page.evaluate(() => {
-        const candidates = [
-          ...document.querySelectorAll("[aria-haspopup='dialog'],[data-testid*='open'],[aria-label*='More'],[aria-label*='Options']"),
-        ];
-        if (!candidates.length) return false;
-        candidates[0].click();
-        return true;
-      });
+      const opened = await page.evaluate(STATE_SCRIPT, "overlay");
       await page.waitForTimeout(400);
       return opened;
     }
     case "focus": {
-      const focused = await page.evaluate(() => {
-        const el = document.querySelector("input,textarea,[tabindex='0'],button");
-        if (!el) return false;
-        el.focus();
-        return true;
-      });
+      const focused = await page.evaluate(STATE_SCRIPT, "focus");
       await page.waitForTimeout(150);
       return focused;
     }
@@ -219,25 +163,8 @@ try {
       return route.abort();
     });
     const page = await context.newPage();
-    await page.addInitScript(() => {
-      // Freeze time-dependent UI: fixed clock, no random.
-      const FIXED = new Date("2026-01-01T10:00:00Z").getTime();
-      const RealDate = Date;
-      class FixedDate extends RealDate {
-        constructor(...a) {
-          super(...(a.length ? a : [FIXED]));
-        }
-        static now() {
-          return FIXED;
-        }
-      }
-      window.Date = FixedDate;
-      let seed = 42;
-      Math.random = () => {
-        seed = (seed * 16807) % 2147483647;
-        return seed / 2147483647;
-      };
-    });
+    // Freeze time-dependent UI: fixed clock, seeded random.
+    await page.addInitScript(SEED_SCRIPT);
     await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
     await page.addStyleTag({ content: FREEZE_CSS });
 
@@ -250,7 +177,7 @@ try {
         try {
           await page.goto(url, { waitUntil: "domcontentloaded" });
           await page.waitForTimeout(150);
-          const applied = await applyState(page, state, capture.route);
+          const applied = await applyState(page, state);
           if (!applied && state !== "default") {
             results.push({ screen: capture.id, device: deviceName, state, status: "state-not-reproducible", ms: Date.now() - started });
             continue;

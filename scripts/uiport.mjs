@@ -19,6 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import {
+  applyAnswers,
   bumpIteration,
   emptyState,
   loadState,
@@ -42,8 +43,28 @@ import { UIPORT_DIR, ensureDir, exists, readJson, readJsonSafe, writeJsonAtomic 
 import { loadAnswers, validateAnswers, REQUIRED_GATE_KEYS } from "./lib/answers.mjs";
 import { spawnSync } from "node:child_process";
 
-const args = process.argv.slice(2);
-const projectRoot = path.resolve(process.env.UIPORT_PROJECT_ROOT || process.cwd());
+const rawArgs = process.argv.slice(2);
+
+/**
+ * --project / UIPORT_PROJECT_ROOT choose the project being ported. Accepted in any
+ * position, so both `uiport answers --project dir` and `uiport --project dir answers`
+ * work: a positional parse that depends on flag order is a trap for the caller.
+ */
+function extractProject(argv) {
+  const i = argv.indexOf("--project");
+  if (i === -1) return { args: argv, projectRoot: null };
+  const value = argv[i + 1];
+  if (value === undefined || value.startsWith("--")) {
+    process.stderr.write("uiport: --project needs a directory\n");
+    process.exit(2);
+  }
+  const rest = [...argv.slice(0, i), ...argv.slice(i + 2)];
+  return { args: rest, projectRoot: path.resolve(value) };
+}
+
+const extracted = extractProject(rawArgs);
+const args = extracted.args;
+const projectRoot = path.resolve(extracted.projectRoot || process.env.UIPORT_PROJECT_ROOT || process.cwd());
 
 function flag(name, fallback) {
   const i = args.indexOf(`--${name}`);
@@ -228,7 +249,16 @@ function cmdAnswers() {
   }
   const validation = validateAnswers(res.value);
   out({ present: true, file, headless: true, ...validation });
-  if (!validation.ok) process.exitCode = 3;
+  if (!validation.ok) {
+    process.exitCode = 3;
+    return;
+  }
+  if (flag("apply", false)) {
+    const { state } = loadState(projectRoot);
+    applyAnswers(state, { ...validation.answers, headless: true }, { source: path.relative(projectRoot, file) });
+    saveState(projectRoot, state);
+    out({ applied: true, deviceTargets: state.deviceTargets, executionMode: state.executionMode, protectedPathsApproved: state.protectedPathsApproved });
+  }
 }
 
 function cmdStatus() {
@@ -292,7 +322,7 @@ switch (group) {
   case "-h":
   case undefined:
     process.stdout.write(
-      "ui-port CLI\n\n  preflight [--json] [--save]\n  state show|init|set-step|set-screen|bump|summary\n  worklog ensure|append|check <step>\n  changelog --step step-N --file path\n  answers [--file .uiport/answers.json]\n  verify [--project dir] [--devices phone]\n  status\n",
+      "ui-port CLI\n\n  preflight [--json] [--save]\n  state show|init|set-step|set-screen|bump|summary\n  worklog ensure|append|check <step>\n  changelog --step step-N --file path\n  answers [--file .uiport/answers.json] [--apply]\n  verify [--project dir] [--devices phone]\n  status\n",
     );
     break;
   default:

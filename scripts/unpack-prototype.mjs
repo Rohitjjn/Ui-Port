@@ -94,17 +94,34 @@ const hasPackageJson = fs.existsSync(path.join(outDir, "package.json"));
 const hasIndexHtml = fs.existsSync(path.join(outDir, "index.html"));
 const entries = fs.readdirSync(outDir);
 
+// A very common shape: the archive wraps everything in one folder ("my-app/").
+// Hoist that folder's contents so the caller always gets a project root, instead of
+// making the agent remember a special case.
+let hoisted = null;
 if (!hasPackageJson && !hasIndexHtml) {
   const single = entries.length === 1 && fs.statSync(path.join(outDir, entries[0])).isDirectory();
+  if (single) {
+    const inner = path.join(outDir, entries[0]);
+    const innerEntries = fs.readdirSync(inner);
+    if (innerEntries.includes("package.json") || innerEntries.includes("index.html")) {
+      for (const name of innerEntries) fs.renameSync(path.join(inner, name), path.join(outDir, name));
+      fs.rmdirSync(inner);
+      hoisted = entries[0];
+    }
+  }
+}
+
+if (!fs.existsSync(path.join(outDir, "package.json")) && !fs.existsSync(path.join(outDir, "index.html"))) {
+  const now = fs.readdirSync(outDir);
   process.stderr.write(
     `unpack-prototype: extracted with ${winner.tool}, but ${outDir} has no package.json or index.html.\n` +
-      (single
-        ? `The archive contains a single folder (${entries[0]}); use that as the prototype root.\n`
-        : `Entries: ${entries.slice(0, 10).join(", ")}${entries.length > 10 ? ", …" : ""}\n`),
+      `Entries: ${now.slice(0, 10).join(", ")}${now.length > 10 ? ", …" : ""}\n`,
   );
   process.exit(5);
 }
 
 process.stdout.write(
-  `unpack-prototype: ${path.relative(process.cwd(), archivePath)} -> ${path.relative(process.cwd(), outDir)} using ${winner.tool} (${entries.length} top-level entries${hasPackageJson ? ", package.json found" : ", no package.json"})\n`,
+  `unpack-prototype: ${path.relative(process.cwd(), archivePath)} -> ${path.relative(process.cwd(), outDir)} using ${winner.tool} ` +
+    `(${entries.length} top-level entries${hoisted ? `, hoisted from ${hoisted}/` : ", flat"}` +
+    `${fs.existsSync(path.join(outDir, "package.json")) ? ", package.json found" : ", no package.json"})\n`,
 );
