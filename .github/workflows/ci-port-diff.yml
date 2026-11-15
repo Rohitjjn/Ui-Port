@@ -109,7 +109,7 @@ jobs:
         working-directory: testbed/SimpMusic
         run: |
           set +e
-          ./gradlew :composeApp:recordPaparazziJvmTest --tests "*UiPortScreenshotTest*" \
+          ./gradlew :composeApp:recordPaparazziDebug --tests "*UiPortScreenshotTest*" \
             --stacktrace 2>&1 | tee /tmp/gradle.log
           code=${PIPESTATUS[0]}
           set -e
@@ -127,6 +127,8 @@ jobs:
             exit "$code"
           fi
           find composeApp/build/ui-port-output composeApp/build/reports/paparazzi -name "*.png" 2>/dev/null | sort
+          echo "--- paparazzi task candidates ---"
+          ./gradlew :composeApp:tasks --all 2>/dev/null | grep -i paparazzi || true
 
       # Roborazzi writes images offscreen (its own canvas), so the semantics dump is
       # produced by the same test into the same folder. Both are copied to the layout the

@@ -982,7 +982,9 @@ afterEvaluate {
 // (see docs/PHASE-8-REPORT.md). Confined to the test source set; nothing ships.
 // ---------------------------------------------------------------------------
 dependencies {
-    add("jvmTestImplementation", "junit:junit:4.13.2")
-    add("jvmTestImplementation", "app.cash.paparazzi:paparazzi:${libs.versions.paparazzi.get()}")
-    add("jvmTestImplementation", compose.desktop.currentOs)
+    // androidUnitTest, not jvmTest: Paparazzi rejects non-Android test source sets by
+    // design ("must only resolve on Android JVM tests"), and this module has an Android
+    // target alongside the JVM one.
+    add("androidUnitTestImplementation", "junit:junit:4.13.2")
+    add("androidUnitTestImplementation", "app.cash.paparazzi:paparazzi:${libs.versions.paparazzi.get()}")
 }
