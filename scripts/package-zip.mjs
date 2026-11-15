@@ -124,7 +124,11 @@ try {
       execFileSync("python3", ["-c", zipWithPython(project, out, listFile)], { stdio: "inherit" });
     }
   } else {
-    execFileSync("tar", ["-a", "-c", "-f", out, "-T", listFile], { cwd: project, stdio: "inherit" });
+    // Windows ships bsdtar, which reads "C:\\path" as host "C:" and fails with
+    // "Cannot connect to C: resolve failed". Running from the output directory with a
+    // bare file name removes the drive letter from the argument entirely.
+    const name = path.basename(out);
+    execFileSync("tar", ["-a", "-c", "-f", name, "-T", listFile], { cwd: path.dirname(out), stdio: "inherit" });
   }
 } finally {
   fs.rmSync(listFile, { force: true });

@@ -125,7 +125,13 @@ test("package-zip excludes the test bed and build output but keeps the plugin", 
   const out = path.join(dir, "plugin.zip");
   execFileSync(NODE, [path.join(ROOT, "scripts", "package-zip.mjs"), "--out", out], { encoding: "utf8", cwd: ROOT });
   assert.ok(fs.existsSync(out));
-  const listing = execFileSync("unzip", ["-Z1", out], { encoding: "utf8" });
+  // Read the archive with Python rather than `unzip`: Windows runners have no unzip,
+  // and the point of the test is the archive's contents, not the reader.
+  const listing = execFileSync(
+    "python3",
+    ["-c", `import sys,zipfile\nprint("\\n".join(zipfile.ZipFile(sys.argv[1]).namelist()))`, out],
+    { encoding: "utf8" },
+  );
   assert.match(listing, /^\s*skills\/preflight\/SKILL\.md$/m);
   assert.match(listing, /^\s*\.claude-plugin\/plugin\.json$/m);
   assert.doesNotMatch(listing, /testbed\//);

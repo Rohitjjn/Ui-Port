@@ -39,6 +39,7 @@ export function parseJavaMajor(raw) {
 
 /** Read the SDK location the same way Gradle/Android Studio do. */
 export function findAndroidSdk({ env = process.env, projectRoot = process.cwd() } = {}) {
+  const explicitEnv = Boolean(env.ANDROID_HOME || env.ANDROID_SDK_ROOT);
   const candidates = [env.ANDROID_HOME, env.ANDROID_SDK_ROOT];
   const localProps = path.join(projectRoot, "local.properties");
   if (fs.existsSync(localProps)) {
@@ -46,9 +47,14 @@ export function findAndroidSdk({ env = process.env, projectRoot = process.cwd() 
     const m = txt.match(/^sdk\.dir=(.+)$/m);
     if (m) candidates.push(m[1].trim().replace(/\\\\/g, "\\"));
   }
-  if (process.platform === "darwin") candidates.push(path.join(os.homedir(), "Library/Android/sdk"));
-  if (process.platform === "linux") candidates.push(path.join(os.homedir(), "Android/Sdk"));
-  if (process.platform === "win32") candidates.push(path.join(env.LOCALAPPDATA ?? "", "Android/Sdk"));
+  // Well-known install locations are only consulted when the caller did not hand in an
+  // explicit environment. Otherwise "nothing is configured" would still find the runner's
+  // preinstalled SDK and the answer would depend on the machine, not on the input.
+  if (!explicitEnv) {
+    if (process.platform === "darwin") candidates.push(path.join(os.homedir(), "Library/Android/sdk"));
+    if (process.platform === "linux") candidates.push(path.join(os.homedir(), "Android/Sdk"));
+    if (process.platform === "win32") candidates.push(path.join(env.LOCALAPPDATA ?? "", "Android/Sdk"));
+  }
   for (const c of candidates) {
     if (!c) continue;
     if (fs.existsSync(path.join(c, "platforms")) || fs.existsSync(path.join(c, "cmdline-tools"))) {
