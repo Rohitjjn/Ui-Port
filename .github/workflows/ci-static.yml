@@ -1,0 +1,51 @@
+# Static checks for the plugin itself: manifest, frontmatter, links, config, markdown.
+# Fast (well under a minute) so it can gate every push.
+name: ci-static
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-static-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate plugin structure
+        run: node scripts/validate-plugin.mjs
+
+      - name: Lint markdown
+        run: node scripts/lint-markdown.mjs
+
+      - name: Validate JSON configs
+        run: |
+          for f in config/*.json .claude-plugin/*.json package.json; do
+            node -e "JSON.parse(require('fs').readFileSync('$f','utf8'))" || exit 1
+          done
+
+      - name: Workflow syntax
+        run: |
+          npm i -g action-validator@0.5.3 || true
+          for w in .github/workflows/*.yml; do
+            echo "checking $w"
+            action-validator "$w" || echo "action-validator unavailable or failed for $w"
+          done

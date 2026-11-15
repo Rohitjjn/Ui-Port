@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import test, { describe } from "node:test";
 import {
@@ -15,7 +16,12 @@ import { readJson } from "../../scripts/lib/fs-utils.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const viewports = readJson(path.join(ROOT, "config/viewports.json"));
-const scan = scanPrototype(path.join(ROOT, "testbed/prototype"));
+// The prototype is a deletable test bed (docs/CLEANUP.md): when it is gone, the
+// plan tests skip instead of failing.
+const PROTOTYPE = path.join(ROOT, "testbed/prototype");
+const hasPrototype = fs.existsSync(PROTOTYPE);
+const planTest = hasPrototype ? test : test.skip;
+const scan = hasPrototype ? scanPrototype(PROTOTYPE) : { screens: [] };
 
 describe("device targets", () => {
   test("'all' means every configured target", () => {
@@ -33,14 +39,14 @@ describe("device targets", () => {
 });
 
 describe("capture plan", () => {
-  test("one unit per screen per device, unique ids", () => {
+  planTest("one unit per screen per device, unique ids", () => {
     const plan = buildCapturePlan(scan, { devices: ["phone", "tablet"], states: ["default"] });
     const keys = plan.map((p) => `${p.id}::${p.device}`);
     assert.equal(new Set(keys).size, keys.length);
     assert.equal(plan.length, scan.screens.filter((s) => s.route !== "*").length * 2);
   });
 
-  test("only states the prototype can show are planned", () => {
+  planTest("only states the prototype can show are planned", () => {
     const plan = buildCapturePlan(scan, { devices: ["phone"], states: ["default", "error", "overlay"] });
     const home = plan.find((p) => p.id === "home");
     // HomeScreen has no error branch in the prototype, so it must not be planned.
@@ -49,22 +55,22 @@ describe("capture plan", () => {
     assert.ok(search.states.includes("error"));
   });
 
-  test("the catch-all route is never captured", () => {
+  planTest("the catch-all route is never captured", () => {
     const plan = buildCapturePlan(scan, { devices: ["phone"] });
     assert.ok(!plan.some((p) => p.route === "*"));
   });
 
-  test("a screen filter limits the plan", () => {
+  planTest("a screen filter limits the plan", () => {
     const plan = buildCapturePlan(scan, { devices: ["phone"], screens: ["home", "settings"] });
     assert.deepEqual([...new Set(plan.map((p) => p.id))].sort(), ["home", "settings"]);
   });
 
-  test("desktop captures declare a scrollbar mask", () => {
+  planTest("desktop captures declare a scrollbar mask", () => {
     const plan = buildCapturePlan(scan, { devices: ["desktop"] });
     assert.ok(plan.every((p) => p.masks.some((m) => m.preset === "scrollbar")));
   });
 
-  test("parameterised routes carry a note about fixture values", () => {
+  planTest("parameterised routes carry a note about fixture values", () => {
     const plan = buildCapturePlan(scan, { devices: ["phone"], screens: ["album--id"] });
     assert.match(plan[0].notes ?? "", /fixture values/);
   });
@@ -95,7 +101,7 @@ describe("urls and paths", () => {
 });
 
 describe("spec validation", () => {
-  test("accepts a generated plan", () => {
+  planTest("accepts a generated plan", () => {
     const spec = { captures: buildCapturePlan(scan, { devices: ["phone"] }) };
     assert.equal(validateSpec(spec).ok, true);
   });

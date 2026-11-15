@@ -1,0 +1,52 @@
+# Hook behaviour across operating systems: path separators, quoting, line endings.
+name: ci-hooks-matrix
+
+on:
+  push:
+    paths: ["hooks/**", "tests/unit/hooks.test.mjs", "scripts/lib/**"]
+  pull_request:
+    paths: ["hooks/**", "tests/unit/hooks.test.mjs", "scripts/lib/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-hooks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hooks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Hook tests
+        shell: bash
+        run: node --test tests/unit/hooks.test.mjs
+
+      - name: End-to-end hook with CRLF input
+        shell: bash
+        run: |
+          mkdir -p /tmp/hookprobe/.uiport
+          printf '{"globs":["core/**"]}' > /tmp/hookprobe/.uiport/engine-paths.json
+          payload='{"cwd":"/tmp/hookprobe","tool_name":"Edit","tool_input":{"file_path":"core/Player.kt"}}'
+          set +e
+          printf '%s' "$payload" | node hooks/engine-protect.mjs
+          code=$?
+          set -e
+          echo "engine-protect exit code: $code"
+          test "$code" = "2"

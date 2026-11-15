@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import test, { describe } from "node:test";
 import { tmpProject } from "../helpers/fixtures.mjs";
@@ -23,6 +24,12 @@ import {
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const PROTOTYPE = path.join(ROOT, "testbed/prototype");
 const SIMPMUSIC = path.join(ROOT, "testbed/SimpMusic");
+// The test bed is deletable (docs/CLEANUP.md). Real-tree assertions skip themselves
+// when it is gone; the synthetic-fixture tests keep covering the same code paths.
+const hasPrototype = fs.existsSync(PROTOTYPE);
+const hasSimpMusic = fs.existsSync(SIMPMUSIC);
+const prototypeTest = hasPrototype ? test : test.skip;
+const simpmusicTest = hasSimpMusic ? test : test.skip;
 
 describe("prototype scanner units", () => {
   test("finds hash-router routes with their components", () => {
@@ -82,7 +89,7 @@ describe("prototype scanner units", () => {
     assert.ok(!store.stateKeys.includes("togglePlay"));
   });
 
-  test("real prototype: every screen has an id, file and route", () => {
+  prototypeTest("real prototype: every screen has an id, file and route", () => {
     const scan = scanPrototype(PROTOTYPE);
     assert.ok(scan.screens.length >= 20, `only ${scan.screens.length} screens`);
     for (const s of scan.screens) {
@@ -98,7 +105,7 @@ describe("prototype scanner units", () => {
     }
   });
 
-  test("real prototype: libraries, stores, fonts and breakpoints are detected", () => {
+  prototypeTest("real prototype: libraries, stores, fonts and breakpoints are detected", () => {
     const scan = scanPrototype(PROTOTYPE);
     const libNames = scan.libraries.map((l) => l.name);
     for (const lib of ["framer-motion", "lucide-react", "react-router-dom", "zustand"]) assert.ok(libNames.includes(lib), lib);
@@ -112,7 +119,7 @@ describe("prototype scanner units", () => {
     assert.ok(scan.dataShapes.Track.fields.some((f) => f.name === "title"));
   });
 
-  test("scan is deterministic apart from the timestamp", () => {
+  prototypeTest("scan is deterministic apart from the timestamp", () => {
     const a = scanPrototype(PROTOTYPE);
     const b = scanPrototype(PROTOTYPE);
     delete a.generatedAt;
@@ -215,7 +222,7 @@ describe("app scanner units", () => {
     assert.ok(!globs.some((g) => g.includes("HomeScreen.kt")), "UI file is never protected");
   });
 
-  test("real app: split, screens, view models and navigation are mapped", () => {
+  simpmusicTest("real app: split, screens, view models and navigation are mapped", () => {
     const scan = scanApp(SIMPMUSIC);
     assert.ok(scan.files.kotlin > 900, `only ${scan.files.kotlin} kotlin files`);
     assert.ok(scan.files.engine > 300);
@@ -241,7 +248,7 @@ describe("app scanner units", () => {
     );
   });
 
-  test("real app: does not read build outputs", () => {
+  simpmusicTest("real app: does not read build outputs", () => {
     const scan = scanApp(SIMPMUSIC);
     assert.ok(!scan.split.uiFiles.some((f) => f.includes("/build/")));
   });
