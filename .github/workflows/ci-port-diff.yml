@@ -105,8 +105,16 @@ jobs:
             --viewports /tmp/viewports-1x.json \
             --devices "$UIPORT_DEVICE" --states default --screens "$SCREENS" \
             --base-url http://127.0.0.1:4173 --out .uiport/capture-spec.json
+          # The capture reads its DPR from the viewports file, not from the spec, so the
+          # same 1x file has to be passed here too.
           node scripts/capture-reference.mjs --base-url http://127.0.0.1:4173 \
+            --viewports /tmp/viewports-1x.json \
             --spec .uiport/capture-spec.json --out .uiport/reference
+          node -e "
+            const fs = require('fs');
+            const p = '.uiport/reference/capture-report.json';
+            if (fs.existsSync(p)) console.log('::notice title=capture report::' + fs.readFileSync(p, 'utf8').slice(0, 400));
+          "
 
       - name: Accept Android SDK licences and write local.properties
         working-directory: testbed/SimpMusic
