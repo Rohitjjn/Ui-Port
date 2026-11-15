@@ -981,9 +981,10 @@ afterEvaluate {
 // artifacts publish no JVM variant, so they cannot be consumed by a non-Android target
 // (see docs/PHASE-8-REPORT.md). Confined to the test source set; nothing ships.
 // ---------------------------------------------------------------------------
-// The AGP KMP plugin does not expose `androidUnitTestImplementation`. Print the names it
-// does expose so the correct one is used instead of guessed a fourth time.
-gradle.projectsEvaluated {
-    val names = configurations.names.filter { it.contains("Test", ignoreCase = true) }.sorted()
-    logger.lifecycle("[ui-port] test configurations: ${names.joinToString(", ")}")
+// This module is built with the AGP KMP plugin: the only test configuration it exposes is
+// `jvmTestImplementation` (confirmed by printing `configurations.names` on the runner), and
+// the Paparazzi tasks are unsuffixed (`recordPaparazzi`, `verifyPaparazzi`).
+dependencies {
+    add("jvmTestImplementation", "junit:junit:4.13.2")
+    add("jvmTestImplementation", "app.cash.paparazzi:paparazzi:${libs.versions.paparazzi.get()}")
 }
