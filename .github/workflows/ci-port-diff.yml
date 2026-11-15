@@ -114,7 +114,7 @@ jobs:
           JAR=$(find ~/.gradle/caches -name "paparazzi-2.0.0-alpha05.1.jar" | head -1)
           echo "jar: $JAR"
           if [ -n "$JAR" ]; then
-            unzip -p "$JAR" app/cash/paparazzi/DeviceConfig.class > /tmp/dc.class 2>/dev/null &&               javap -p /tmp/dc.class 2>/dev/null | head -40 | while IFS= read -r l; do echo "::notice title=DeviceConfig::${l}"; done
+            unzip -p "$JAR" app/cash/paparazzi/DeviceConfig.class > /tmp/dc.class 2>/dev/null &&               javap -p /tmp/dc.class 2>/dev/null | grep -E "public app.cash.paparazzi.DeviceConfig\(|getDensity|Density" | head -40 | while IFS= read -r l; do echo "::notice title=DeviceConfig::${l}"; done
             unzip -o -q "$JAR" 'app/cash/paparazzi/Paparazzi*.class' -d /tmp/ppz 2>/dev/null || true
             javap -p /tmp/ppz/app/cash/paparazzi/Paparazzi.class 2>/dev/null | grep -iE "snapshot|density|width|height|deviceConfig" | head -20 | while IFS= read -r l; do echo "::notice title=Paparazzi::${l}"; done
           fi
