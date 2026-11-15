@@ -1,6 +1,7 @@
 package com.maxrave.simpmusic.uiport.screenshots
 
 import app.cash.paparazzi.DeviceConfig
+import app.cash.paparazzi.density.Density
 import app.cash.paparazzi.Paparazzi
 import com.maxrave.simpmusic.ui.uiport.UiPortHomeScreen
 import org.junit.Rule
@@ -21,11 +22,12 @@ import java.io.File
 class UiPortScreenshotTest {
     // 393dp * 2.75 = 1080px, 852dp * 2.75 = 2340px. No status bar: the web reference has
     // none (the capture hides platform chrome), so including one would shift every element.
+    // Paparazzi 2.x takes a Density here, not a bare float (1.x took the float).
     private val phone =
         DeviceConfig(
             screenWidth = 1080,
             screenHeight = 2340,
-            density = 2.75f,
+            density = Density(2.75f),
             xdpi = 440,
             ydpi = 440,
             softButtons = false,
