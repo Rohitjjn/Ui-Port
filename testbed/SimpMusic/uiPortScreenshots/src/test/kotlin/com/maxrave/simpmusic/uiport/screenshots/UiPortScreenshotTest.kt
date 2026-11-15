@@ -29,11 +29,12 @@ class UiPortScreenshotTest {
     // Paparazzi 2.x takes com.android.resources.Density, an enum, not the 1.x float.
     private val phone =
         DeviceConfig(
-            screenWidth = 786,
-            screenHeight = 1704,
-            density = Density.XHIGH, // 2.0
-            xdpi = 320,
-            ydpi = 320,
+            // Paparazzi derives the pixel size from density x these *dp* values, so they
+            // are the viewport in dp (393 x 852), not in pixels. Passing 786/1704 here
+            // produced a 461x1000 render, which the diff correctly refused to compare.
+            screenWidth = 393,
+            screenHeight = 852,
+            density = Density.XHIGH, // 2.0 -> 786 x 1704 px, the reference's DPR
             softButtons = false,
             screenRound = ScreenRound.NOTROUND,
         )
