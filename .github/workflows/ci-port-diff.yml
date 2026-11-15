@@ -172,6 +172,13 @@ jobs:
           set -e
           echo "diff-all exit: $code"
           cat .uiport/diffs/summary.md || true
+          echo "--- per-screen detail ---"
+          for f in .uiport/diffs/*.report.json; do
+            [ -e "$f" ] || continue
+            echo "== $f"
+            head -c 1200 "$f"
+            echo
+          done
           # Publish the numbers as annotations: artifacts and logs are blob-hosted and not
           # readable from every environment.
           node -e "
