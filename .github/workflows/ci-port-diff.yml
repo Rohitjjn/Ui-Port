@@ -60,7 +60,7 @@ jobs:
       # published before Gradle is asked to use it.
       - name: Probe available screenshot-tool versions
         run: |
-          for coord in io/github/takahirom/roborazzi/roborazzi org/robolectric/robolectric; do
+          for coord in app/cash/paparazzi/paparazzi-gradle-plugin app/cash/paparazzi/paparazzi-leakcanary; do
             url="https://repo1.maven.org/maven2/${coord}/maven-metadata.xml"
             code=$(curl -sS -o /tmp/meta.xml -w "%{http_code}" "$url" || echo "000")
             if [ "$code" = "200" ]; then
