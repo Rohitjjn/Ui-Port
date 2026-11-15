@@ -190,6 +190,7 @@ jobs:
             const r = require('./.uiport/diffs/summary.json');
             for (const s of r.results || []) {
               console.log(\`::notice title=\${s.screen} (\${r.device})::\${s.status} pixel \${s.pixelMatchPct ?? '-'}% ssim \${s.ssim ?? '-'} geometry \${s.geometryCoveragePct ?? '-'}%\`);
+              if (s.reason) console.log(\`::error title=\${s.screen} reason::\${s.reason}\`);
             }
             console.log(\`::notice title=port summary::counts \${JSON.stringify(r.counts)}\`);
           "
