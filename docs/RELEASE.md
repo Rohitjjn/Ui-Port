@@ -7,7 +7,8 @@ How `v0.1.0` was produced, and how to repeat it. Every step is a command, not a 
 Run from the repository root. All three must pass before a tag exists:
 
 ```
-npm test                        # 176 tests: unit + integration
+npm test                        # 176 tests: unit + integration (164 run, 12 skip
+                                # when testbed/ is absent — both are a pass)
 node scripts/validate-plugin.mjs # manifest, skills, agents, commands, hooks, config, scripts
 node scripts/lint-markdown.mjs   # every markdown file
 ```
