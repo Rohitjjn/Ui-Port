@@ -981,10 +981,11 @@ afterEvaluate {
 // artifacts publish no JVM variant, so they cannot be consumed by a non-Android target
 // (see docs/PHASE-8-REPORT.md). Confined to the test source set; nothing ships.
 // ---------------------------------------------------------------------------
-dependencies {
-    // androidUnitTest, not jvmTest: Paparazzi rejects non-Android test source sets by
-    // design ("must only resolve on Android JVM tests"), and this module has an Android
-    // target alongside the JVM one.
-    add("androidUnitTestImplementation", "junit:junit:4.13.2")
-    add("androidUnitTestImplementation", "app.cash.paparazzi:paparazzi:${libs.versions.paparazzi.get()}")
+// The AGP KMP plugin does not expose `androidUnitTestImplementation`. Print the names it
+// does expose so the correct one is used instead of guessed a fourth time.
+gradle.projectsEvaluated {
+    val names = configurations.names.filter { it.contains("Test", ignoreCase = true) }.sorted()
+    logger.lifecycle("[ui-port] test configurations: ${names.joinToString(", ")}")
+}
+")
 }
