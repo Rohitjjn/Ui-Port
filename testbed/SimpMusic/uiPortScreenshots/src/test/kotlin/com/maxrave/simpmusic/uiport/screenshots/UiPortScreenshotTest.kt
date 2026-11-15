@@ -1,7 +1,7 @@
 package com.maxrave.simpmusic.uiport.screenshots
 
 import app.cash.paparazzi.DeviceConfig
-import app.cash.paparazzi.density.Density
+import androidx.compose.ui.unit.Density
 import app.cash.paparazzi.Paparazzi
 import com.maxrave.simpmusic.ui.uiport.UiPortHomeScreen
 import org.junit.Rule
