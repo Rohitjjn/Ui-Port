@@ -44,4 +44,12 @@ jobs:
 
       - name: Plugin validation
         shell: bash
-        run: node scripts/validate-plugin.mjs
+        run: |
+          node scripts/validate-plugin.mjs > validate.log 2>&1 || {
+            cat validate.log
+            while IFS= read -r line; do
+              [ -n "$line" ] && echo "::error title=validate-plugin::$line"
+            done < validate.log
+            exit 1
+          }
+          cat validate.log

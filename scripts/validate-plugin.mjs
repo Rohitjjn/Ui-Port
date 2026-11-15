@@ -259,7 +259,14 @@ if (!vp.defaults) fail("viewports.json has no defaults block");
 
 // ---------- scripts referenced everywhere exist ----------
 const referencedScripts = new Set();
-for (const file of walk(ROOT).filter((f) => /\.(md|json|mjs)$/.test(f) && !f.includes("node_modules") && !f.includes("/testbed/"))) {
+// Path suffix tests must run on posix-normalised relative paths: on Windows the raw
+// paths use backslashes, so includes("/testbed/") is always false and the plugin's own
+// deletable fixture would be validated as if it were shipped code.
+const isShipped = (f) => {
+  const r = rel(ROOT, f);
+  return !r.startsWith("testbed/") && !r.split("/").includes("node_modules");
+};
+for (const file of walk(ROOT).filter((f) => /\.(md|json|mjs)$/.test(f) && isShipped(f))) {
   const text = readText(file, "");
   for (const m of text.matchAll(/scripts\/([A-Za-z0-9._-]+\.mjs)/g)) referencedScripts.add(m[1]);
 }
@@ -268,7 +275,7 @@ for (const script of referencedScripts) {
 }
 
 // ---------- hygiene ----------
-const SHIPPED = walk(ROOT).filter((f) => /\.(md|mjs|json)$/.test(f) && !f.includes("node_modules") && !f.includes("/testbed/"));
+const SHIPPED = walk(ROOT).filter((f) => /\.(md|mjs|json)$/.test(f) && isShipped(f));
 for (const file of SHIPPED) {
   const text = readText(file, "");
   const r = rel(ROOT, file);
