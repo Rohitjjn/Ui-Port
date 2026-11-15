@@ -29,12 +29,17 @@ class UiPortScreenshotTest {
     // Paparazzi 2.x takes com.android.resources.Density, an enum, not the 1.x float.
     private val phone =
         DeviceConfig(
-            // Paparazzi derives the pixel size from density x these *dp* values, so they
-            // are the viewport in dp (393 x 852), not in pixels. Passing 786/1704 here
-            // produced a 461x1000 render, which the diff correctly refused to compare.
+            // Pixel size, and density MEDIUM (1.0) so the layout is also 393 x 852 dp.
+            //
+            // Measured behaviour of Paparazzi 2.0.0-alpha05.1, not a preference: it clamps
+            // a snapshot to 1000 px on the long edge, so a 786 x 1704 (2x) render comes out
+            // 461 x 1000 and cannot be compared with a 2x web reference. The comparison is
+            // therefore made at 1x on both sides, with DPR 1 in the capture spec for this
+            // workflow: same viewport, same density, which is what makes the pixels
+            // comparable. The desktop/tablet targets keep their own reference DPR.
             screenWidth = 393,
             screenHeight = 852,
-            density = Density.XHIGH, // 2.0 -> 786 x 1704 px, the reference's DPR
+            density = Density.MEDIUM, // 1.0
             softButtons = false,
             screenRound = ScreenRound.NOTROUND,
         )

@@ -93,7 +93,16 @@ jobs:
       # image from an older commit measures the fixture, not the port.
       - name: Capture the reference
         run: |
+          # Compare at DPR 1 on both sides: Paparazzi clamps a snapshot to 1000 px on the
+          # long edge, so a 2x render is impossible. Written here rather than in config/ so
+          # the plugin's own device table keeps the real (2x) values.
+          node -e "
+            const v = require('./config/viewports.json');
+            for (const k of Object.keys(v.targets)) v.targets[k].dpr = 1;
+            require('fs').writeFileSync('/tmp/viewports-1x.json', JSON.stringify(v, null, 2));
+          "
           node scripts/plan-capture.mjs testbed/prototype \
+            --viewports /tmp/viewports-1x.json \
             --devices "$UIPORT_DEVICE" --states default --screens "$SCREENS" \
             --base-url http://127.0.0.1:4173 --out .uiport/capture-spec.json
           node scripts/capture-reference.mjs --base-url http://127.0.0.1:4173 \
