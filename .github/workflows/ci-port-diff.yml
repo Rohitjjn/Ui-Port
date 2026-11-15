@@ -1,0 +1,149 @@
+# Port loop: render the ported Compose screens on the JVM, then diff them against the web
+# reference captured by ci-capture-reference.
+#
+# This is the measurement step of the plugin's workflow. It produces real numbers (pixel
+# match, SSIM, geometry) per screen and fails when a screen is below the acceptance floor,
+# so "it looks right" is never the answer.
+name: ci-port-diff
+
+on:
+  workflow_dispatch:
+    inputs:
+      screens:
+        description: "Comma-separated screens to diff (empty = every rendered screen)"
+        default: "home"
+        type: string
+  pull_request:
+    paths:
+      - "testbed/SimpMusic/composeApp/src/jvmMain/kotlin/com/maxrave/simpmusic/ui/uiport/**"
+      - "testbed/SimpMusic/composeApp/src/jvmTest/kotlin/com/maxrave/simpmusic/ui/uiport/**"
+      - ".github/workflows/ci-port-diff.yml"
+      - "scripts/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-port-diff-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render-and-diff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SCREENS: ${{ inputs.screens || 'home' }}
+      UIPORT_DEVICE: phone
+    steps:
+      - uses: actions/checkout@v5
+
+      # Two toolchains in one job: Node for the diff, JDK 21 for the Compose render.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            testbed/prototype/package-lock.json
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Install plugin dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Build and serve the prototype
+        working-directory: testbed/prototype
+        run: |
+          npm ci --no-audit --no-fund
+          npx vite build
+          nohup npx vite preview --port 4173 --host 127.0.0.1 > /tmp/preview.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:4173/ > /dev/null; then echo "preview up after ${i}s"; exit 0; fi
+            sleep 1
+          done
+          cat /tmp/preview.log; exit 1
+
+      # The reference is regenerated in the same job on purpose: a diff against a stored
+      # image from an older commit measures the fixture, not the port.
+      - name: Capture the reference
+        run: |
+          node scripts/plan-capture.mjs testbed/prototype \
+            --devices "$UIPORT_DEVICE" --states default --screens "$SCREENS" \
+            --base-url http://127.0.0.1:4173 --out .uiport/capture-spec.json
+          node scripts/capture-reference.mjs --base-url http://127.0.0.1:4173 \
+            --spec .uiport/capture-spec.json --out .uiport/reference
+
+      - name: Accept Android SDK licences and write local.properties
+        working-directory: testbed/SimpMusic
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Render the ported screens (Roborazzi + Robolectric)
+        working-directory: testbed/SimpMusic
+        run: |
+          ./gradlew :composeApp:jvmTest --tests "com.maxrave.simpmusic.ui.uiport.*" \
+            -Proborazzi.test.record=true --stacktrace
+          find composeApp/build/ui-port-output -name "*.png" | sort
+
+      # Roborazzi writes images offscreen (its own canvas), so the semantics dump is
+      # produced by the same test into the same folder. Both are copied to the layout the
+      # diff expects: <device>/<screen>/<state>.png
+      - name: Collect renders
+        run: |
+          rm -rf .uiport/output
+          mkdir -p .uiport/output
+          if [ -d testbed/SimpMusic/composeApp/build/ui-port-output ]; then
+            cp -r testbed/SimpMusic/composeApp/build/ui-port-output/* .uiport/output/
+          fi
+          find .uiport/output -type f | sort
+          echo "--- reference ---"
+          find .uiport/reference -type f | sort
+
+      - name: Diff every rendered screen
+        run: |
+          set +e
+          node scripts/diff-all.mjs \
+            --reference .uiport/reference \
+            --candidate .uiport/output \
+            --device "$UIPORT_DEVICE" \
+            --out .uiport/diffs
+          code=$?
+          set -e
+          echo "diff-all exit: $code"
+          cat .uiport/diffs/summary.md || true
+          # Publish the numbers as annotations: artifacts and logs are blob-hosted and not
+          # readable from every environment.
+          node -e "
+            const fs = require('fs');
+            if (!fs.existsSync('.uiport/diffs/summary.json')) {
+              console.log('::error title=diff::diff-all produced no summary.json');
+              process.exit(0);
+            }
+            const r = require('./.uiport/diffs/summary.json');
+            for (const s of r.results || []) {
+              console.log(\`::notice title=\${s.screen} (\${r.device})::\${s.status} pixel \${s.pixelMatchPct ?? '-'}% ssim \${s.ssim ?? '-'} geometry \${s.geometryCoveragePct ?? '-'}%\`);
+            }
+            console.log(\`::notice title=port summary::counts \${JSON.stringify(r.counts)}\`);
+          "
+          exit $code
+
+      - name: Upload renders, diffs and report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: uiport-port-diff-${{ github.run_id }}
+          path: |
+            .uiport/output/**
+            .uiport/diffs/**
+          retention-days: 30
+          if-no-files-found: warn

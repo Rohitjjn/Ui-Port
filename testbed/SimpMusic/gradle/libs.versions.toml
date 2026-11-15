@@ -23,6 +23,8 @@ car-app = "1.9.0-alpha03"
 androidx-media = "1.8.0"
 okhttp3 = "5.5.1"
 junit = "4.13.2"
+robolectric = "4.16"
+roborazzi = "1.53.1"
 androidx-junit = "1.3.0"
 espresso-core = "3.7.0"
 room = "2.8.5"
@@ -143,6 +145,9 @@ media3-datasource-okhttp = { group = "androidx.media3", name = "media3-datasourc
 media3-cast = { group = "androidx.media3", name = "media3-cast", version.ref = "media3" }
 okhttp3-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp3" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-junit" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso-core" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }

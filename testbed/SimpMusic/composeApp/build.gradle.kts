@@ -970,3 +970,26 @@ afterEvaluate {
             dependsOn("generateBuildKonfig")
         }
 }
+// ---------------------------------------------------------------------------
+// ui-port screenshot renders (jvmTest only).
+//
+// Roborazzi + Robolectric render Compose on the JVM at an exact dp size, so a screen can
+// be compared pixel-for-pixel with the web reference without an emulator. This is the
+// documented default in the ui-port plugin (docs/RESEARCH.md) and it is confined to the
+// test source set: nothing here ships in the app.
+// ---------------------------------------------------------------------------
+dependencies {
+    add("jvmTestImplementation", "junit:junit:4.13.2")
+    add("jvmTestImplementation", "org.robolectric:robolectric:${libs.versions.robolectric.get()}")
+    add("jvmTestImplementation", "io.github.takahirom.roborazzi:roborazzi:${libs.versions.roborazzi.get()}")
+    add("jvmTestImplementation", "io.github.takahirom.roborazzi:roborazzi-compose:${libs.versions.roborazzi.get()}")
+    add("jvmTestImplementation", compose.desktop.currentOs)
+}
+
+// Roborazzi needs to know it should write images rather than only compare them, and the
+// plugin's output path is fixed so the ui-port diff can find it without configuration.
+tasks.withType<Test>().configureEach {
+    systemProperty("roborazzi.test.record", "true")
+    systemProperty("robolectric.graphicsMode", "NATIVE")
+    systemProperty("robolectric.pixelCopyRenderMode", "hardware")
+}
