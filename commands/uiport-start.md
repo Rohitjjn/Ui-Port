@@ -14,8 +14,15 @@ current directory).
 
 ## Step 0 — Preflight (silent, then one approval)
 
-1. If `$1` is a `.zip`, unpack it to a scratch folder (never modify the archive) and use that as
-   the prototype root. If it is a folder, use it.
+1. If `$1` is a `.zip`, unpack it without touching the archive and use the result as the prototype
+   root:
+
+   ```
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/unpack-prototype.mjs "$1" --out .uiport/prototype
+   ```
+
+   If `$1` is a folder, use it directly. If neither is given, ask once for the prototype path —
+   it is the one input the plugin cannot discover.
 2. Follow the `preflight` skill: run the detector, read its report, present the tool approval
    batch **once** (execution mode, project case, tools with pinned versions, security note).
 3. If `.uiport/answers.json` exists or `UIPORT_HEADLESS=1`, take every decision from it instead of

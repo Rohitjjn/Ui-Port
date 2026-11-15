@@ -10,7 +10,13 @@ to know, nothing the agent should have to read file by file.
 
 ## Procedure
 
-1. Run the scanner:
+1. If the prototype is still an archive, unpack it first (never modify the original):
+
+   ```
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/unpack-prototype.mjs <archive.zip> --out .uiport/prototype
+   ```
+
+2. Run the scanner:
 
    ```
    node ${CLAUDE_PLUGIN_ROOT}/scripts/scan-prototype.mjs <prototypeRoot> \
@@ -21,7 +27,7 @@ to know, nothing the agent should have to read file by file.
    If it reports zero screens, the root is wrong or the prototype uses a router the scanner
    does not know. Fix that before anything else — a port with no screen list cannot be tracked.
 
-2. Read the map. Verify, in the prototype's own source, the few facts the scanner cannot know:
+3. Read the map. Verify, in the prototype's own source, the few facts the scanner cannot know:
 
    - **Navigation shape.** Hash router, history router, or a state machine? It decides how a
      Compose navigation graph is generated.
@@ -30,7 +36,7 @@ to know, nothing the agent should have to read file by file.
    - **Which states are reachable** without app-specific clicks (empty/loading/error). The
      capture step refuses to fake them; plan for the ones that exist.
 
-3. Build the imports map. For every library in the map's Libraries section, resolve the
+4. Build the imports map. For every library in the map's Libraries section, resolve the
    current stable Compose/Android equivalent and check it against the app's Kotlin/Compose
    versions from `app-map.md`. Write `.uiport/maps/imports-map.md` with one row per library:
    library, how it is used, Compose alternative, pinned version, risk, fallback.
@@ -38,7 +44,7 @@ to know, nothing the agent should have to read file by file.
    Use `references/library-mapping.md` as the starting table, then verify each version against
    the project's own catalog. Never write a version you have not resolved.
 
-4. Write the prototype worklog entry and mark the mapping step's prototype half done.
+5. Write the prototype worklog entry and mark the mapping step's prototype half done.
 
 ## Rules
 

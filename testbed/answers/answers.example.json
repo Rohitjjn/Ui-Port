@@ -1,0 +1,15 @@
+{
+  "deviceTargets": ["phone", "tablet", "desktop"],
+  "executionMode": "HYBRID",
+  "heavyTasksLocation": "GitHub Actions (no JDK/SDK/browser locally)",
+  "ponytail": false,
+  "extraFeatures": {
+    "canvas-video": "remove-from-ui",
+    "sleep-timer": "build-in-engine",
+    "shelf-see-all": "remove-from-ui"
+  },
+  "allowEngineEdits": false,
+  "delivery": ["zip", "pr"],
+  "screens": ["home", "library", "playlist--id", "album--id", "settings"],
+  "notes": "Example headless answers for the SimpMusic test bed. Copy to .uiport/answers.json before a headless run."
+}

@@ -9,7 +9,20 @@ project, rebuilds the prototype screen by screen in Compose, diffs every screen 
 reference, iterates until it matches, wires the new UI to your existing engine, verifies, and
 packages the result — leaving a full audit trail in `.uiport/`.
 
-Status: **v0.1.0 — in development.** Phase-by-phase build log lives in `docs/phase-reports/`.
+Status: **v0.1.0** — plugin complete, execution evidence pending (see "What is proven" below).
+
+## What is proven, and what is not
+
+Honest state as of 2026-11-15:
+
+| Claim | Evidence |
+| --- | --- |
+| Plugin structure is valid | `node scripts/validate-plugin.mjs` — manifest, 11 skills, 4 agents, 4 commands, hooks, config, 13 referenced scripts |
+| Scripts and hooks behave as specified | **157 tests** pass locally (`npm test`): state/resume, preflight classification, answers validation, both scanners against the real test bed, diff maths on synthetic images, all four hooks, CLI, packaging (real ZIP inspected), and an end-to-end synthetic run |
+| Markdown and docs are consistent | `node scripts/lint-markdown.mjs` — 61 files |
+| Real web capture + Compose screenshots + Gradle build | **not yet run.** This development environment has no JDK/Android SDK and cannot download a Chromium build, and GitHub Actions cannot be dispatched from here. `docs/PLAN.md` records the three blockers (D1–D3) and the exact steps to close them |
+
+Nothing in the table above is a claim without a command behind it.
 
 ## Why
 
@@ -19,11 +32,17 @@ frozen animations, then a measured pixel + SSIM + geometry diff against the Comp
 ships unless it is above the documented acceptance floor or the residual difference is explained in
 the report.
 
-## Install (once released)
+## Install
 
 ```
 /plugin marketplace add Rohitjjn/Ui-Port
 /plugin install ui-port@ui-port
+```
+
+Or load it straight from a checkout while developing:
+
+```
+claude --plugin-dir /path/to/Ui-Port
 ```
 
 ## Use
@@ -34,6 +53,13 @@ the report.
 /uiport-status           # progress table per screen per device
 /uiport-package          # ZIP of the ported project (new UI + engine + worklog)
 ```
+
+## Requirements
+
+- Claude Code with plugin support.
+- Node.js >= 20.11 (the plugin's scripts are Node; there is no bash-only script anywhere).
+- For the heavy half (Compose screenshots, Gradle builds): a JDK and the Android SDK, or a GitHub
+  repository with Actions enabled. The plugin detects which case you are in and plans accordingly.
 
 ## Repository layout
 
