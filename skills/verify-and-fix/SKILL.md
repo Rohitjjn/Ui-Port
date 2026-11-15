@@ -26,6 +26,19 @@ still fails and why.
    node scripts/visual-diff.mjs ... (per screen)   # regression against stored scores
    ```
 
+   When a screen differs and the pixel diff alone does not explain why, compare the geometry
+   dumps directly — it names the element and the offset in dp:
+
+   ```
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/geometry-compare.mjs \
+       --ref .uiport/reference/phone/home/default.geometry.json \
+       --cand .uiport/output/phone/home/default.semantics.json \
+       --md .uiport/output/phone/home/geometry.md
+   ```
+
+   Exit 0 when every matched node is within `thresholds.geometry.toleranceDp` and coverage is above
+   the floor; exit 3 when an element moved or is missing.
+
 2. **Regressions are automatic failures.** `scripts/uiport.mjs verify --regression` compares each
    screen's score with `.uiport/baseline.json`. A drop larger than `thresholds.visual.regression`
    fails, even if the screen is still above the acceptance floor — a port that silently gets

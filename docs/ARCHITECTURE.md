@@ -29,6 +29,7 @@ Component maps to which composable, whether a residual is acceptable) is a proce
 | `visual-diff.mjs` | two PNGs (+geometry) | score JSON, markdown report, diff PNG, heat map, exit code | yes |
 | `diff-all.mjs` | reference dir + candidate dir | per-screen reports, `summary.md/json`, regression list, baseline update | yes |
 | `verify.mjs` | project | evidence JSON + log of every check | partially (delegation, packaging verified) |
+| `geometry-compare.mjs` | web geometry dump + Compose semantics dump | named dp offsets per element, JSON + markdown | yes |
 | `package-zip.mjs` | project | ZIP with worklog, no build output, no secrets | yes |
 | `svg-to-compose.mjs` | SVG | `ImageVector` Kotlin | yes |
 | `uiport.mjs` | – | CLI over state, worklog, answers, preflight, verify | yes |

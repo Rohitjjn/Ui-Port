@@ -9,7 +9,8 @@ All notable changes to the ui-port plugin. Format: Keep a Changelog, versioning:
 - Plugin manifest and marketplace, 11 skills, 4 agents, 4 commands.
 - Hooks: engine-protect (PreToolUse), worklog-guard (Stop), syntax-check (PostToolUse),
   session-start (SessionStart) — all cross-platform Node with unit tests.
-- Scripts: preflight, state/worklog/answers libraries, prototype scanner, app scanner,
+- Scripts: preflight, `geometry-compare` (named dp offsets between the web geometry dump and the
+  Compose semantics dump), state/worklog/answers libraries, prototype scanner, app scanner,
   capture planner, Playwright capture, visual diff (pixelmatch + SSIM + geometry + heat map +
   noise floor), diff-all with baselines and regression detection, verify runner, SVG-to-Compose
   converter, ZIP packager, plugin validator, markdown linter, version resolver.
