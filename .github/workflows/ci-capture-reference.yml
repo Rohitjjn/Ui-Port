@@ -113,6 +113,15 @@ jobs:
             --spec .uiport/capture-spec.json \
             --json .uiport/noise-floor.json --md .uiport/noise-floor.md
           cat .uiport/noise-floor.md
+          # Artifact downloads are served from a blob host that not every environment can
+          # reach, so the numbers are also published as annotations, which travel through
+          # the API and are readable from anywhere.
+          node -e "
+            const r = require('./.uiport/noise-floor.json');
+            const msg = \`worst same-side match \${r.worstSameSideMatchPct}% (\${r.worstScreen.screen}/\${r.worstScreen.device}); noise \${r.noisePct}%; effective floor \${r.effectiveFloorPct}% (configured \${r.configuredFloorPct}%); deterministic: \${r.deterministic}\`;
+            console.log('::notice title=noise floor::' + msg);
+            for (const s of r.perScreen) console.log(\`::notice title=capture \${s.screen} (\${s.device})::match \${s.matchPct}% ssim \${s.ssim} geometry mismatches \${s.geometryMismatched ?? 'n/a'}\`);
+          "
 
       - name: Promote run A to the reference set
         run: |
