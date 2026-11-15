@@ -1,7 +1,7 @@
 package com.maxrave.simpmusic.uiport.screenshots
 
 import app.cash.paparazzi.DeviceConfig
-import androidx.compose.ui.unit.Density
+import com.android.resources.Density
 import app.cash.paparazzi.Paparazzi
 import com.maxrave.simpmusic.ui.uiport.UiPortHomeScreen
 import org.junit.Rule
@@ -20,16 +20,19 @@ import java.io.File
  *   -> uiPortScreenshots/build/ui-port-output/phone/home/default.png
  */
 class UiPortScreenshotTest {
-    // 393dp * 2.75 = 1080px, 852dp * 2.75 = 2340px. No status bar: the web reference has
-    // none (the capture hides platform chrome), so including one would shift every element.
-    // Paparazzi 2.x takes a Density here, not a bare float (1.x took the float).
+    // 393dp * 2 = 786px, 852dp * 2 = 1704px: the reference capture used deviceScaleFactor 2
+    // (config/viewports.json), so the render must use the same factor. Rendering at
+    // xxhdpi (2.75) would produce a different image for the same layout and every diff
+    // would measure the density difference instead of the port.
+    // No status bar or system UI: the web reference has no platform chrome.
+    // Paparazzi 2.x takes com.android.resources.Density, an enum, not the 1.x float.
     private val phone =
         DeviceConfig(
-            screenWidth = 1080,
-            screenHeight = 2340,
-            density = Density(2.75f),
-            xdpi = 440,
-            ydpi = 440,
+            screenWidth = 786,
+            screenHeight = 1704,
+            density = Density.XHIGH, // 2.0
+            xdpi = 320,
+            ydpi = 320,
             softButtons = false,
             screenRound = false,
             statusBarHeight = 0,
