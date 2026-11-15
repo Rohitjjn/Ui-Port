@@ -50,15 +50,16 @@ class UiPortScreenshotTest {
         // Paparazzi writes into its own snapshot folder; the file is copied to the path the
         // ui-port diff consumes so no manual step sits between render and measurement.
         paparazzi.snapshot(name = screen) { content() }
+        // Paparazzi names the file after the test class, the test method and the snapshot
+        // name: ..._UiPortScreenshotTest_home_home.png. Search rather than hard-code that
+        // pattern; a silent name change would otherwise turn into "missing render".
         val produced =
-            listOf(
-                File("src/test/snapshots/images/${nameFor(screen)}.png"),
-                File("build/reports/paparazzi/images/${nameFor(screen)}.png"),
-            ).firstOrNull { it.exists() }
-        if (produced != null) produced.copyTo(File(dir, "default.png"), overwrite = true)
+            sequenceOf(File("src/test/snapshots/images"), File("build/reports/paparazzi"))
+                .flatMap { root -> root.walkTopDown().filter { it.isFile && it.extension == "png" } }
+                .firstOrNull { it.name.contains("UiPortScreenshotTest_$screen") }
+        check(produced != null) { "paparazzi produced no image for screen \"$screen\"; looked under src/test/snapshots and build/reports/paparazzi" }
+        produced.copyTo(File(dir, "default.png"), overwrite = true)
     }
-
-    private fun nameFor(screen: String) = "com.maxrave.simpmusic.uiport.screenshots.UiPortScreenshotTest_${screen}.png"
 
     @Test
     fun home() {
