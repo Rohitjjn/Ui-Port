@@ -32,7 +32,7 @@ dependencies {
     implementation(project(":composeApp"))
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
-    implementation(libs.compose.foundation)
+    implementation(libs.foundation)
     testImplementation(libs.junit)
     testImplementation(libs.paparazzi)
 }
