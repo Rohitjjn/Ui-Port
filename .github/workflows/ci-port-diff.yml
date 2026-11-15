@@ -201,6 +201,9 @@ jobs:
           set -e
           echo "diff-all exit: $code"
           cat .uiport/diffs/summary.md || true
+          echo "--- reference geometry head ---"
+          head -c 1500 .uiport/reference/phone/home/default.geometry.json || true
+          echo
           echo "--- per-screen detail ---"
           for f in .uiport/diffs/*.report.json; do
             [ -e "$f" ] || continue
