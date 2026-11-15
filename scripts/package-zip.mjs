@@ -15,7 +15,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { toPosix, walk } from "./lib/fs-utils.mjs";
 
 const args = process.argv.slice(2);
@@ -115,20 +115,21 @@ if (fs.existsSync(out)) fs.rmSync(out);
 const listFile = path.join(os.tmpdir(), `uiport-zip-${process.pid}.txt`);
 fs.writeFileSync(listFile, files.join("\n"));
 try {
-  const isWindows = process.platform === "win32";
-  if (!isWindows) {
-    const zipBin = ["/usr/bin/zip", "/bin/zip"].find((p) => fs.existsSync(p));
-    if (zipBin) {
-      execFileSync(zipBin, ["-q", "-X", out, "-@"], { cwd: project, input: fs.readFileSync(listFile) });
-    } else {
-      execFileSync("python3", ["-c", zipWithPython(project, out, listFile)], { stdio: "inherit" });
-    }
+  // One code path that behaves identically everywhere beats three that each fail on a
+  // different OS: `zip` is missing on Windows runners, Windows' bsdtar misreads "C:\\..."
+  // as a host name, and the -T list is cwd-relative (so running tar from the output
+  // directory cannot find the files. Python's zipfile has none of these problems and is
+  // present on GitHub runners and on macOS/Linux developer machines.
+  const python = ["python3", "python"].find((bin) => spawnSync(bin, ["--version"], { encoding: "utf8" }).status === 0);
+  if (python) {
+    execFileSync(python, ["-c", zipWithPython(project, out, listFile)], { stdio: "inherit" });
   } else {
-    // Windows ships bsdtar, which reads "C:\\path" as host "C:" and fails with
-    // "Cannot connect to C: resolve failed". Running from the output directory with a
-    // bare file name removes the drive letter from the argument entirely.
-    const name = path.basename(out);
-    execFileSync("tar", ["-a", "-c", "-f", name, "-T", listFile], { cwd: path.dirname(out), stdio: "inherit" });
+    const zipBin = [process.platform === "win32" ? null : "/usr/bin/zip", "/bin/zip"].filter(Boolean).find((p) => fs.existsSync(p));
+    if (!zipBin) {
+      process.stderr.write("package-zip: neither Python nor the zip binary is available; install one of them.\n");
+      process.exit(4);
+    }
+    execFileSync(zipBin, ["-q", "-X", out, "-@"], { cwd: project, input: fs.readFileSync(listFile) });
   }
 } finally {
   fs.rmSync(listFile, { force: true });

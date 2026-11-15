@@ -39,7 +39,7 @@ export function parseJavaMajor(raw) {
 
 /** Read the SDK location the same way Gradle/Android Studio do. */
 export function findAndroidSdk({ env = process.env, projectRoot = process.cwd() } = {}) {
-  const explicitEnv = Boolean(env.ANDROID_HOME || env.ANDROID_SDK_ROOT);
+  const usingRealEnvironment = env === process.env;
   const candidates = [env.ANDROID_HOME, env.ANDROID_SDK_ROOT];
   const localProps = path.join(projectRoot, "local.properties");
   if (fs.existsSync(localProps)) {
@@ -47,10 +47,11 @@ export function findAndroidSdk({ env = process.env, projectRoot = process.cwd() 
     const m = txt.match(/^sdk\.dir=(.+)$/m);
     if (m) candidates.push(m[1].trim().replace(/\\\\/g, "\\"));
   }
-  // Well-known install locations are only consulted when the caller did not hand in an
-  // explicit environment. Otherwise "nothing is configured" would still find the runner's
-  // preinstalled SDK and the answer would depend on the machine, not on the input.
-  if (!explicitEnv) {
+  // Well-known install locations are only consulted for the real environment. A caller
+  // that hands in its own env object (tests, a simulated run) is asking a question about
+  // that input, not about this machine — and every macOS CI runner ships an SDK, which
+  // would otherwise make "nothing is configured" untestable.
+  if (usingRealEnvironment) {
     if (process.platform === "darwin") candidates.push(path.join(os.homedir(), "Library/Android/sdk"));
     if (process.platform === "linux") candidates.push(path.join(os.homedir(), "Android/Sdk"));
     if (process.platform === "win32") candidates.push(path.join(env.LOCALAPPDATA ?? "", "Android/Sdk"));
