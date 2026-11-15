@@ -2,7 +2,7 @@
 
 All notable changes to the ui-port plugin. Format: Keep a Changelog, versioning: SemVer.
 
-## [0.1.0] — unreleased
+## [0.1.0] — 2026-11-15
 
 ### Added
 

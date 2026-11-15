@@ -11,6 +11,13 @@ packages the result — leaving a full audit trail in `.uiport/`.
 
 Status: **v0.1.0** — plugin complete, execution evidence pending (see "What is proven" below).
 
+## Release
+
+[v0.1.0](https://github.com/Rohitjjn/Ui-Port/releases/tag/v0.1.0) — source, plugin manifest and
+docs. The plugin ZIP is built with `node scripts/package-zip.mjs --out dist/ui-port-v0.1.0.zip`
+(no `testbed/`, no `node_modules/`, no build output); see `docs/RELEASE.md` for the full procedure
+and for the one step that failed in this environment.
+
 ## What is proven, and what is not
 
 Honest state as of 2026-11-15:
