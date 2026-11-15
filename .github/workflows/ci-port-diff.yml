@@ -105,6 +105,17 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
+      # The AGP KMP plugin names its configurations differently from the classic Android
+      # plugin, so ask Gradle instead of assuming. This has already caught two wrong guesses.
+      - name: List test configurations and screenshot tasks
+        working-directory: testbed/SimpMusic
+        run: |
+          ./gradlew :composeApp:dependencies --configuration androidUnitTestCompileClasspath -q 2>&1 | head -3 || true
+          echo "--- configurations matching test ---"
+          ./gradlew :composeApp:properties -q 2>/dev/null | head -5 || true
+          ./gradlew :composeApp:tasks --all 2>/dev/null | grep -iE "paparazzi|UnitTest|record" | head -20 || true
+          node -e "console.log('::notice title=gradle tasks::see the step output')" || true
+
       - name: Render the ported screens (Paparazzi, desktop JVM)
         working-directory: testbed/SimpMusic
         run: |
