@@ -27,8 +27,6 @@ plugins {
     alias(libs.plugins.build.config)
     alias(libs.plugins.osdetector)
     alias(libs.plugins.packagedeps)
-    // ui-port: renders the ported screens on the desktop JVM (test source set only).
-    alias(libs.plugins.paparazzi)
 }
 
 // composeApp uses the `android.kotlin.multiplatform.library` plugin, so with the
@@ -973,18 +971,11 @@ afterEvaluate {
         }
 }
 // ---------------------------------------------------------------------------
-// ui-port screenshot renders (jvmTest only).
+// ui-port ported screens.
 //
-// Paparazzi renders Compose on the desktop JVM with no emulator and no Robolectric
-// sandbox, which is what this module already targets (jvmMain is a real Compose Desktop
-// target). Roborazzi was tried first and rejected with evidence, not preference: its
-// artifacts publish no JVM variant, so they cannot be consumed by a non-Android target
-// (see docs/PHASE-8-REPORT.md). Confined to the test source set; nothing ships.
+// The ported UI lives in commonMain because that is where it belongs: it is the same
+// Compose code for Android, desktop and (later) iOS, and it has no engine dependency yet.
+// The screenshot render is a separate Android-library module (:uiPortScreenshots) because
+// Paparazzi refuses to resolve on a Kotlin Multiplatform test source set — which is
+// exactly what this module has. See docs/PHASE-8-REPORT.md for the evidence.
 // ---------------------------------------------------------------------------
-// This module is built with the AGP KMP plugin: the only test configuration it exposes is
-// `jvmTestImplementation` (confirmed by printing `configurations.names` on the runner), and
-// the Paparazzi tasks are unsuffixed (`recordPaparazzi`, `verifyPaparazzi`).
-dependencies {
-    add("jvmTestImplementation", "junit:junit:4.13.2")
-    add("jvmTestImplementation", "app.cash.paparazzi:paparazzi:${libs.versions.paparazzi.get()}")
-}

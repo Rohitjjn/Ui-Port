@@ -63,6 +63,7 @@ include(
     ":discord",
     ":listenTogether",
     ":loginSync",
+    ":uiPortScreenshots",
 )
 
 // core modules

@@ -123,7 +123,7 @@ jobs:
         working-directory: testbed/SimpMusic
         run: |
           set +e
-          ./gradlew :composeApp:recordPaparazzi --tests "*UiPortScreenshotTest*" \
+          ./gradlew :uiPortScreenshots:recordPaparazzi --tests "*UiPortScreenshotTest*" \
             --stacktrace 2>&1 | tee /tmp/gradle.log
           code=${PIPESTATUS[0]}
           set -e
@@ -140,7 +140,7 @@ jobs:
             done
             exit "$code"
           fi
-          find composeApp/build/ui-port-output composeApp/build/reports/paparazzi -name "*.png" 2>/dev/null | sort
+          find uiPortScreenshots/build/ui-port-output uiPortScreenshots/src/test/snapshots -name "*.png" 2>/dev/null | sort
           echo "--- paparazzi task candidates ---"
           ./gradlew :composeApp:tasks --all 2>/dev/null | grep -i paparazzi || true
 
@@ -151,8 +151,8 @@ jobs:
         run: |
           rm -rf .uiport/output
           mkdir -p .uiport/output
-          if [ -d testbed/SimpMusic/composeApp/build/ui-port-output ]; then
-            cp -r testbed/SimpMusic/composeApp/build/ui-port-output/* .uiport/output/
+          if [ -d testbed/SimpMusic/uiPortScreenshots/build/ui-port-output ]; then
+            cp -r testbed/SimpMusic/uiPortScreenshots/build/ui-port-output/* .uiport/output/
           fi
           find .uiport/output -type f | sort
           echo "--- reference ---"
