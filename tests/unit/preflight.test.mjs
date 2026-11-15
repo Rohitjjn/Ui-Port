@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test, { describe } from "node:test";
 import { snapshot, tmpProject } from "../helpers/fixtures.mjs";
 import {
@@ -143,7 +144,11 @@ describe("android sdk discovery", () => {
   test("finds the SDK from ANDROID_HOME", () => {
     const p = tmpProject();
     try {
-      const sdk = p.file("sdk", "platforms", "android-37");
+      // The helper only returns the path; the directory has to be created for a
+      // discovery function that (correctly) checks the filesystem.
+      const sdkDir = p.file("sdk", "platforms", "android-37");
+      fs.mkdirSync(sdkDir, { recursive: true });
+      const sdk = sdkDir;
       const r = findAndroidSdk({ env: { ANDROID_HOME: p.file("sdk") }, projectRoot: p.dir });
       assert.equal(r.present, true);
       assert.ok(sdk);

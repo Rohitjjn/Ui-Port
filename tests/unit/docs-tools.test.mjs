@@ -133,3 +133,10 @@ test("package-zip excludes the test bed and build output but keeps the plugin", 
   assert.doesNotMatch(listing, /\.git\//);
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test("the CI hook probe passes (same script the matrix workflow runs)", () => {
+  // This is the workflow's step, run locally: if it regresses, it regresses here first.
+  const r = spawnSync(NODE, [path.join(ROOT, "scripts", "ci-hook-probe.mjs")], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /7\/7 hook probes passed/);
+});

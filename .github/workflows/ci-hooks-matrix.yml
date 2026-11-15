@@ -38,15 +38,8 @@ jobs:
         shell: bash
         run: node --test tests/unit/hooks.test.mjs
 
-      - name: End-to-end hook with CRLF input
-        shell: bash
-        run: |
-          mkdir -p /tmp/hookprobe/.uiport
-          printf '{"globs":["core/**"]}' > /tmp/hookprobe/.uiport/engine-paths.json
-          payload='{"cwd":"/tmp/hookprobe","tool_name":"Edit","tool_input":{"file_path":"core/Player.kt"}}'
-          set +e
-          printf '%s' "$payload" | node hooks/engine-protect.mjs
-          code=$?
-          set -e
-          echo "engine-protect exit code: $code"
-          test "$code" = "2"
+      # Runs the real hook binary the way Claude Code does (JSON on stdin, exit code as
+      # the answer), on every OS, with both separator styles. The previous version was a
+      # bash-only probe with a hard-coded /tmp path, so it could never pass on Windows.
+      - name: End-to-end hook probe
+        run: node scripts/ci-hook-probe.mjs

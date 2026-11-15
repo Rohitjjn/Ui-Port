@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test, { describe } from "node:test";
 import { validAnswers } from "../helpers/fixtures.mjs";
 import { loadAnswers, validateAnswers } from "../../scripts/lib/answers.mjs";
@@ -76,9 +78,11 @@ describe("answers validation", () => {
 
 describe("answers file loading (headless mode)", () => {
   function project(answers) {
-    const dir = fs.mkdtempSync("/tmp/uiport-answers-");
-    fs.mkdirSync(`${dir}/.uiport`, { recursive: true });
-    if (answers !== undefined) fs.writeFileSync(`${dir}/.uiport/answers.json`, typeof answers === "string" ? answers : JSON.stringify(answers));
+    // os.tmpdir(), not "/tmp": the suite runs on Windows too, where "/tmp" does not exist
+    // and every test in this block would fail for the wrong reason.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uiport-answers-"));
+    fs.mkdirSync(path.join(dir, ".uiport"), { recursive: true });
+    if (answers !== undefined) fs.writeFileSync(path.join(dir, ".uiport", "answers.json"), typeof answers === "string" ? answers : JSON.stringify(answers));
     return dir;
   }
 

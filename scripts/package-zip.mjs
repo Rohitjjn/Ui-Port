@@ -12,6 +12,7 @@
  *     [--include-testbed] [--max-mb 200] [--dry-run]
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
@@ -109,7 +110,9 @@ fs.mkdirSync(path.dirname(out), { recursive: true });
 if (fs.existsSync(out)) fs.rmSync(out);
 
 // Prefer the system zip (streaming, no memory spike); fall back to Python.
-const listFile = path.join(process.env.TMPDIR ?? "/tmp", `uiport-zip-${process.pid}.txt`);
+// os.tmpdir() respects TMPDIR/TMP/TEMP per platform; a hard-coded "/tmp" does not
+// exist on Windows, which silently breaks packaging on a whole OS.
+const listFile = path.join(os.tmpdir(), `uiport-zip-${process.pid}.txt`);
 fs.writeFileSync(listFile, files.join("\n"));
 try {
   const isWindows = process.platform === "win32";

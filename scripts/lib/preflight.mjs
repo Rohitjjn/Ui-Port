@@ -206,7 +206,10 @@ export function detectProjectCase(projectRoot) {
       if (lower === "androidmanifest.xml") signals.androidManifest = true;
       if (lower.endsWith(".kt")) {
         signals.kotlinFiles++;
-        const p = full.toLowerCase();
+        // Backslash paths on Windows must classify identically: normalise separators
+        // first, otherwise every /ui/, /di/ and /data/ signal reads as zero on one OS
+        // and a real project is misdetected as "nothing".
+        const p = full.toLowerCase().replace(/\\/g, "/");
         if (p.includes("/ui/") || p.includes("/screen") || p.includes("composable")) signals.composeUiFiles++;
         if (p.includes("viewmodel")) signals.viewModelFiles++;
         if (p.includes("/di/") || p.includes("module.kt") || p.includes("koin") || p.includes("hilt")) signals.diFiles++;
