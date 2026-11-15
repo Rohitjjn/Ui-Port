@@ -973,23 +973,16 @@ afterEvaluate {
 // ---------------------------------------------------------------------------
 // ui-port screenshot renders (jvmTest only).
 //
-// Roborazzi + Robolectric render Compose on the JVM at an exact dp size, so a screen can
-// be compared pixel-for-pixel with the web reference without an emulator. This is the
-// documented default in the ui-port plugin (docs/RESEARCH.md) and it is confined to the
-// test source set: nothing here ships in the app.
+// Paparazzi renders Compose on the desktop JVM with no emulator and no Robolectric
+// sandbox, which is what this module already targets (jvmMain is a real Compose Desktop
+// target). Roborazzi was tried first and rejected with evidence, not preference: its
+// artifacts publish no JVM variant, so they cannot be consumed by a non-Android target
+// (see docs/PHASE-8-REPORT.md). Confined to the test source set; nothing ships.
 // ---------------------------------------------------------------------------
+apply(plugin = "app.cash.paparazzi")
+
 dependencies {
     add("jvmTestImplementation", "junit:junit:4.13.2")
-    add("jvmTestImplementation", "org.robolectric:robolectric:${libs.versions.robolectric.get()}")
-    add("jvmTestImplementation", "io.github.takahirom.roborazzi:roborazzi:${libs.versions.roborazzi.get()}")
-    add("jvmTestImplementation", "io.github.takahirom.roborazzi:roborazzi-compose:${libs.versions.roborazzi.get()}")
+    add("jvmTestImplementation", "app.cash.paparazzi:paparazzi:${libs.versions.paparazzi.get()}")
     add("jvmTestImplementation", compose.desktop.currentOs)
-}
-
-// Roborazzi needs to know it should write images rather than only compare them, and the
-// plugin's output path is fixed so the ui-port diff can find it without configuration.
-tasks.withType<Test>().configureEach {
-    systemProperty("roborazzi.test.record", "true")
-    systemProperty("robolectric.graphicsMode", "NATIVE")
-    systemProperty("robolectric.pixelCopyRenderMode", "hardware")
 }
