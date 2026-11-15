@@ -110,11 +110,14 @@ jobs:
       - name: List test configurations and screenshot tasks
         working-directory: testbed/SimpMusic
         run: |
-          ./gradlew :composeApp:dependencies --configuration androidUnitTestCompileClasspath -q 2>&1 | head -3 || true
-          echo "--- configurations matching test ---"
-          ./gradlew :composeApp:properties -q 2>/dev/null | head -5 || true
-          ./gradlew :composeApp:tasks --all 2>/dev/null | grep -iE "paparazzi|UnitTest|record" | head -20 || true
-          node -e "console.log('::notice title=gradle tasks::see the step output')" || true
+          set +e
+          ./gradlew :composeApp:tasks --all > /tmp/tasks.txt 2>&1
+          grep -iE "paparazzi|unittest|androidtest|testDebug" /tmp/tasks.txt | head -25 | while IFS= read -r l; do echo "::notice title=gradle task::${l}"; done
+          ./gradlew :composeApp:resolvableConfigurations > /tmp/configs.txt 2>&1
+          grep -iE "unitTest|androidTest|TestImplementation|TestRuntime" /tmp/configs.txt | head -25 | while IFS= read -r l; do echo "::notice title=gradle config::${l}"; done
+          echo "--- tasks ---"; head -40 /tmp/tasks.txt
+          echo "--- configs ---"; head -40 /tmp/configs.txt
+          set -e
 
       - name: Render the ported screens (Paparazzi, desktop JVM)
         working-directory: testbed/SimpMusic
