@@ -369,6 +369,9 @@ export function scanPrototype(root, { maxFiles = 4000 } = {}) {
 
   return {
     root: path.resolve(root),
+    // Source text per relative path. Downstream steps (fixture resolution, token
+    // extraction) reuse this instead of walking the tree a second time.
+    sources,
     generatedAt: new Date().toISOString(),
     stack: {
       name: pkg.name ?? null,

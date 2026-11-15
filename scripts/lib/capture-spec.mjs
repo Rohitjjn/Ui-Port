@@ -101,3 +101,66 @@ export function validateSpec(spec) {
 export function capturePath(uiportRoot, device, screenId, state) {
   return `${uiportRoot}/reference/${device}/${screenId}/${state}.png`;
 }
+
+/**
+ * Fixture ids the prototype itself ships, read from its mock-data file.
+ *
+ * A route like `playlist/:id` is not capturable as written — navigating to it shows the
+ * prototype's own empty state, which is not the screen anyone wants ported. The ids are
+ * already in the prototype's source, so they are read from there instead of being typed
+ * into a spec by hand (which would also make the reference depend on a human's memory).
+ */
+export function extractFixtureIds(mockDataText) {
+  const ids = { playlist: null, album: null, artist: null, track: null, podcast: null, mood: null };
+  const buckets = [
+    ["playlist", /REMOTE_PLAYLISTS[^=]*=\s*\[([\s\S]*?)\n\];/],
+    ["album", /ALBUMS[^=]*=\s*\[([\s\S]*?)\n\];/],
+    ["artist", /ARTISTS[^=]*=\s*\[([\s\S]*?)\n\];/],
+    ["track", /TRACKS[^=]*=\s*\[([\s\S]*?)\n\];/],
+    ["podcast", /PODCASTS[^=]*=\s*\[([\s\S]*?)\n\];/],
+    ["mood", /MOODS[^=]*=\s*\[([\s\S]*?)\n\];/],
+  ];
+  for (const [key, re] of buckets) {
+    const block = mockDataText.match(re)?.[1];
+    if (!block) continue;
+    const first = block.match(/\{\s*id:\s*"([^"]+)"/);
+    if (first) ids[key] = first[1];
+  }
+  return ids;
+}
+
+const PARAM_ALIASES = {
+  id: null, // resolved by the route segment that precedes it
+  playlistId: "playlist",
+  albumId: "album",
+  artistId: "artist",
+  trackId: "track",
+  podcastId: "podcast",
+  moodId: "mood",
+  type: "library",
+};
+
+/**
+ * Fill `:params` with real fixture values.
+ * @returns {{resolved: string|null, unresolved: string[]}}
+ */
+export function resolveRouteParams(route, fixtureIds = {}, overrides = {}) {
+  if (!route || !route.includes(":")) return { resolved: route, unresolved: [] };
+  const segments = route.split("/");
+  const unresolved = [];
+  const resolved = segments.map((seg, i) => {
+    if (!seg.startsWith(":")) return seg;
+    const name = seg.slice(1);
+    if (overrides[name]) return overrides[name];
+    // `playlist/:id` -> the bucket named by the previous segment.
+    const parent = segments[i - 1]?.replace(/s$/, "");
+    const bucket = PARAM_ALIASES[name] ?? (parent && fixtureIds[parent] !== undefined ? parent : null);
+    const value = bucket ? fixtureIds[bucket] : null;
+    if (!value) {
+      unresolved.push(name);
+      return seg;
+    }
+    return value;
+  });
+  return { resolved: unresolved.length ? null : resolved.join("/"), unresolved };
+}
