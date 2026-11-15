@@ -2,6 +2,7 @@ package com.maxrave.simpmusic.uiport.screenshots
 
 import app.cash.paparazzi.DeviceConfig
 import com.android.resources.Density
+import com.android.resources.ScreenRound
 import app.cash.paparazzi.Paparazzi
 import com.maxrave.simpmusic.ui.uiport.UiPortHomeScreen
 import org.junit.Rule
@@ -34,7 +35,7 @@ class UiPortScreenshotTest {
             xdpi = 320,
             ydpi = 320,
             softButtons = false,
-            screenRound = false,
+            screenRound = ScreenRound.NOTROUND,
             statusBarHeight = 0,
         )
 
