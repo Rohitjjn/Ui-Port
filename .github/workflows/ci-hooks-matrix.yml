@@ -3,9 +3,19 @@ name: ci-hooks-matrix
 
 on:
   push:
-    paths: ["hooks/**", "tests/unit/hooks.test.mjs", "scripts/lib/**"]
+    paths:
+      - "hooks/**"
+      - "tests/unit/hooks.test.mjs"
+      - "scripts/lib/**"
+      - "scripts/ci-hook-probe.mjs"
+      - ".github/workflows/ci-hooks-matrix.yml"
   pull_request:
-    paths: ["hooks/**", "tests/unit/hooks.test.mjs", "scripts/lib/**"]
+    paths:
+      - "hooks/**"
+      - "tests/unit/hooks.test.mjs"
+      - "scripts/lib/**"
+      - "scripts/ci-hook-probe.mjs"
+      - ".github/workflows/ci-hooks-matrix.yml"
   workflow_dispatch:
 
 permissions:
@@ -24,9 +34,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
