@@ -55,6 +55,23 @@ jobs:
         with:
           cache-read-only: false
 
+      # Resolve the screenshot-tool version from the repository instead of pinning a guess
+      # in the build file: the version has to exist, and this reports what is actually
+      # published before Gradle is asked to use it.
+      - name: Probe available screenshot-tool versions
+        run: |
+          for coord in io/github/takahirom/roborazzi/roborazzi org/robolectric/robolectric; do
+            url="https://repo1.maven.org/maven2/${coord}/maven-metadata.xml"
+            code=$(curl -sS -o /tmp/meta.xml -w "%{http_code}" "$url" || echo "000")
+            if [ "$code" = "200" ]; then
+              latest=$(grep -o "<latest>[^<]*</latest>" /tmp/meta.xml | sed 's/<[^>]*>//g')
+              recent=$(grep -o "<version>[^<]*</version>" /tmp/meta.xml | sed 's/<[^>]*>//g' | tail -5 | tr '\n' ' ')
+              echo "::notice title=maven ${coord}::latest=${latest} recent: ${recent}"
+            else
+              echo "::warning title=maven ${coord}::metadata not reachable (HTTP ${code})"
+            fi
+          done
+
       - name: Install plugin dependencies
         run: |
           npm ci --no-audit --no-fund
