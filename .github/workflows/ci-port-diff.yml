@@ -123,7 +123,7 @@ jobs:
         working-directory: testbed/SimpMusic
         run: |
           set +e
-          ./gradlew :uiPortScreenshots:recordPaparazzi --tests "*UiPortScreenshotTest*" \
+          ./gradlew :uiPortScreenshots:recordPaparazzi \
             --stacktrace 2>&1 | tee /tmp/gradle.log
           code=${PIPESTATUS[0]}
           set -e
