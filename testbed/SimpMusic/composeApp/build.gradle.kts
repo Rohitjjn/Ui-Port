@@ -987,5 +987,3 @@ gradle.projectsEvaluated {
     val names = configurations.names.filter { it.contains("Test", ignoreCase = true) }.sorted()
     logger.lifecycle("[ui-port] test configurations: ${names.joinToString(", ")}")
 }
-")
-}
