@@ -16,6 +16,13 @@ on:
     paths:
       - "testbed/SimpMusic/**"
       - "scripts/**"
+  # Phase work happens on branches; the pull request is what proves the baseline build
+  # before the branch is merged. Removing the testbed removes this trigger with it.
+  pull_request:
+    paths:
+      - "testbed/SimpMusic/**"
+      - "scripts/**"
+      - ".github/workflows/ci-e2e-simpmusic.yml"
 
 permissions:
   contents: read
@@ -32,10 +39,10 @@ jobs:
       run:
         working-directory: testbed/SimpMusic
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
@@ -68,7 +75,7 @@ jobs:
 
       - name: Upload APK
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: simpmusic-debug-apk
           path: testbed/SimpMusic/androidApp/build/outputs/apk/debug/*.apk
@@ -77,7 +84,7 @@ jobs:
 
       - name: Upload build scan / reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: simpmusic-build-reports
           path: testbed/SimpMusic/**/build/reports/**
