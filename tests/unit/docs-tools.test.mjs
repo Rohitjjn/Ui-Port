@@ -146,3 +146,31 @@ test("the CI hook probe passes (same script the matrix workflow runs)", () => {
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.match(r.stdout, /7\/7 hook probes passed/);
 });
+
+test("a CRLF checkout validates exactly like an LF one (Windows autocrlf)", () => {
+  // A Windows user with core.autocrlf=true gets CRLF files. Frontmatter parsing that only
+  // understands "\n---" reports every skill as having no frontmatter, on that OS only.
+  const dir = tmp("crlf");
+  for (const rel of ["skills", "agents", "commands", ".claude-plugin", "config", "hooks", "templates", "scripts"]) {
+    fs.cpSync(path.join(ROOT, rel), path.join(dir, rel), { recursive: true });
+  }
+  for (const rel of ["package.json", "README.md", "CHANGELOG.md", "LICENSE"]) {
+    fs.cpSync(path.join(ROOT, rel), path.join(dir, rel));
+  }
+  const walk = (d) =>
+    fs.readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)],
+    );
+  let converted = 0;
+  for (const f of walk(dir)) {
+    if (!/\.(md|json|mjs|yml|kt)$/.test(f)) continue;
+    const text = fs.readFileSync(f, "utf8").replace(/\r\n/g, "\n");
+    fs.writeFileSync(f, text.replace(/\n/g, "\r\n"));
+    converted++;
+  }
+  assert.ok(converted > 50, "expected to convert the whole plugin");
+  const r = run(path.join(dir, "scripts", "validate-plugin.mjs"), []);
+  assert.equal(r.code, 0, r.err || r.out);
+  assert.match(r.out, /validate-plugin: OK/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});

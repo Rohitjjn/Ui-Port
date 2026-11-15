@@ -23,7 +23,10 @@ const notes = [];
 const fail = (msg) => problems.push(msg);
 
 function parseFrontmatter(file) {
-  const text = readText(file, "");
+  // Normalise line endings first. A Windows checkout with core.autocrlf=true delivers
+  // CRLF, which makes indexOf("\n---") miss the closing fence entirely and reports every
+  // skill as having no frontmatter — a false alarm on a whole OS, not a syntax error.
+  const text = readText(file, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   if (!text.startsWith("---")) return { ok: false, error: "file does not start with ---", data: null, body: text };
   const end = text.indexOf("\n---", 3);
   if (end === -1) return { ok: false, error: "frontmatter is not closed", data: null, body: text };
