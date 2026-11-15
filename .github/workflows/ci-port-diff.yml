@@ -99,7 +99,7 @@ jobs:
           if [ "$code" != "0" ]; then
             # Publish the compiler/test errors as annotations: the log blob is not readable
             # from every environment, annotations are.
-            grep -nE "^e: |error:|FAILED|Caused by|Unresolved reference|What went wrong" /tmp/gradle.log | head -25 | while IFS= read -r line; do
+            grep -nE "^e: |error:|FAILED|Caused by|Unresolved reference|What went wrong|Could not (find|resolve)|required by|> Could" /tmp/gradle.log | head -30 | while IFS= read -r line; do
               echo "::error title=gradle::${line}"
             done
             exit "$code"
