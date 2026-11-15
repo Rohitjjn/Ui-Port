@@ -116,7 +116,12 @@ jobs:
           if [ "$code" != "0" ]; then
             # Publish the compiler/test errors as annotations: the log blob is not readable
             # from every environment, annotations are.
-            grep -nE "^e: |error:|FAILED|Caused by|Unresolved reference|What went wrong|Could not (find|resolve)|required by|> Could" /tmp/gradle.log | head -30 | while IFS= read -r line; do
+            # Print the "What went wrong" block verbatim: Gradle's own summary is the most
+            # useful text, and it does not match the error-shaped patterns above.
+            sed -n '/\* What went wrong/,/^\* Try:/p' /tmp/gradle.log | head -30 | while IFS= read -r line; do
+              echo "::error title=gradle::${line}"
+            done
+            grep -nE "^e: |error:|Caused by:|Unresolved reference|Could not (find|resolve)|> Could|^Execution failed" /tmp/gradle.log | head -30 | while IFS= read -r line; do
               echo "::error title=gradle::${line}"
             done
             exit "$code"
