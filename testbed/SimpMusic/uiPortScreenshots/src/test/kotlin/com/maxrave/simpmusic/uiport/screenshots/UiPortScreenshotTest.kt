@@ -36,7 +36,6 @@ class UiPortScreenshotTest {
             ydpi = 320,
             softButtons = false,
             screenRound = ScreenRound.NOTROUND,
-            statusBarHeight = 0,
         )
 
     @get:Rule
