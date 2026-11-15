@@ -38,16 +38,18 @@ export function compareGeometry(refNodes = [], candNodes = [], opts = {}) {
   const matched = [];
   const mismatched = [];
   const missing = [];
+  // Track used candidates by identity, not by text: a screen has many nodes called
+  // "Play"/"More", and keying on text marks all but the first as already consumed, which
+  // makes two identical dumps report phantom mismatches and a false coverage failure.
   const usedCand = new Set();
   for (const ref of refNodes) {
-    const candidates = candNodes.filter((c) => !usedCand.has(c.id ?? c.name ?? c.text));
+    const candidates = candNodes.filter((c) => !usedCand.has(c));
     const best = pickBestMatch(ref, candidates);
     if (!best) {
       missing.push({ node: ref, reason: "no candidate node with the same text/role" });
       continue;
     }
-    const key = best.id ?? best.name ?? best.text;
-    usedCand.add(key);
+    usedCand.add(best);
     const dx = Math.abs((ref.x ?? 0) - (best.x ?? 0));
     const dy = Math.abs((ref.y ?? 0) - (best.y ?? 0));
     const dw = Math.abs((ref.w ?? 0) - (best.w ?? 0));
@@ -84,7 +86,28 @@ function pickBestMatch(ref, candidates) {
       best = c;
     }
   }
-  return bestScore > 0 ? best : null;
+  if (bestScore <= 0) return null;
+  // Several elements can carry the same text ("Play" appears many times on one screen).
+  // Among equally good candidates prefer the nearest box: otherwise the first "Play" in
+  // the candidate list is paired with every "Play" in the reference, and two *identical*
+  // dumps report dozens of phantom mismatches.
+  if (bestScore >= 3) {
+    const sameText = candidates.filter((c) => {
+      let score = 0;
+      if (refText && norm(c.text) === refText) score += 3;
+      if (refRole && norm(c.role) === refRole) score += 1;
+      if (ref.testId && c.testId && ref.testId === c.testId) score += 5;
+      return score === bestScore;
+    });
+    if (sameText.length > 1) {
+      const dist = (c) =>
+        Math.abs((c.x ?? 0) - (ref.x ?? 0)) + Math.abs((c.y ?? 0) - (ref.y ?? 0)) +
+        Math.abs((c.w ?? 0) - (ref.w ?? 0)) + Math.abs((c.h ?? 0) - (ref.h ?? 0));
+      sameText.sort((a, b) => dist(a) - dist(b));
+      best = sameText[0];
+    }
+  }
+  return best;
 }
 
 function describe(n) {

@@ -98,3 +98,32 @@ test("geometry comparison needs no image libraries (runs on a bare Node install)
   assert.match(out, /3 matched/);
   fs.rmSync(f.dir, { recursive: true, force: true });
 });
+
+test("two identical dumps with duplicate texts match perfectly (no phantom mismatches)", () => {
+  // A real screen has ten nodes called "Play". Matching them to each other must pair
+  // nearest-to-nearest; pairing by text alone reported dozens of false mismatches on
+  // two captures of the same page, which would have poisoned the noise-floor measurement.
+  const nodes = [];
+  for (let i = 0; i < 10; i++) nodes.push({ text: "Play", role: "button", x: 10 + i * 30, y: 100, w: 24, h: 24 });
+  nodes.push({ text: "Home", role: "heading", x: 16, y: 24, w: 120, h: 32 });
+  for (let i = 0; i < 40; i++) nodes.push({ text: `Track ${i}`, role: "node", x: 16, y: 200 + i * 20, w: 200, h: 18 });
+  const f = files(nodes, JSON.parse(JSON.stringify(nodes)));
+  const r = spawnSync(process.execPath, [SCRIPT, "--ref", f.ref, "--cand", f.cand], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /51 matched, 0 mismatched, 0 missing/);
+  assert.match(r.stdout, /coverage 100%/);
+  fs.rmSync(f.dir, { recursive: true, force: true });
+});
+
+test("a real move is still caught among duplicate texts", () => {
+  const nodes = [];
+  for (let i = 0; i < 6; i++) nodes.push({ text: "Play", role: "button", x: 10 + i * 30, y: 100, w: 24, h: 24 });
+  const moved = JSON.parse(JSON.stringify(nodes));
+  moved[3].y += 8;
+  const f = files(nodes, moved);
+  const r = spawnSync(process.execPath, [SCRIPT, "--ref", f.ref, "--cand", f.cand], { encoding: "utf8" });
+  assert.equal(r.status, 3);
+  assert.match(r.stdout, /1 mismatched/);
+  assert.match(r.stdout, /dy=\s*8/);
+  fs.rmSync(f.dir, { recursive: true, force: true });
+});
