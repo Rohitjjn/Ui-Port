@@ -9,7 +9,9 @@
  */
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
+    // No kotlin-android alias here: the root project already puts the Kotlin plugin on the
+    // build classpath (through the KMP modules), and re-requesting it with a version is
+    // rejected. The Android plugin compiles Kotlin sources in this module.
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.paparazzi)
 }
