@@ -154,9 +154,11 @@ jobs:
           if [ -d testbed/SimpMusic/uiPortScreenshots/build/ui-port-output ]; then
             cp -r testbed/SimpMusic/uiPortScreenshots/build/ui-port-output/* .uiport/output/
           fi
-          find .uiport/output -type f | sort
+          find .uiport/output -type f | sort | while IFS= read -r f; do echo "::notice title=rendered::${f}"; done
           echo "--- reference ---"
-          find .uiport/reference -type f | sort
+          find .uiport/reference -type f | sort | while IFS= read -r f; do echo "::notice title=reference::${f}"; done
+          echo "--- whatever paparazzi wrote ---"
+          find testbed/SimpMusic/uiPortScreenshots -name "*.png" | head -20 | while IFS= read -r f; do echo "::notice title=paparazzi output::${f}"; done
 
       - name: Diff every rendered screen
         run: |
