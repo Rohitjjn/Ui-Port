@@ -27,6 +27,8 @@ plugins {
     alias(libs.plugins.build.config)
     alias(libs.plugins.osdetector)
     alias(libs.plugins.packagedeps)
+    // ui-port: renders the ported screens on the desktop JVM (test source set only).
+    alias(libs.plugins.paparazzi)
 }
 
 // composeApp uses the `android.kotlin.multiplatform.library` plugin, so with the
@@ -979,8 +981,6 @@ afterEvaluate {
 // artifacts publish no JVM variant, so they cannot be consumed by a non-Android target
 // (see docs/PHASE-8-REPORT.md). Confined to the test source set; nothing ships.
 // ---------------------------------------------------------------------------
-apply(plugin = "app.cash.paparazzi")
-
 dependencies {
     add("jvmTestImplementation", "junit:junit:4.13.2")
     add("jvmTestImplementation", "app.cash.paparazzi:paparazzi:${libs.versions.paparazzi.get()}")
