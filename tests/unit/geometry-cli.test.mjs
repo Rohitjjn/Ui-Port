@@ -73,3 +73,28 @@ test("geometry-compare fails on unreadable input instead of reporting a pass", (
   assert.equal(usage.status, 2);
   fs.rmSync(f.dir, { recursive: true, force: true });
 });
+
+test("geometry comparison needs no image libraries (runs on a bare Node install)", () => {
+  // The web geometry dump and the Compose semantics dump are JSON. Requiring pngjs or
+  // pixelmatch here would break the one check that can run in a hook or on a machine
+  // without the image stack, so the module boundary is asserted, not assumed.
+  const geometry = fs.readFileSync(path.join(ROOT, "scripts", "lib", "geometry.mjs"), "utf8");
+  const cli = fs.readFileSync(SCRIPT, "utf8");
+  // Check import statements, not mentions: the threshold config legitimately has keys
+  // named after the libraries it configures.
+  const imports = (text) => [...text.matchAll(/^import .*?from\s+"([^"]+)"/gm)].map((m) => m[1]);
+  for (const banned of ["pngjs", "pixelmatch", "ssim.js"]) {
+    assert.ok(
+      !imports(geometry).some((m) => m === banned || m.startsWith(`${banned}/`)),
+      `geometry.mjs must not import ${banned}`,
+    );
+  }
+  assert.ok(
+    !imports(cli).some((m) => m.endsWith("/lib/diff.mjs")),
+    "the CLI must not import the image diff module",
+  );
+  const f = files(REF, REF);
+  const out = execFileSync(process.execPath, [SCRIPT, "--ref", f.ref, "--cand", f.cand], { encoding: "utf8" });
+  assert.match(out, /3 matched/);
+  fs.rmSync(f.dir, { recursive: true, force: true });
+});

@@ -17,7 +17,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { compareGeometry, loadThresholds, round } from "./lib/diff.mjs";
+// Imported from the dependency-free module on purpose: this CLI must work on a bare
+// Node install, without pngjs/pixelmatch/ssim, because it decodes no images.
+import { compareGeometry, loadThresholds, round } from "./lib/geometry.mjs";
 import { readJsonSafe, writeJsonAtomic } from "./lib/fs-utils.mjs";
 
 const args = process.argv.slice(2);

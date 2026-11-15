@@ -15,31 +15,13 @@ import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 import { ssim } from "ssim.js";
 import { readJson, readJsonSafe, writeJsonAtomic } from "./fs-utils.mjs";
+import { compareGeometry, DEFAULT_THRESHOLDS, round } from "./geometry.mjs";
+
+// Re-exported so `import { compareGeometry, round } from lib/diff.mjs` keeps working:
+// the geometry maths is dependency-free and lives in its own module.
+export { compareGeometry, round, DEFAULT_THRESHOLDS, loadThresholds } from "./geometry.mjs";
 import fs from "node:fs";
 import path from "node:path";
-
-export const DEFAULT_THRESHOLDS = {
-  pixelmatch: { threshold: 0.1, includeAA: false, alpha: 0.35, diffColor: [255, 0, 90] },
-  ssim: { windowSize: 11, k1: 0.01, k2: 0.03 },
-  geometry: { toleranceDp: 1.0, tolerancePct: 1.0, minNodeCoveragePct: 90.0 },
-  acceptanceFloorPct: 98.5,
-  goalPixelMatchPct: 99.9,
-  maxIterationsPerScreenPerDevice: 5,
-};
-
-export function loadThresholds(file) {
-  const res = readJsonSafe(file);
-  if (!res.ok) return DEFAULT_THRESHOLDS;
-  const v = res.value?.visual ?? res.value ?? {};
-  return {
-    pixelmatch: { ...DEFAULT_THRESHOLDS.pixelmatch, ...(v.pixelmatch ?? {}) },
-    ssim: { ...DEFAULT_THRESHOLDS.ssim, ...(v.ssim ?? {}) },
-    geometry: { ...DEFAULT_THRESHOLDS.geometry, ...(v.geometry ?? {}) },
-    acceptanceFloorPct: v.acceptanceFloorPct ?? DEFAULT_THRESHOLDS.acceptanceFloorPct,
-    goalPixelMatchPct: v.goalPixelMatchPct ?? DEFAULT_THRESHOLDS.goalPixelMatchPct,
-    maxIterationsPerScreenPerDevice: v.maxIterationsPerScreenPerDevice ?? DEFAULT_THRESHOLDS.maxIterationsPerScreenPerDevice,
-  };
-}
 
 export function decodePng(buffer) {
   return PNG.sync.read(buffer);
@@ -125,73 +107,6 @@ export function ssimScore(refPng, candPng, opts = {}) {
 }
 
 /** Bounding boxes: web geometry dump vs Compose semantics dump. */
-export function compareGeometry(refNodes = [], candNodes = [], opts = {}) {
-  const tolerance = opts.toleranceDp ?? 1.0;
-  const matched = [];
-  const mismatched = [];
-  const missing = [];
-  const usedCand = new Set();
-  for (const ref of refNodes) {
-    const candidates = candNodes.filter((c) => !usedCand.has(c.id ?? c.name ?? c.text));
-    const best = pickBestMatch(ref, candidates);
-    if (!best) {
-      missing.push({ node: ref, reason: "no candidate node with the same text/role" });
-      continue;
-    }
-    const key = best.id ?? best.name ?? best.text;
-    usedCand.add(key);
-    const dx = Math.abs((ref.x ?? 0) - (best.x ?? 0));
-    const dy = Math.abs((ref.y ?? 0) - (best.y ?? 0));
-    const dw = Math.abs((ref.w ?? 0) - (best.w ?? 0));
-    const dh = Math.abs((ref.h ?? 0) - (best.h ?? 0));
-    const entry = { ref: describe(ref), cand: describe(best), dx: round(dx, 2), dy: round(dy, 2), dw: round(dw, 2), dh: round(dh, 2) };
-    if (dx <= tolerance && dy <= tolerance && dw <= tolerance && dh <= tolerance) matched.push(entry);
-    else mismatched.push({ ...entry, tolerance });
-  }
-  const coverage = refNodes.length ? (matched.length / refNodes.length) * 100 : 100;
-  return {
-    matched,
-    mismatched,
-    missing,
-    coveragePct: round(coverage, 2),
-    toleranceDp: tolerance,
-    refCount: refNodes.length,
-    candCount: candNodes.length,
-  };
-}
-
-function pickBestMatch(ref, candidates) {
-  const norm = (s) => String(s ?? "").trim().replace(/\s+/g, " ").toLowerCase();
-  const refText = norm(ref.text);
-  const refRole = norm(ref.role);
-  let best = null;
-  let bestScore = -1;
-  for (const c of candidates) {
-    let score = 0;
-    if (refText && norm(c.text) === refText) score += 3;
-    if (refRole && norm(c.role) === refRole) score += 1;
-    if (ref.testId && c.testId && ref.testId === c.testId) score += 5;
-    if (score > bestScore) {
-      bestScore = score;
-      best = c;
-    }
-  }
-  return bestScore > 0 ? best : null;
-}
-
-function describe(n) {
-  return { text: n.text ?? null, role: n.role ?? null, box: [round(n.x ?? 0, 2), round(n.y ?? 0, 2), round(n.w ?? 0, 2), round(n.h ?? 0, 2)] };
-}
-
-export function round(n, digits = 2) {
-  const f = 10 ** digits;
-  return Math.round(n * f) / f;
-}
-
-/**
- * Decide the outcome of one screen/device comparison.
- * "matched" | "accepted-with-notes" | "blocked"
- */
 export function decideOutcome({ pixelMatchPct, ssimValue, geometry, iterations, thresholds = DEFAULT_THRESHOLDS, residualExplained = false }) {
   const floor = thresholds.acceptanceFloorPct;
   const goal = thresholds.goalPixelMatchPct;

@@ -24,9 +24,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -34,9 +34,13 @@ jobs:
       - name: Install
         run: npm ci --no-audit --no-fund
 
+      # TAP is converted to annotations: a failing test's message then travels through
+      # the API, not only through the runner log blob.
       - name: Unit tests
         shell: bash
-        run: node --test "tests/unit/*.test.mjs"
+        run: |
+          node --test --test-reporter=tap "tests/unit/*.test.mjs" > unit.tap 2>&1 || true
+          node scripts/ci-annotate-tap.mjs unit.tap
 
       - name: Plugin validation
         shell: bash
