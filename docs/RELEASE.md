@@ -41,8 +41,10 @@ gh release upload v0.1.0 dist/ui-port-v0.1.0.zip
 ## Status of the 0.1.0 release
 
 - Release created and public: <https://github.com/Rohitjjn/Ui-Port/releases/tag/v0.1.0>
-- **The ZIP asset upload failed twice** with `Post "https://uploads.github.com/...": EOF`. The
-  release exists without the binary. Uploading is a network operation from the maintainer's side;
-  the command above is the one to retry, or attach the file in the GitHub web UI.
+- **The ZIP asset upload failed twice** with `Post "https://uploads.github.com/...": EOF`. The cause
+  is the build environment's egress allowlist: release *metadata* goes to `api.github.com` (allowed)
+  while release *assets* are uploaded to `uploads.github.com` (not reachable here). Nothing is wrong
+  with the archive — `gh release upload v0.1.0 dist/ui-port-v0.1.0.zip` from a normal machine
+  completes it, or attach the file through the GitHub web UI.
 - CI evidence is still missing (see `docs/PLAN.md` D1), so the release notes describe local gates
   rather than workflow runs. When Actions is enabled, add the run links to the release notes.
