@@ -91,8 +91,19 @@ jobs:
       - name: Render the ported screens (Roborazzi + Robolectric)
         working-directory: testbed/SimpMusic
         run: |
+          set +e
           ./gradlew :composeApp:jvmTest --tests "com.maxrave.simpmusic.ui.uiport.*" \
-            -Proborazzi.test.record=true --stacktrace
+            -Proborazzi.test.record=true --stacktrace 2>&1 | tee /tmp/gradle.log
+          code=${PIPESTATUS[0]}
+          set -e
+          if [ "$code" != "0" ]; then
+            # Publish the compiler/test errors as annotations: the log blob is not readable
+            # from every environment, annotations are.
+            grep -nE "^e: |error:|FAILED|Caused by|Unresolved reference|What went wrong" /tmp/gradle.log | head -25 | while IFS= read -r line; do
+              echo "::error title=gradle::${line}"
+            done
+            exit "$code"
+          fi
           find composeApp/build/ui-port-output -name "*.png" | sort
 
       # Roborazzi writes images offscreen (its own canvas), so the semantics dump is
