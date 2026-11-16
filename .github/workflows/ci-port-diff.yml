@@ -130,7 +130,7 @@ jobs:
               cp "$found" "$dev/nowplaying/default.png"
               geo="${found%.png}.geometry.json"
               if [ -f "$geo" ]; then cp "$geo" "$dev/nowplaying/default.geometry.json"; fi
-              echo "::notice title=nowplaying reference::${dev}nowplaying/default.png (from ${found#"$dev"})"
+              echo "::notice title=nowplaying reference::nowplaying/default.png made from $found"
             else
               echo "::warning title=nowplaying reference::no player-state capture was produced; nowplaying stays unscored"
             fi
