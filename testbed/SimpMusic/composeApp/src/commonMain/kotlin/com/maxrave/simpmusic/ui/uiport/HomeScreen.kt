@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.maxrave.simpmusic.ui.uiport.UiPortLayoutProbe.layoutProbe
 
 /**
  * Home, ported from `testbed/prototype/src/features/home/HomeScreen.tsx`.
@@ -98,6 +99,7 @@ private fun HomeHeader() {
         modifier =
             Modifier
                 .fillMaxWidth()
+                .layoutProbe("header")
                 .padding(top = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top,
@@ -116,6 +118,7 @@ private fun HomeHeader() {
             // The capture shows the greeting wrapping onto two 40px lines inside a 209px
             // column; the port wraps the same way rather than shrinking the type.
             Text(
+                modifier = Modifier.layoutProbe("header.title"),
                 text = "${UiPortFixtures.FROZEN_GREETING}, Guest",
                 color = UiPortTokens.ink,
                 fontSize = UiPortTokens.heroTitle,
@@ -207,6 +210,7 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
                 .clip(RoundedCornerShape(UiPortTokens.radiusXl))
                 .background(UiPortTokens.card)
                 .border(1.dp, UiPortTokens.line, RoundedCornerShape(UiPortTokens.radiusXl))
+                .layoutProbe("card")
                 .padding(20.dp),
     ) {
         Box(
@@ -214,6 +218,7 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
                 Modifier
                     .fillMaxWidth()
                     .height(319.dp)
+                    .layoutProbe("card.cover")
                     .clip(RoundedCornerShape(UiPortTokens.radiusSm))
                     .background(UiPortTokens.ivory)
                     .border(1.dp, UiPortTokens.ink.copy(alpha = 0.1f), RoundedCornerShape(UiPortTokens.radiusSm)),
@@ -231,6 +236,7 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
         )
         Spacer(Modifier.height(8.dp))
         Text(
+            modifier = Modifier.layoutProbe("card.title"),
             text = album.title,
             color = UiPortTokens.ink,
             fontSize = UiPortTokens.featuredTitle,
@@ -246,6 +252,7 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
         )
         Spacer(Modifier.height(16.dp))
         Text(
+            modifier = Modifier.layoutProbe("card.desc"),
             text = album.description,
             color = UiPortTokens.charcoal,
             fontSize = UiPortTokens.body,

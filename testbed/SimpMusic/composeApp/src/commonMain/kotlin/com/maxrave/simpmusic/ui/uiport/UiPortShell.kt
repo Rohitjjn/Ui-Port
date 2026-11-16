@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.maxrave.simpmusic.ui.uiport.UiPortLayoutProbe.layoutProbe
 
 /**
  * The phone app shell, ported from `src/app/AppShell.tsx`.
@@ -76,7 +77,8 @@ fun UiPortBottomNav(
                 Modifier
                     .fillMaxWidth()
                     .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 8.dp)
+                    .layoutProbe("nav.row"),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -123,6 +125,7 @@ fun UiPortLoginBanner(modifier: Modifier = Modifier) {
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(UiPortTokens.radiusSm))
                 .background(UiPortTokens.ivory)
+                .layoutProbe("banner")
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,

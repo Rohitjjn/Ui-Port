@@ -5,6 +5,7 @@ import com.android.resources.Density
 import com.android.resources.ScreenRound
 import app.cash.paparazzi.Paparazzi
 import com.maxrave.simpmusic.ui.uiport.UiPortHomeScreen
+import com.maxrave.simpmusic.ui.uiport.UiPortLayoutProbe
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
@@ -52,6 +53,7 @@ class UiPortScreenshotTest {
         dir.mkdirs()
         // Paparazzi writes into its own snapshot folder; the file is copied to the path the
         // ui-port diff consumes so no manual step sits between render and measurement.
+        UiPortLayoutProbe.reset()
         paparazzi.snapshot(name = screen) { content() }
         // Paparazzi names the file after the test class, the test method and the snapshot
         // name: ..._UiPortScreenshotTest_home_home.png. Search rather than hard-code that
@@ -67,6 +69,9 @@ class UiPortScreenshotTest {
         val size =
             javax.imageio.ImageIO.read(File(dir, "default.png"))?.let { "${it.width}x${it.height}" } ?: "unknown"
         println("[ui-port] rendered $screen at $size (expected 393x852)")
+        // The reference side already records exact boxes; printing the candidate's own
+        // boxes is what turns "the card looks high" into "the card is 39px high".
+        UiPortLayoutProbe.dump().forEach { println("[ui-port] box $screen $it") }
     }
 
     @Test
