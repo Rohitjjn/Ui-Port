@@ -187,6 +187,7 @@ jobs:
           echo "--- reference ---"
           find .uiport/reference -type f | sort | while IFS= read -r f; do echo "::notice title=reference::${f}"; done
           echo "--- whatever paparazzi wrote ---"
+          grep -h "\[ui-port\] rendered" /tmp/gradle.log | while IFS= read -r line; do echo "::notice title=render size::${line}"; done
           find testbed/SimpMusic/uiPortScreenshots -name "*.png" | head -20 | while IFS= read -r f; do echo "::notice title=paparazzi output::${f}"; done
 
       - name: Diff every rendered screen
