@@ -26,20 +26,17 @@ class UiPortScreenshotTest {
     // xxhdpi (2.75) would produce a different image for the same layout and every diff
     // would measure the density difference instead of the port.
     // No status bar or system UI: the web reference has no platform chrome.
-    // Paparazzi 2.x takes com.android.resources.Density, an enum, not the 1.x float.
+    // The reference for this workflow is captured at DPR 1 (Paparazzi clamps a snapshot
+    // to 1000 px on its long edge, so it cannot produce a 2x 786x1704 image at all).
+    // xdpi/ydpi = 160 with density MEDIUM means 1 px per dp, so the rendered PNG has the
+    // same 393 x 852 extent as the reference and the two are directly comparable.
     private val phone =
         DeviceConfig(
-            // Pixel size, and density MEDIUM (1.0) so the layout is also 393 x 852 dp.
-            //
-            // Measured behaviour of Paparazzi 2.0.0-alpha05.1, not a preference: it clamps
-            // a snapshot to 1000 px on the long edge, so a 786 x 1704 (2x) render comes out
-            // 461 x 1000 and cannot be compared with a 2x web reference. The comparison is
-            // therefore made at 1x on both sides, with DPR 1 in the capture spec for this
-            // workflow: same viewport, same density, which is what makes the pixels
-            // comparable. The desktop/tablet targets keep their own reference DPR.
             screenWidth = 393,
             screenHeight = 852,
-            density = Density.MEDIUM, // 1.0
+            density = Density.MEDIUM,
+            xdpi = 160,
+            ydpi = 160,
             softButtons = false,
             screenRound = ScreenRound.NOTROUND,
         )
@@ -65,6 +62,11 @@ class UiPortScreenshotTest {
                 .firstOrNull { it.name.contains("UiPortScreenshotTest_$screen") }
         check(produced != null) { "paparazzi produced no image for screen \"$screen\"; looked under src/test/snapshots and build/reports/paparazzi" }
         produced.copyTo(File(dir, "default.png"), overwrite = true)
+        // Publish the achieved size: a size mismatch is the most common reason two images
+        // cannot be compared, and it should be visible without opening the artifact.
+        val size =
+            javax.imageio.ImageIO.read(File(dir, "default.png"))?.let { "${it.width}x${it.height}" } ?: "unknown"
+        println("[ui-port] rendered $screen at $size (expected 393x852)")
     }
 
     @Test

@@ -49,24 +49,31 @@ import androidx.compose.ui.unit.sp
 fun UiPortHomeScreen(
     shelves: List<UiPortFixtures.Shelf> = UiPortFixtures.homeShelves,
     featured: UiPortFixtures.Album = UiPortFixtures.featuredAlbum,
+    signedIn: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .background(UiPortTokens.paper)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = UiPortTokens.pagePadding),
-    ) {
-        HomeHeader()
+    UiPortPhoneScaffold(activeRoute = "/") {
+        Column(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = UiPortTokens.pagePadding),
+        ) {
+            HomeHeader()
 
-        Spacer(Modifier.height(24.dp))
-        FeaturedHero(featured)
+            if (!signedIn) {
+                Spacer(Modifier.height(24.dp))
+                UiPortLoginBanner()
+            }
 
-        shelves.forEach { shelf ->
-            Spacer(Modifier.height(UiPortTokens.sectionGap))
-            ShelfSection(shelf)
+            Spacer(Modifier.height(24.dp))
+            FeaturedHero(featured)
+
+            shelves.forEach { shelf ->
+                Spacer(Modifier.height(UiPortTokens.sectionGap))
+                ShelfSection(shelf)
+            }
         }
     }
 }
