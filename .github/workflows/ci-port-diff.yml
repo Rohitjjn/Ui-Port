@@ -188,8 +188,19 @@ jobs:
           find .uiport/reference -type f | sort | while IFS= read -r f; do echo "::notice title=reference::${f}"; done
           echo "--- whatever paparazzi wrote ---"
           grep -h "\[ui-port\] rendered" /tmp/gradle.log | while IFS= read -r line; do echo "::notice title=render size::${line}"; done
-          # The candidate's own layout boxes, next to the reference's, so a shift is named.
-          grep -h "\[ui-port\] box" /tmp/gradle.log | sed 's/^\[ui-port\] box //' | awk '{a[$1]=a[$1]" | "$0} END {for (k in a) print "::notice title=candidate boxes " k "::" substr(a[k],4)}' || true
+          # The candidate's own layout boxes next to the reference's, so a shift is named.
+          for f in .uiport/output/*/*/layout.txt; do
+            [ -e "$f" ] || continue
+            node -e "
+              const fs = require('fs');
+              const p = process.argv[1];
+              const lines = fs.readFileSync(p, 'utf8').trim().split('\n').filter(Boolean);
+              const screen = p.split('/').slice(-2)[0];
+              for (let i = 0; i < lines.length; i += 8) {
+                console.log('::notice title=candidate box ' + screen + ' ' + (i / 8 + 1) + '::' + lines.slice(i, i + 8).join(' | '));
+              }
+            " "$f" || true
+          done
           find testbed/SimpMusic/uiPortScreenshots -name "*.png" | head -20 | while IFS= read -r f; do echo "::notice title=paparazzi output::${f}"; done
 
       - name: Diff every rendered screen

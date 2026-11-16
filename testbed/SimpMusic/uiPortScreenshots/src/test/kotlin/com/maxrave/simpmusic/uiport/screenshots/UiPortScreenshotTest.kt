@@ -71,6 +71,9 @@ class UiPortScreenshotTest {
         println("[ui-port] rendered $screen at $size (expected 393x852)")
         // The reference side already records exact boxes; printing the candidate's own
         // boxes is what turns "the card looks high" into "the card is 39px high".
+        // Written to a file as well as printed: Gradle swallows a test's stdout unless
+        // testLogging is raised for every task, and a file travels with the artifact.
+        File(dir, "layout.txt").writeText(UiPortLayoutProbe.dump().joinToString("\n", postfix = "\n"))
         UiPortLayoutProbe.dump().forEach { println("[ui-port] box $screen $it") }
     }
 
