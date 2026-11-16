@@ -28,6 +28,26 @@ Two facts the harness established and that the port depends on:
 - `capture-reference.mjs` takes DPR from `--viewports`, not from the capture spec, so the
   same 1x file has to be passed to both `plan-capture.mjs` and `capture-reference.mjs`.
 
+## Iterations — `library`, phone, 393x852
+
+First pair scored 85.157% (`home` was already at 94.96% by then). The corrections below all
+came from the reference digest, whose numbers are quoted in the commit messages.
+
+| # | Change | Pixel match | Run |
+| --- | --- | --- | --- |
+| 1 | First pair: header, chips, tile grid, three carousels | 85.1572% | 43805387223 |
+| 2 | `space-y-8` instead of the home rhythm, one-line 40px title, 36px chips, paper shadow on the tiles | 85.7393% | 43805902225 |
+| 3 | Carousels bleed edge-to-edge (`-mx-4` + `px-4`), `space-y-10` between collections | 86.4814% | 43807081816 |
+| 4 | Tile padding 13 (border-box), probes on every tile row | 86.9157% | 43809265671 |
+
+Where it now matches the capture exactly: the title's box (one 40px line at y=36), the chip row
+at y=108 with 36px chips on an 8px gutter, the first `.paper` tile at y=176 measuring 175x70 with
+its 44px icon plate, and the second column at x=203.
+
+Where it does not: the tile grid is 68px tall per row where the capture has 70, the carousel
+cards' shadow and the artwork's vector shapes differ, and the reference's 122-node layout has
+entries the port draws as one node.
+
 ## Iterations — `home`, phone, 393x852
 
 Each row is one CI run. `Δ` is against the previous row. "geometry" is `-` because the
@@ -83,6 +103,16 @@ reports its successes is not measured, it is advertised.
 - `geometry` coverage is still not measured: the reference writes `default.geometry.json`,
   the Compose side has no `default.semantics.json` yet, so the diff reports `-`. The
   candidate boxes published as annotations are the interim substitute.
+
+## Now playing
+
+The ported overlay renders and reports its own boxes (`header` 361x52 at y=0, `art` 361x361 at
+y=60, `title` 183x30 at y=445, `play` 72x72 at y=564). It is **not scored**: the reference is
+captured by clicking the mini player on the home route, which queues that shelf's first track,
+while the fixture renders `t1`. Diffing those two would measure different content, so the screen
+is reported as unscored until both sides carry the same track. The capture side is ready — the
+`player` state exists in `scripts/lib/browser-inject.mjs` and the reference is relabelled from
+`home/player.png` to `nowplaying/default.png` with a CI notice.
 
 ## Open items, in the order they should be done
 

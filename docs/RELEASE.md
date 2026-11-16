@@ -7,7 +7,7 @@ How `v0.1.0` was produced, and how to repeat it. Every step is a command, not a 
 Run from the repository root. All three must pass before a tag exists:
 
 ```
-npm test                        # 176 tests: unit + integration (164 run, 12 skip
+npm ci && npm test              # 185 tests: unit + integration (164 run, 12 skip
                                 # when testbed/ is absent — both are a pass)
 node scripts/validate-plugin.mjs # manifest, skills, agents, commands, hooks, config, scripts
 node scripts/lint-markdown.mjs   # every markdown file
@@ -47,5 +47,9 @@ gh release upload v0.1.0 dist/ui-port-v0.1.0.zip
   while release *assets* are uploaded to `uploads.github.com` (not reachable here). Nothing is wrong
   with the archive — `gh release upload v0.1.0 dist/ui-port-v0.1.0.zip` from a normal machine
   completes it, or attach the file through the GitHub web UI.
-- CI evidence is still missing (see `docs/PLAN.md` D1), so the release notes describe local gates
-  rather than workflow runs. When Actions is enabled, add the run links to the release notes.
+- **CI evidence now exists** (2026-11-15): `ci-static` [43809265679], `ci-unit` [43809265653] and
+  `ci-hooks-matrix` [43809265785] are green, and `ci-port-diff` [43809265671] runs the real
+  Playwright capture, the Paparazzi render and the pixel/SSIM diff on every push.
+- The fidelity scores in the release notes must be the ones in `docs/FINAL-REPORT.md` §2 — all
+  three ported phone screens are still below the project's 98.5% floor and are reported as
+  `building`. Nothing may be described as a completed port until a run crosses the floor.
