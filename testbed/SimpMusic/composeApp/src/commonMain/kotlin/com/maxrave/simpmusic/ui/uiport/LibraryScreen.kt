@@ -234,7 +234,11 @@ private fun TileGrid(tiles: List<UiPortFixtures.LibraryTile>) {
                                 .background(UiPortTokens.card)
                                 .border(1.dp, UiPortTokens.line, RoundedCornerShape(UiPortTokens.radiusSm))
                                 .layoutProbe("tile")
-                                .padding(12.dp),
+                                // 1px border + 12px padding on each side: the capture
+                                // measures the tile at 175x70, and the border is part of
+                                // that box on the web (border-box), so the padding that
+                                // reproduces it is 13, not 12.
+                                .padding(13.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {

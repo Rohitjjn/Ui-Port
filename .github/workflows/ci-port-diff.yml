@@ -127,10 +127,20 @@ jobs:
               echo "::warning title=nowplaying reference::the player overlay was not reachable; nowplaying will report missing-candidate"
             fi
           done
+          # A GitHub annotation keeps only its first line, so multi-line JSON has to be
+          # flattened or the reader sees a single "{" and nothing else.
           node -e "
             const fs = require('fs');
             const p = '.uiport/reference/capture-report.json';
-            if (fs.existsSync(p)) console.log('::notice title=capture report::' + fs.readFileSync(p, 'utf8').slice(0, 400));
+            if (!fs.existsSync(p)) { console.log('::error title=capture report::missing'); process.exit(0); }
+            const report = JSON.parse(fs.readFileSync(p, 'utf8'));
+            const list = Array.isArray(report) ? report : (report.results || report.captures || []);
+            for (const r of list) {
+              const line = (r.screen || r.id) + '/' + (r.state || 'default') + ' -> ' + (r.status || 'unknown');
+              if (r.status === 'captured') console.log('::notice title=capture ' + (r.screen || r.id) + '::' + line + ' nodes=' + (r.nodeCount ?? '?'));
+              else console.log('::warning title=capture failed::' + line + ' ' + JSON.stringify(r).slice(0, 200));
+            }
+            console.log('::notice title=capture total::' + list.length + ' capture(s)');
           "
 
       - name: Accept Android SDK licences and write local.properties
@@ -244,10 +254,16 @@ jobs:
             head -c 1200 "$f"
             echo
           done
-          echo "--- textual diff map (phone/home) ---"
-          node scripts/diff-map.mjs \
-            --reference .uiport/reference/"$UIPORT_DEVICE"/home/default.png \
-            --candidate .uiport/output/"$UIPORT_DEVICE"/home/default.png > /tmp/diffmap.txt || true
+          echo "--- textual diff map (every screen) ---"
+          : > /tmp/diffmap.txt
+          for refpng in .uiport/reference/"$UIPORT_DEVICE"/*/default.png; do
+            [ -e "$refpng" ] || continue
+            screen=$(basename "$(dirname "$refpng")")
+            candpng=.uiport/output/"$UIPORT_DEVICE"/"$screen"/default.png
+            [ -e "$candpng" ] || continue
+            echo "=== $screen ===" >> /tmp/diffmap.txt
+            node scripts/diff-map.mjs --reference "$refpng" --candidate "$candpng" --rows 48 --cols 40 >> /tmp/diffmap.txt 2>&1 || true
+          done
           cat /tmp/diffmap.txt || true
           # The log is not readable from every environment; annotations are. Emit the map
           # in chunks so a reviewer sees where the layout diverges without downloading PNGs.
