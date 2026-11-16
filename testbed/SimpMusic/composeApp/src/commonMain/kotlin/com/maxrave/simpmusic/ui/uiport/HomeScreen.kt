@@ -102,7 +102,7 @@ private fun HomeHeader() {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.width(UiPortTokens.headerColumnWidth)) {
             Text(
                 text = UiPortFixtures.FROZEN_DATE_LABEL.uppercase(),
                 color = UiPortTokens.mute,

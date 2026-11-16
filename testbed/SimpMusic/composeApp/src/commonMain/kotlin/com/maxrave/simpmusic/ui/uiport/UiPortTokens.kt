@@ -53,15 +53,25 @@ object UiPortTokens {
     val sectionGap = 40.dp
 
     /**
-     * Page padding on a compact (phone) viewport.
+     * Page padding on a compact (phone) viewport: the shell's `px-4`.
      *
-     * The web main is `px-4` (16px) but every home section is `-mx-4`, so the sections
-     * themselves bleed to the full width and start at x=0. The boxes the capture measured
-     * (header at x=16, cover at x=37, nav pill at x=38) are the *inner* content: 12px of
-     * section inset plus the card's 1px border and 20px padding gives 33 from a 12px page
-     * inset, which is the 37 the reference reported once the 4px section margin is added.
+     * The capture corroborates it three ways: the header starts at x=16, the hero cover
+     * starts at 16 + 20 (card padding) + 1 (hairline) = 37, and the header row closes
+     * exactly: 209 (title column) + 12 (gap-3) + 140 (two 44px icon buttons, a 40px
+     * avatar and their gaps) = 361 = 393 - 2x16.
      */
-    val pagePadding = 12.dp
+    val pagePadding = 16.dp
+
+    /**
+     * Width of the header's title column.
+     *
+     * The web header is a flex row whose left column is not `flex-1`, so it shrinks to its
+     * widest child: the 14px subtitle, whose max-content width is 209px. That is what
+     * makes the 32px greeting wrap onto two 40px lines in the reference, and it is the
+     * reason the card below starts at y=322 instead of y=282. Compose measures text
+     * children with the full incoming width, so the column is stated explicitly.
+     */
+    val headerColumnWidth = 209.dp
 
     /** The shell's `main` gets `pt-2`, which is where the first capture box (y=16) comes from. */
     val mainPadding = 8.dp
