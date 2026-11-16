@@ -262,6 +262,21 @@ jobs:
             head -c 1200 "$f"
             echo
           done
+          # Publish the numbers as annotations: artifacts and logs are blob-hosted and not
+          # readable from every environment.
+          node -e "
+            const fs = require('fs');
+            if (!fs.existsSync('.uiport/diffs/summary.json')) {
+              console.log('::error title=diff::diff-all produced no summary.json');
+              process.exit(0);
+            }
+            const r = require('./.uiport/diffs/summary.json');
+            for (const s of r.results || []) {
+              console.log(\`::notice title=\${s.screen} (\${r.device})::\${s.status} pixel \${s.pixelMatchPct ?? '-'}% ssim \${s.ssim ?? '-'} geometry \${s.geometryCoveragePct ?? '-'}%\`);
+              if (s.reason) console.log(\`::error title=\${s.screen} reason::\${s.reason}\`);
+            }
+            console.log(\`::notice title=port summary::counts \${JSON.stringify(r.counts)}\`);
+          "
           echo "--- textual diff map (every screen) ---"
           : > /tmp/diffmap.txt
           for refpng in .uiport/reference/"$UIPORT_DEVICE"/*/default.png; do
@@ -302,21 +317,6 @@ jobs:
               chunks.slice(0, 10).forEach((c, i) => console.log('::notice title=reference layout ' + (i + 1) + '::' + c.replace(/%/g, '%25')));
             " || true
           fi
-          # Publish the numbers as annotations: artifacts and logs are blob-hosted and not
-          # readable from every environment.
-          node -e "
-            const fs = require('fs');
-            if (!fs.existsSync('.uiport/diffs/summary.json')) {
-              console.log('::error title=diff::diff-all produced no summary.json');
-              process.exit(0);
-            }
-            const r = require('./.uiport/diffs/summary.json');
-            for (const s of r.results || []) {
-              console.log(\`::notice title=\${s.screen} (\${r.device})::\${s.status} pixel \${s.pixelMatchPct ?? '-'}% ssim \${s.ssim ?? '-'} geometry \${s.geometryCoveragePct ?? '-'}%\`);
-              if (s.reason) console.log(\`::error title=\${s.screen} reason::\${s.reason}\`);
-            }
-            console.log(\`::notice title=port summary::counts \${JSON.stringify(r.counts)}\`);
-          "
           exit $code
 
       - name: Upload renders, diffs and report
