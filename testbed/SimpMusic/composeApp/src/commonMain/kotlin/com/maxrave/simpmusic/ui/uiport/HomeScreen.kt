@@ -133,6 +133,7 @@ private fun HomeHeader() {
                 color = UiPortTokens.mute,
                 fontSize = UiPortTokens.body,
                 lineHeight = 20.sp,
+                fontFamily = UiPortFonts.sans,
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -169,7 +170,7 @@ private fun HeaderIcon(
     Box(
         modifier =
             Modifier
-                .size(44.dp)
+                .size(36.dp)
                 .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
@@ -178,7 +179,7 @@ private fun HeaderIcon(
         Box(
             modifier =
                 Modifier
-                    .size(20.dp)
+                    .size(18.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .background(UiPortTokens.charcoal),
         )
@@ -187,7 +188,7 @@ private fun HeaderIcon(
                 modifier =
                     Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = 10.dp, end = 10.dp)
+                        .padding(top = 6.dp, end = 6.dp)
                         .size(8.dp)
                         .clip(CircleShape)
                         .background(UiPortTokens.rose),
@@ -232,6 +233,7 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
             fontSize = UiPortTokens.kickerSize,
             lineHeight = 16.sp,
             letterSpacing = 1.1.sp,
+            fontFamily = UiPortFonts.sans,
             fontWeight = FontWeight.SemiBold,
         )
         Spacer(Modifier.height(8.dp))
@@ -249,6 +251,7 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
             color = UiPortTokens.charcoal,
             fontSize = 15.sp,
             lineHeight = 22.sp,
+            fontFamily = UiPortFonts.sans,
         )
         Spacer(Modifier.height(16.dp))
         Text(
@@ -257,6 +260,7 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
             color = UiPortTokens.charcoal,
             fontSize = UiPortTokens.body,
             lineHeight = 20.sp,
+            fontFamily = UiPortFonts.sans,
         )
         Spacer(Modifier.height(20.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -287,7 +291,15 @@ private fun UiPortPillButton(
                 .padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = content, fontSize = UiPortTokens.body, fontWeight = FontWeight.Medium, maxLines = 1)
+        Text(
+            label,
+            color = content,
+            fontSize = UiPortTokens.body,
+            lineHeight = 20.sp,
+            fontFamily = UiPortFonts.sans,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+        )
     }
 }
 
@@ -314,6 +326,7 @@ private fun ShelfSection(shelf: UiPortFixtures.Shelf) {
                         color = UiPortTokens.mute,
                         fontSize = UiPortTokens.subtitle,
                         lineHeight = 19.sp,
+                        fontFamily = UiPortFonts.sans,
                     )
                 }
             }
@@ -324,7 +337,13 @@ private fun ShelfSection(shelf: UiPortFixtures.Shelf) {
                     else -> "See all"
                 }
             if (action != null) {
-                Text(text = action, color = UiPortTokens.sage, fontSize = UiPortTokens.subtitle, fontWeight = FontWeight.Medium)
+                Text(
+                    text = action,
+                    color = UiPortTokens.sage,
+                    fontSize = UiPortTokens.subtitle,
+                    fontFamily = UiPortFonts.sans,
+                    fontWeight = FontWeight.Medium,
+                )
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -417,8 +436,8 @@ private fun AlbumCard(album: UiPortFixtures.Album) {
             UiPortArtwork.Cover(palette = album.palette)
         }
         Spacer(Modifier.height(8.dp))
-        Text(album.title, color = UiPortTokens.ink, fontSize = UiPortTokens.subtitle, fontWeight = FontWeight.Medium, maxLines = 1)
-        Text(album.artistNames.first(), color = UiPortTokens.mute, fontSize = UiPortTokens.caption, maxLines = 1)
+        Text(album.title, color = UiPortTokens.ink, fontSize = UiPortTokens.subtitle, fontFamily = UiPortFonts.sans, fontWeight = FontWeight.Medium, maxLines = 1)
+        Text(album.artistNames.first(), color = UiPortTokens.mute, fontSize = UiPortTokens.caption, fontFamily = UiPortFonts.sans, maxLines = 1)
     }
 }
 
@@ -434,8 +453,8 @@ private fun PlaylistCard(playlist: UiPortFixtures.Playlist) {
             UiPortArtwork.Cover(palette = playlist.palette)
         }
         Spacer(Modifier.height(8.dp))
-        Text(playlist.title, color = UiPortTokens.ink, fontSize = UiPortTokens.subtitle, fontWeight = FontWeight.Medium, maxLines = 1)
-        Text(playlist.author, color = UiPortTokens.mute, fontSize = UiPortTokens.caption, maxLines = 1)
+        Text(playlist.title, color = UiPortTokens.ink, fontSize = UiPortTokens.subtitle, fontFamily = UiPortFonts.sans, fontWeight = FontWeight.Medium, maxLines = 1)
+        Text(playlist.author, color = UiPortTokens.mute, fontSize = UiPortTokens.caption, fontFamily = UiPortFonts.sans, maxLines = 1)
     }
 }
 
@@ -451,8 +470,8 @@ private fun ArtistCard(artist: UiPortFixtures.Artist) {
             UiPortArtwork.Cover(palette = artist.palette)
         }
         Spacer(Modifier.height(8.dp))
-        Text(artist.name, color = UiPortTokens.ink, fontSize = UiPortTokens.subtitle, fontWeight = FontWeight.Medium, maxLines = 1)
-        Text(artist.subscribers, color = UiPortTokens.mute, fontSize = UiPortTokens.caption)
+        Text(artist.name, color = UiPortTokens.ink, fontSize = UiPortTokens.subtitle, fontFamily = UiPortFonts.sans, fontWeight = FontWeight.Medium, maxLines = 1)
+        Text(artist.subscribers, color = UiPortTokens.mute, fontSize = UiPortTokens.caption, fontFamily = UiPortFonts.sans)
     }
 }
 
@@ -479,12 +498,13 @@ private fun TrackRow(
             UiPortArtwork.Cover(palette = track.palette, seed = index)
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(track.title, color = UiPortTokens.ink, fontSize = 15.sp, lineHeight = 20.sp, maxLines = 1)
+            Text(track.title, color = UiPortTokens.ink, fontSize = 15.sp, lineHeight = 20.sp, fontFamily = UiPortFonts.sans, maxLines = 1)
             Text(
                 text = "${track.artist} · ${track.duration / 60}:${(track.duration % 60).toString().padStart(2, '0')}",
                 color = UiPortTokens.mute,
                 fontSize = 13.sp,
                 lineHeight = 18.sp,
+                fontFamily = UiPortFonts.sans,
                 maxLines = 1,
             )
         }

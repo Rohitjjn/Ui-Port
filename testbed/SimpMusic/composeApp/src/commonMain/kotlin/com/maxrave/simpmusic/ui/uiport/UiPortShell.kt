@@ -108,6 +108,7 @@ fun UiPortBottomNav(
                         color = if (active) UiPortTokens.ink else UiPortTokens.mute,
                         fontSize = 11.sp,
                         lineHeight = 16.sp,
+                        fontFamily = UiPortFonts.sans,
                         fontWeight = FontWeight.Medium,
                     )
                 }
@@ -135,19 +136,28 @@ fun UiPortLoginBanner(modifier: Modifier = Modifier) {
             color = UiPortTokens.charcoal,
             fontSize = UiPortTokens.subtitle,
             lineHeight = 19.sp,
+            fontFamily = UiPortFonts.sans,
             modifier = Modifier.weight(1f),
         )
+        // `Button size="sm"`: h-9 (36px) with a 13px label, per the capture's 55x36 box.
         Box(
             modifier =
                 Modifier
-                    .height(32.dp)
+                    .height(36.dp)
                     .clip(RoundedCornerShape(percent = 50))
                     .background(UiPortTokens.sage)
-                    .padding(horizontal = 14.dp)
+                    .padding(horizontal = 16.dp)
                     .semantics { contentDescription = "Log in" },
             contentAlignment = Alignment.Center,
         ) {
-            Text("Log in", color = UiPortTokens.paper, fontSize = UiPortTokens.subtitle, fontWeight = FontWeight.Medium)
+            Text(
+                "Log in",
+                color = UiPortTokens.paper,
+                fontSize = UiPortTokens.subtitle,
+                lineHeight = 19.sp,
+                fontFamily = UiPortFonts.sans,
+                fontWeight = FontWeight.Medium,
+            )
         }
     }
 }
