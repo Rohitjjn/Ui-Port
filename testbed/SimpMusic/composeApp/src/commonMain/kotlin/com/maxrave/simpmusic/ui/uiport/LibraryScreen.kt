@@ -62,15 +62,15 @@ fun UiPortLibraryScreen(
         ) {
             LibraryHeader()
 
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(32.dp).layoutProbe("gap.chips"))
             ChipRow(activeChip)
 
             // The chip row is `space-y-8` from the header and the grid is 32px below it.
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(32.dp).layoutProbe("gap.tiles"))
             TileGrid(tiles)
 
-            Spacer(Modifier.height(UiPortTokens.sectionGap))
-            CollectionSection(title = "Your playlists", action = "See all") {
+            Spacer(Modifier.height(UiPortTokens.sectionGap).layoutProbe("gap.playlists"))
+            CollectionSection(title = "Your playlists", action = "See all", probe = "playlists") {
                 // The prototype's carousels are `-mx-4` + `px-4`: the track bleeds to the
                 // screen edge while the first card starts on the page inset, so the row is
                 // offset back by the page padding and then padded by it again.
@@ -84,8 +84,8 @@ fun UiPortLibraryScreen(
                 }
             }
 
-            Spacer(Modifier.height(UiPortTokens.sectionGap))
-            CollectionSection(title = "Saved albums") {
+            Spacer(Modifier.height(UiPortTokens.sectionGap).layoutProbe("gap.albums"))
+            CollectionSection(title = "Saved albums", probe = "albums") {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth().offset(x = -UiPortTokens.pagePadding),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = UiPortTokens.pagePadding),
@@ -95,8 +95,8 @@ fun UiPortLibraryScreen(
                 }
             }
 
-            Spacer(Modifier.height(UiPortTokens.sectionGap))
-            CollectionSection(title = "Followed artists", action = "See all") {
+            Spacer(Modifier.height(UiPortTokens.sectionGap).layoutProbe("gap.artists"))
+            CollectionSection(title = "Followed artists", action = "See all", probe = "artists") {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth().offset(x = -UiPortTokens.pagePadding),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = UiPortTokens.pagePadding),
@@ -179,7 +179,10 @@ private fun LibraryHeader() {
 @Composable
 private fun ChipRow(activeChip: String) {
     LazyRow(
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .layoutProbe("chips"),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(UiPortFixtures.libraryChips) { chip ->
@@ -281,9 +284,10 @@ private fun TileGrid(tiles: List<UiPortFixtures.LibraryTile>) {
 private fun CollectionSection(
     title: String,
     action: String? = null,
+    probe: String,
     content: @Composable () -> Unit,
 ) {
-    Column {
+    Column(modifier = Modifier.layoutProbe("section.$probe")) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
