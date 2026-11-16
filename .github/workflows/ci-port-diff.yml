@@ -118,13 +118,18 @@ jobs:
           # loudly below instead of producing an empty reference.
           for dev in .uiport/reference/*/; do
             [ -d "$dev/home" ] || continue
-            if [ -f "$dev/home/player.png" ]; then
+            # The player overlay is a state of the home route, but a capture restricted to the
+            # screens the port renders may not include home at all. Any screen's player state
+            # shows the same overlay, so take whichever one actually exists.
+            src=\$(ls "$dev"*/player.png 2>/dev/null | head -1)
+            if [ -n "\$src" ]; then
               mkdir -p "$dev/nowplaying"
-              cp "$dev/home/player.png" "$dev/nowplaying/default.png"
-              [ -f "$dev/home/player.geometry.json" ] && cp "$dev/home/player.geometry.json" "$dev/nowplaying/default.geometry.json"
-              echo "::notice title=nowplaying reference::${dev}nowplaying/default.png (from home/player.png)"
+              cp "\$src" "$dev/nowplaying/default.png"
+              geo="\${src%.png}.geometry.json"
+              [ -f "\$geo" ] && cp "\$geo" "$dev/nowplaying/default.geometry.json"
+              echo "::notice title=nowplaying reference::\${dev}nowplaying/default.png (from \${src#\$dev})"
             else
-              echo "::warning title=nowplaying reference::the player overlay was not reachable; nowplaying will report missing-candidate"
+              echo "::warning title=nowplaying reference::no player-state capture was produced; nowplaying stays unscored"
             fi
           done
           # A GitHub annotation keeps only its first line, so multi-line JSON has to be
