@@ -329,6 +329,20 @@ try {
 fs.mkdirSync(outRoot, { recursive: true });
 fs.writeFileSync(path.join(outRoot, "capture-report.json"), `${JSON.stringify({ generatedAt: new Date().toISOString(), baseUrl, results }, null, 2)}\n`);
 
+// One annotation per capture: the workflow's own annotation reader only sees the first ten per
+// step, so the font evidence is emitted here where it is guaranteed to be complete.
+for (const r of results) {
+  if (r.status === "captured") {
+    const families = [...new Set((r.fonts?.used ?? []).map((u) => u.split("|")[0]))].join(",");
+    process.stdout.write(
+      `::notice title=fonts ${r.screen}/${r.state}::${r.fonts?.ok ? "vendored faces loaded" : "FONT CHECK NOT RUN"} | rendered families: ${families}` +
+        `${r.fonts?.notVendored?.length ? ` | not vendored: ${r.fonts.notVendored.join(",")}` : ""}\n`,
+    );
+  } else if (r.status === "font-check-failed") {
+    process.stdout.write(`::error title=fonts ${r.screen}/${r.state}::missing ${JSON.stringify(r.missing)}\n`);
+  }
+}
+
 const captured = results.filter((r) => r.status === "captured").length;
 const skipped = results.filter((r) => r.status === "state-not-reproducible").length;
 process.stdout.write(
