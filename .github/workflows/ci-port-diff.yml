@@ -213,9 +213,9 @@ jobs:
               const p = process.argv[1];
               const lines = fs.readFileSync(p, 'utf8').trim().split('\n').filter(Boolean);
               const screen = p.split('/').slice(-2)[0];
-              for (let i = 0; i < lines.length; i += 8) {
-                console.log('::notice title=candidate box ' + screen + ' ' + (i / 8 + 1) + '::' + lines.slice(i, i + 8).join(' | '));
-              }
+              // One annotation per screen: a second chunk was being dropped by the
+              // annotation limit, which made a partially-reported layout look complete.
+              console.log('::notice title=candidate box ' + screen + '::' + lines.join(' | '));
             " "$f" || true
           done
           find testbed/SimpMusic/uiPortScreenshots -name "*.png" | head -20 | while IFS= read -r f; do echo "::notice title=paparazzi output::${f}"; done
@@ -259,8 +259,13 @@ jobs:
               chunks.slice(0, 9).forEach((c, i) => console.log('::notice title=diff map ' + (i + 1) + '::' + c.replace(/%/g, '%25')));
             " || true
           fi
-          echo "--- reference geometry digest ---"
-          node scripts/annotate-geometry.mjs --file .uiport/reference/"$UIPORT_DEVICE"/home/default.geometry.json > /tmp/geodigest.txt 2>&1 || true
+          echo "--- reference geometry digest (per screen) ---"
+          : > /tmp/geodigest.txt
+          for g in .uiport/reference/"$UIPORT_DEVICE"/*/default.geometry.json; do
+            [ -e "$g" ] || continue
+            node scripts/annotate-geometry.mjs --file "$g" >> /tmp/geodigest.txt 2>&1 || true
+            echo >> /tmp/geodigest.txt
+          done
           cat /tmp/geodigest.txt || true
           if [ -s /tmp/geodigest.txt ]; then
             node -e "
