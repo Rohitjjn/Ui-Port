@@ -242,7 +242,7 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
             text = album.title,
             color = UiPortTokens.ink,
             fontSize = UiPortTokens.featuredTitle,
-            lineHeight = 36.sp,
+            lineHeight = 35.sp,
             fontFamily = UiPortFonts.serif(),
         )
         Spacer(Modifier.height(4.dp))

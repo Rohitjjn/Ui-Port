@@ -146,7 +146,7 @@ fun UiPortLoginBanner(modifier: Modifier = Modifier) {
                     .height(36.dp)
                     .clip(RoundedCornerShape(percent = 50))
                     .background(UiPortTokens.sage)
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 12.dp)
                     .semantics { contentDescription = "Log in" },
             contentAlignment = Alignment.Center,
         ) {
