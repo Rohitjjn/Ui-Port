@@ -181,31 +181,34 @@ for (const b of bands) {
     `${String(b.y).padStart(4)}  ${String(b.diffPct).padStart(6)}   ${hex(b.refMean)}  ${hex(b.candMean)}`,
   );
 }
-// Exact probes. A modal colour can be ambiguous between two near-whites (paper #faf8f3
-// vs card #ffffff); the pixel at a named coordinate cannot be. This is what settles where
-// a card actually starts and ends.
-const probeCols = String(flag("columns", "8,24,200,370"))
+// Exact probes, run-length encoded: a whole column of colours costs one line per colour
+// change instead of one per pixel row, and block edges — which is what a port has to match
+// first — stay exact.
+const probeCols = String(flag("columns", "8,24,200,352,370"))
   .split(",")
   .map((v) => Number(v))
   .filter((v) => Number.isFinite(v) && v >= 0 && v < width);
-const probeStep = Number(flag("step", 12));
-/** A second, finer sweep on one column: block edges are what a port has to match first. */
-const fineCol = Number(flag("fine-column", 24));
-const fineStep = Number(flag("fine-step", 4));
 if (probeCols.length) {
   out.push("");
-  out.push(`pixel probes (y step ${probeStep}; R=reference C=candidate)`);
+  out.push("column runs (y where the colour changes)");
   for (const x of probeCols) {
-    const rows = [];
-    for (let y = 0; y < height; y += probeStep) {
-      rows.push(`${y}:${hex(at(ref, x, y))}/${hex(at(cand, x, y))}`);
-    }
-    out.push(`  x=${x}  ${rows.join(" ")}`);
-  }
-  if (Number.isFinite(fineCol) && fineCol >= 0 && fineCol < width) {
-    const rows = [];
-    for (let y = 0; y < height; y += fineStep) rows.push(`${y}:${hex(at(ref, fineCol, y))}/${hex(at(cand, fineCol, y))}`);
-    out.push(`  x=${fineCol} (step ${fineStep})  ${rows.join(" ")}`);
+    const runsOf = (img) => {
+      const runs = [];
+      let last = null;
+      for (let y = 0; y < height; y++) {
+        const c = at(img, x, y);
+        const key = hex(c);
+        if (key !== last) {
+          runs.push(`${y}:${key}`);
+          last = key;
+        }
+      }
+      return runs;
+    };
+    const r = runsOf(ref);
+    const c = runsOf(cand);
+    out.push(`  x=${x} R ${r.length} runs: ${r.join(" ")}`);
+    out.push(`  x=${x} C ${c.length} runs: ${c.join(" ")}`);
   }
 }
 out.push("");
