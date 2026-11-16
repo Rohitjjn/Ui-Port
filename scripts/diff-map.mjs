@@ -181,35 +181,53 @@ for (const b of bands) {
     `${String(b.y).padStart(4)}  ${String(b.diffPct).padStart(6)}   ${hex(b.refMean)}  ${hex(b.candMean)}`,
   );
 }
-// Exact probes, run-length encoded: a whole column of colours costs one line per colour
-// change instead of one per pixel row, and block edges — which is what a port has to match
-// first — stay exact.
-const probeCols = String(flag("columns", "8,24,200,352,370"))
-  .split(",")
-  .map((v) => Number(v))
-  .filter((v) => Number.isFinite(v) && v >= 0 && v < width);
-if (probeCols.length) {
-  out.push("");
-  out.push("column runs (y where the colour changes)");
-  for (const x of probeCols) {
-    const runsOf = (img) => {
-      const runs = [];
-      let last = null;
-      for (let y = 0; y < height; y++) {
-        const c = at(img, x, y);
-        const key = hex(c);
-        if (key !== last) {
-          runs.push(`${y}:${key}`);
-          last = key;
-        }
-      }
-      return runs;
-    };
-    const r = runsOf(ref);
-    const c = runsOf(cand);
-    out.push(`  x=${x} R ${r.length} runs: ${r.join(" ")}`);
-    out.push(`  x=${x} C ${c.length} runs: ${c.join(" ")}`);
+/**
+ * Surface bands.
+ *
+ * The capture's background carries a pixel-level texture (adjacent rows differ by a few
+ * levels), so "where does this block start" cannot be answered by comparing single pixels.
+ * It can be answered by asking, for every row, how much of the row is a given surface
+ * colour — the card white, the ivory banner, the ink title — and reporting the runs of
+ * rows where that share crosses a threshold. Each surface then appears as one short range
+ * per side, which is exactly the number a port has to match.
+ */
+const SURFACES = [
+  ["card", [255, 255, 255]],
+  ["ivory", [244, 240, 232]],
+  ["ink", [37, 35, 31]],
+  ["sage", [113, 131, 107]],
+];
+function surfaceBands(img, rgb, opts = {}) {
+  const tol = opts.tolerance ?? 6;
+  const shareThreshold = opts.share ?? 0.06;
+  const rows = [];
+  for (let y = 0; y < img.height; y++) {
+    let hit = 0;
+    let total = 0;
+    for (let x = 0; x < img.width; x += 2) {
+      const c = at(img, x, y);
+      total++;
+      if (Math.abs(c[0] - rgb[0]) <= tol && Math.abs(c[1] - rgb[1]) <= tol && Math.abs(c[2] - rgb[2]) <= tol) hit++;
+    }
+    rows.push(hit / Math.max(1, total) >= shareThreshold);
   }
+  const bands = [];
+  let start = -1;
+  for (let y = 0; y <= rows.length; y++) {
+    if (y < rows.length && rows[y]) {
+      if (start < 0) start = y;
+    } else if (start >= 0) {
+      bands.push(`${start}-${y - 1}`);
+      start = -1;
+    }
+  }
+  return bands;
+}
+out.push("");
+out.push("surface bands (rows where the colour covers >=6% of the width)");
+for (const [name, rgb] of SURFACES) {
+  out.push(`  ${name.padEnd(6)} R ${surfaceBands(ref, rgb).join(" ") || "-"}`);
+  out.push(`  ${name.padEnd(6)} C ${surfaceBands(cand, rgb).join(" ") || "-"}`);
 }
 out.push("");
 out.push("row bands (dominant colour per run of rows)");
