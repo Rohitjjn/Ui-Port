@@ -219,8 +219,11 @@ private fun ChipRow(activeChip: String) {
 private fun TileGrid(tiles: List<UiPortFixtures.LibraryTile>) {
     if (tiles.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        tiles.chunked(2).forEach { rowTiles ->
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        tiles.chunked(2).forEachIndexed { rowIndex, rowTiles ->
+            Row(
+                modifier = Modifier.layoutProbe("tilerow.$rowIndex"),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 rowTiles.forEach { tile ->
                     Row(
                         modifier =
