@@ -11,7 +11,7 @@ on:
     inputs:
       screens:
         description: "Comma-separated screens to diff (empty = every rendered screen)"
-        default: "home"
+        default: "home,library"
         type: string
   pull_request:
     paths:
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      SCREENS: ${{ inputs.screens || 'home' }}
+      SCREENS: ${{ inputs.screens || 'home,library' }}
       UIPORT_DEVICE: phone
     steps:
       - uses: actions/checkout@v5
@@ -103,13 +103,30 @@ jobs:
           "
           node scripts/plan-capture.mjs testbed/prototype \
             --viewports /tmp/viewports-1x.json \
-            --devices "$UIPORT_DEVICE" --states default --screens "$SCREENS" \
+            --devices "$UIPORT_DEVICE" --states default,player --screens "$SCREENS" \
             --base-url http://127.0.0.1:4173 --out .uiport/capture-spec.json
           # The capture reads its DPR from the viewports file, not from the spec, so the
           # same 1x file has to be passed here too.
           node scripts/capture-reference.mjs --base-url http://127.0.0.1:4173 \
             --viewports /tmp/viewports-1x.json \
             --spec .uiport/capture-spec.json --out .uiport/reference
+          # Now playing is not a route: it is the full-player overlay, reached by clicking
+          # the mini player, so the capture script records it as a *state* of the home
+          # route. The port renders it as its own screen, so the reference is relabelled
+          # rather than recaptured — the pixels are the same file, only the expected path
+          # differs. Nothing is invented: if the state could not be reached, the copy fails
+          # loudly below instead of producing an empty reference.
+          for dev in .uiport/reference/*/; do
+            [ -d "$dev/home" ] || continue
+            if [ -f "$dev/home/player.png" ]; then
+              mkdir -p "$dev/nowplaying"
+              cp "$dev/home/player.png" "$dev/nowplaying/default.png"
+              [ -f "$dev/home/player.geometry.json" ] && cp "$dev/home/player.geometry.json" "$dev/nowplaying/default.geometry.json"
+              echo "::notice title=nowplaying reference::${dev}nowplaying/default.png (from home/player.png)"
+            else
+              echo "::warning title=nowplaying reference::the player overlay was not reachable; nowplaying will report missing-candidate"
+            fi
+          done
           node -e "
             const fs = require('fs');
             const p = '.uiport/reference/capture-report.json';

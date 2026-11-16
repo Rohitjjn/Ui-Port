@@ -5,6 +5,8 @@ import com.android.resources.Density
 import com.android.resources.ScreenRound
 import app.cash.paparazzi.Paparazzi
 import com.maxrave.simpmusic.ui.uiport.UiPortHomeScreen
+import com.maxrave.simpmusic.ui.uiport.UiPortLibraryScreen
+import com.maxrave.simpmusic.ui.uiport.UiPortNowPlayingScreen
 import com.maxrave.simpmusic.ui.uiport.UiPortLayoutProbe
 import org.junit.Rule
 import org.junit.Test
@@ -80,5 +82,19 @@ class UiPortScreenshotTest {
     @Test
     fun home() {
         capture("home") { UiPortHomeScreen() }
+    }
+
+    @Test
+    fun library() {
+        capture("library") { UiPortLibraryScreen() }
+    }
+
+    /**
+     * Now playing is not a route in the prototype: the full player is an overlay the mini
+     * player opens, so it owns the viewport instead of sitting inside the shell.
+     */
+    @Test
+    fun nowplaying() {
+        capture("nowplaying") { UiPortNowPlayingScreen() }
     }
 }

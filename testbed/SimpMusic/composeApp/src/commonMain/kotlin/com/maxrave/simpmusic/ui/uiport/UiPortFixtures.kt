@@ -146,4 +146,101 @@ object UiPortFixtures {
             Shelf("artists", "Top artists", null, "artists", listOf("ar5", "ar1", "ar7", "ar3", "ar2", "ar4", "ar6", "ar8")),
             Shelf("mixes", "Mixed for you", null, "playlists", listOf("mix1", "mix2", "mix3")),
         )
+
+    /** One library tile: the prototype's `tiles` array, with its tint carried as data. */
+    data class LibraryTile(
+        val id: String,
+        val label: String,
+        val count: Int,
+        val tint: androidx.compose.ui.graphics.Color,
+    )
+
+    data class LibraryChip(
+        val id: String,
+        val label: String,
+    )
+
+    data class LyricLine(
+        val text: String,
+        val active: Boolean = false,
+    )
+
+    data class PlayerTab(
+        val id: String,
+        val label: String,
+    )
+
+    /**
+     * The prototype's `CHIPS` array, in order. The first is active on load, so the capture
+     * shows "Your library" selected.
+     */
+    val libraryChips: List<LibraryChip> =
+        listOf(
+            LibraryChip("your_library", "Your library"),
+            LibraryChip("local_playlists", "Your playlists"),
+            LibraryChip("favorite_playlists", "Favorite playlists"),
+            LibraryChip("downloaded_playlists", "Downloaded"),
+            LibraryChip("favorite_podcasts", "Podcasts"),
+            LibraryChip("charts", "SimpMusic charts"),
+            LibraryChip("wrapped", "Wrapped"),
+            LibraryChip("mix_for_you", "Mix for you"),
+            LibraryChip("youtube_playlists", "YouTube playlists"),
+        )
+
+    /**
+     * Tile counts come from the prototype's persisted seed: favourites t1/t18/t25/t10 (4),
+     * followed artists ar1/ar5 (2), play counts (10 keys), downloads marked downloaded (4),
+     * cached (5), recently added (3).
+     */
+    val libraryTiles: List<LibraryTile> =
+        listOf(
+            LibraryTile("favorite", "Liked songs", 4, UiPortTokens.rose),
+            LibraryTile("followed", "Followed artists", 2, UiPortTokens.sage),
+            LibraryTile("most_played", "Most played", 10, UiPortTokens.charcoal),
+            LibraryTile("downloaded", "Downloaded", 4, UiPortTokens.sage),
+            LibraryTile("cached", "Cached", 5, UiPortTokens.charcoal),
+            LibraryTile("recently_added", "Recently added", 3, UiPortTokens.charcoal),
+        )
+
+    /** The two local playlists the prototype seeds (lp1, lp2). */
+    val localPlaylists: List<Playlist> =
+        listOf(
+            Playlist("lp1", "Kitchen Table Songs", "You", "For slow breakfasts.", 13),
+            Playlist("lp2", "Late Shift", "You", "", 10),
+        )
+
+    /** `likedAlbums: ["al1"]` in the prototype's seed. */
+    val savedAlbums: List<Album> get() = listOfNotNull(albums["al1"])
+
+    /** `followedArtists: ["ar1", "ar5"]`. */
+    val followedArtists: List<Artist> get() = listOfNotNull(artists["ar1"], artists["ar5"])
+
+    /**
+     * The track the capture opens: the prototype's mini player appears only once something
+     * is queued, and clicking any track queues its shelf context. t1 is the first track of
+     * the featured album, so "Chapel Weather" is the playing track and the album title in
+     * the header is the album the user tapped it from.
+     */
+    val nowPlayingTrack: Track
+        get() = tracks["t1"] ?: Track("t1", "Chapel Weather", "Wren Hollis", 254, 0)
+
+    /** `TABS` in `FullPlayer.tsx`, in order; lyrics is the default panel. */
+    val playerTabs: List<PlayerTab> =
+        listOf(
+            PlayerTab("lyrics", "Lyrics"),
+            PlayerTab("queue", "Queue"),
+            PlayerTab("related", "Related"),
+            PlayerTab("info", "Info"),
+        )
+
+    /** The lyric sheet the prototype shows for a track without timecoded lyrics. */
+    val lyricLines: List<LyricLine> =
+        listOf(
+            LyricLine("Static on the window", false),
+            LyricLine("A kettle finding its note", false),
+            LyricLine("Chapel weather", true),
+            LyricLine("and the light comes slow", false),
+            LyricLine("Over the flagstones", false),
+            LyricLine("where the choir used to stand", false),
+        )
 }

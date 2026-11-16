@@ -98,6 +98,15 @@ export const STATE_SCRIPT = (state) => {
     candidates[0].click();
     return true;
   }
+  if (state === "player") {
+    // The now-playing surface is not a route: it is an overlay the mini player opens.
+    // Reach it the way a user does — click the mini player — and report failure honestly
+    // if no track is queued (the prototype renders no mini player when nothing is playing).
+    const btn = document.querySelector("[aria-label='Open player']");
+    if (!btn) return false;
+    btn.click();
+    return true;
+  }
   if (state === "focus") {
     const el = document.querySelector("input,textarea,[tabindex='0'],button");
     if (!el) return false;

@@ -6,7 +6,7 @@
  * capture script, the port loop and the diff step all agree on the same list
  * without re-deriving it from the prototype each time.
  */
-export const STATES = ["default", "empty", "loading", "error", "overlay", "focus", "tabbed"];
+export const STATES = ["default", "empty", "loading", "error", "overlay", "focus", "tabbed", "player"];
 
 export function deviceTargetsFromConfig(viewports, requested) {
   const all = Object.keys(viewports?.targets ?? {});
