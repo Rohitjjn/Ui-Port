@@ -21,8 +21,9 @@ on:
         required: true
   push:
     tags: ["v*"]
-    # TEMPORARY: workflow_dispatch only fires for workflows present on the default branch, so
-    # this branch pushes once to run it. Removed in the next commit, as soon as the asset is up.
+    # TEMPORARY, removed in the next commit: workflow_dispatch only fires for workflows that
+    # exist on the default branch, so a branch must exist here for the one run that publishes
+    # the asset. It is removed as soon as that run succeeds.
     branches: ["arena/a9a40385-ui-port"]
 
 permissions:
@@ -33,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v4
         with:
@@ -71,8 +72,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="${{ inputs.tag || github.ref_name }}"
           ZIP="${{ inputs.zip || 'dist/ui-port-v0.1.0.zip' }}"
+          # `github.ref_name` on a branch push is the *branch*, which would create a release
+          # tagged with a branch name — exactly what happened on the first attempt and had to
+          # be deleted. The fallback is the documented release tag, never a ref.
+          TAG="${{ inputs.tag || 'v0.1.0' }}"
+          echo "::notice title=release::attaching $(basename "$ZIP") to $TAG (ref ${{ github.ref }})"
           gh release view "$TAG" >/dev/null || gh release create "$TAG" --title "ui-port $TAG" --notes "Release $TAG"
           gh release upload "$TAG" "$ZIP" --clobber
           gh release view "$TAG" --json assets --jq '.assets[] | "::notice title=asset::" + .name + " (" + (.size|tostring) + " bytes) " + .url'
