@@ -233,5 +233,20 @@ out.push("");
 out.push("row bands (dominant colour per run of rows)");
 out.push("  reference:  " + rowBands(ref).map((b) => `${b.from}-${b.to} ${hex(b.color)}`).join("  "));
 out.push("  candidate:  " + rowBands(cand).map((b) => `${b.from}-${b.to} ${hex(b.color)}`).join("  "));
+// Compact mode: the coarse map and the surface bands are the two things that name a fix.
+// Bands with mean colours and the raw probes are for a human reading a log, not for a CI
+// annotation budget that is shared with the scores.
+if (Boolean(flag("compact", false))) {
+  const keep = [];
+  let inBands = false;
+  for (const line of out) {
+    if (line.startsWith("surface bands")) inBands = true;
+    if (line.startsWith("band ") || line.startsWith("pixel probes") || line.startsWith("row bands")) inBands = false;
+    const isMap = /^\s*\d+\s+[.:+#@wb]+$/.test(line) || line.startsWith("diff-map") || line.startsWith("legend:");
+    if (isMap || inBands) keep.push(line);
+  }
+  process.stdout.write(keep.join("\n") + "\n");
+  process.exit(0);
+}
 process.stdout.write(out.join("\n") + "\n");
 void path;

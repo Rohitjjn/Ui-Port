@@ -270,7 +270,7 @@ jobs:
             candpng=.uiport/output/"$UIPORT_DEVICE"/"$screen"/default.png
             [ -e "$candpng" ] || continue
             echo "=== $screen ===" >> /tmp/diffmap.txt
-            node scripts/diff-map.mjs --reference "$refpng" --candidate "$candpng" --rows 48 --cols 40 >> /tmp/diffmap.txt 2>&1 || true
+            node scripts/diff-map.mjs --reference "$refpng" --candidate "$candpng" --rows 40 --cols 36 --compact >> /tmp/diffmap.txt 2>&1 || true
           done
           cat /tmp/diffmap.txt || true
           # The log is not readable from every environment; annotations are. Emit the map
