@@ -215,7 +215,20 @@ jobs:
           echo "--- textual diff map (phone/home) ---"
           node scripts/diff-map.mjs \
             --reference .uiport/reference/"$UIPORT_DEVICE"/home/default.png \
-            --candidate .uiport/output/"$UIPORT_DEVICE"/home/default.png || true
+            --candidate .uiport/output/"$UIPORT_DEVICE"/home/default.png > /tmp/diffmap.txt || true
+          cat /tmp/diffmap.txt || true
+          # The log is not readable from every environment; annotations are. Emit the map
+          # in chunks so a reviewer sees where the layout diverges without downloading PNGs.
+          if [ -s /tmp/diffmap.txt ]; then
+            awk 'NR<=70' /tmp/diffmap.txt | sed 's/%/%25/g; s/\r/%0D/g' | awk '{printf "%s\n", $0}' > /tmp/map-head.txt
+            node -e "
+              const fs = require('fs');
+              const lines = fs.readFileSync('/tmp/diffmap.txt', 'utf8').split('\n');
+              const chunks = [];
+              for (let i = 0; i < lines.length; i += 22) chunks.push(lines.slice(i, i + 22).join(' | '));
+              chunks.forEach((c, i) => console.log('::notice title=diff map ' + (i + 1) + '::' + c.replace(/%/g, '%25')));
+            " || true
+          fi
           # Publish the numbers as annotations: artifacts and logs are blob-hosted and not
           # readable from every environment.
           node -e "
