@@ -34,6 +34,18 @@ object UiPortLayoutProbe {
         boxes[tag] = "x=${x.roundToInt()} y=${y.roundToInt()} ${w.roundToInt()}x${h.roundToInt()}"
     }
 
+    /**
+     * Records the lines a paragraph actually broke into.
+     *
+     * A box tells where text sits; the line count tells why it sits there. The reference's
+     * 80px greeting is two 40px lines, its 91px description is four 20px lines, and its
+     * 57px banner is three 19px lines — those counts are the real specification, and they
+     * are what a font change breaks first.
+     */
+    fun recordText(tag: String, lineCount: Int, size: androidx.compose.ui.unit.IntSize) {
+        boxes["$tag.lines"] = "lines=$lineCount ${size.width}x${size.height}"
+    }
+
     /** One line per box, in the order the boxes were declared. */
     fun dump(): List<String> = boxes.map { (tag, box) -> "$tag $box" }
 

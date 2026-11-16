@@ -138,6 +138,7 @@ fun UiPortLoginBanner(modifier: Modifier = Modifier) {
             lineHeight = 19.sp,
             fontFamily = UiPortFonts.sans(),
             modifier = Modifier.weight(1f),
+            onTextLayout = { UiPortLayoutProbe.recordText("banner.text", it.lineCount, it.size) },
         )
         // `Button size="sm"`: h-9 (36px) with a 13px label, per the capture's 55x36 box.
         Box(

@@ -126,6 +126,7 @@ private fun HomeHeader() {
                 fontFamily = UiPortFonts.serif(),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
+                onTextLayout = { UiPortLayoutProbe.recordText("header.title", it.lineCount, it.size) },
             )
             Spacer(Modifier.height(4.dp))
             Text(
@@ -240,6 +241,7 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
         Text(
             modifier = Modifier.layoutProbe("card.title"),
             text = album.title,
+            onTextLayout = { UiPortLayoutProbe.recordText("card.title", it.lineCount, it.size) },
             color = UiPortTokens.ink,
             fontSize = UiPortTokens.featuredTitle,
             lineHeight = 35.sp,
@@ -261,6 +263,7 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
         Text(
             modifier = Modifier.layoutProbe("card.desc"),
             text = album.description,
+            onTextLayout = { UiPortLayoutProbe.recordText("card.desc", it.lineCount, it.size) },
             color = UiPortTokens.charcoal,
             fontSize = UiPortTokens.body,
             lineHeight = 20.sp,
