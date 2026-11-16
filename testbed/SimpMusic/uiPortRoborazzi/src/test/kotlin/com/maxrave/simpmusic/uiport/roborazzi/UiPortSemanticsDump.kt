@@ -35,11 +35,14 @@ fun dumpSemantics(rule: ComposeContentTestRule, path: String, root: SemanticsNod
             config.getOrNull(SemanticsProperties.Text)?.joinToString(" ") { it.text.trim() }?.takeIf { it.isNotBlank() }
                 ?: config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString(" ")?.takeIf { it.isNotBlank() }
         val testId = config.getOrNull(SemanticsProperties.TestTag)
+        // `contains`, not `getOrNull`, for the action/marker keys: `OnClick`'s value type is
+        // star-projected in this Compose version, so `getOrNull` fails to infer `T` and the
+        // presence check is all that is needed anyway (the web dump only records a role).
         val role =
             config.getOrNull(SemanticsProperties.Role)?.toString()?.lowercase()
                 ?: when {
-                    config.getOrNull(SemanticsProperties.OnClick) != null -> "button"
-                    config.getOrNull(SemanticsProperties.Heading) != null -> "heading"
+                    config.contains(SemanticsProperties.OnClick) -> "button"
+                    config.contains(SemanticsProperties.Heading) -> "heading"
                     else -> null
                 }
         val bounds = node.boundsInRoot
