@@ -61,6 +61,12 @@ export function loadThresholds(file) {
 }
 
 export function compareGeometry(refNodes = [], candNodes = [], opts = {}) {
+  // A dump can be the wrong shape: the web capture writes an array, but a semantics dump that
+  // wrapped it (or an older report that stored `{ nodes: [...] }`) would otherwise be compared as
+  // an empty list and every reference node would be reported "missing" — a confident 0% that
+  // looks like a ported-nothing screen instead of a reader bug.
+  refNodes = Array.isArray(refNodes) ? refNodes : (refNodes?.nodes ?? []);
+  candNodes = Array.isArray(candNodes) ? candNodes : (candNodes?.nodes ?? []);
   const tolerance = opts.toleranceDp ?? 1.0;
   const matched = [];
   const mismatched = [];

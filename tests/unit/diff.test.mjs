@@ -412,3 +412,15 @@ describe("png round-trip", () => {
     }
   });
 });
+
+describe("geometry dump shape", () => {
+  test("a wrapped dump is read, not treated as empty", () => {
+    // A 0% coverage verdict is indistinguishable from "nothing was ported" when the real cause is
+    // a reader that did not understand the file. The dump is accepted either bare or wrapped.
+    const ref = [{ text: "Home", role: "heading", x: 0, y: 0, w: 100, h: 20 }];
+    const cand = [{ text: "Home", role: "heading", x: 0, y: 0, w: 100, h: 20 }];
+    assert.equal(compareGeometry(ref, cand).coveragePct, 100);
+    assert.equal(compareGeometry({ nodes: ref }, { nodes: cand }).coveragePct, 100);
+    assert.equal(compareGeometry({ nodes: ref }, cand).coveragePct, 100);
+  });
+});

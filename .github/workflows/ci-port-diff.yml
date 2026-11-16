@@ -323,6 +323,17 @@ jobs:
             head -12 /tmp/geo-$screen.txt | while IFS= read -r line; do
               echo "::notice title=geometry $screen::${line}"
             done
+            # The node counts are the first thing to read when coverage is 0%: a zero on one
+            # side means the dump is empty, not that the layout is wrong.
+            node -e "
+              const fs = require('fs');
+              const c = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+              const r = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+              const n = (x) => Array.isArray(x) ? x.length : (x && Array.isArray(x.nodes) ? x.nodes.length : -1);
+              console.log('::notice title=geometry nodes ' + process.argv[3] + '::reference=' + n(r) + ' candidate=' + n(c));
+              const sample = (Array.isArray(c) ? c : c.nodes || []).slice(0, 3);
+              for (const s of sample) console.log('::notice title=geometry sample ' + process.argv[3] + '::' + JSON.stringify(s).slice(0, 220));
+            " "$f" "$ref" "$screen"
           done
 
           echo "--- textual diff map (every screen) ---"
