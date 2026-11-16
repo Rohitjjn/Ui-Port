@@ -254,6 +254,10 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
             fontFamily = UiPortFonts.sans(),
         )
         Spacer(Modifier.height(16.dp))
+        // A one-line description is a fixture, not a layout: the reference's album (al1) has
+        // a 168-character description that fills four 20px lines, and the whole card below
+        // it is positioned from that. The character count is recorded so a fixture that is
+        // too short to fill the box shows up as a number rather than as a mystery.
         Text(
             modifier = Modifier.layoutProbe("card.desc"),
             text = album.description,
@@ -261,6 +265,13 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
             fontSize = UiPortTokens.body,
             lineHeight = 20.sp,
             fontFamily = UiPortFonts.sans(),
+        )
+        Text(
+            text = "DESCLEN ${album.description.length}",
+            color = Color.Transparent,
+            fontSize = 1.sp,
+            lineHeight = 1.sp,
+            modifier = Modifier.layoutProbe("card.desclen"),
         )
         Spacer(Modifier.height(20.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
