@@ -125,6 +125,47 @@ for (let y = 0; y < height; y += band) {
   });
 }
 
+/**
+ * Row bands: compress each image into runs of rows that share a dominant (modal) colour.
+ * A vertical shift of a block then reads as "reference ivory 201..269, candidate ivory
+ * 240..308" instead of as a percentage, which is the difference between knowing what to
+ * move and guessing.
+ */
+function rowBands(img) {
+  const rows = [];
+  for (let y = 0; y < img.height; y++) {
+    const counts = new Map();
+    for (let x = 0; x < img.width; x += 3) {
+      const c = at(img, x, y);
+      const key = ((c[0] >> 3) << 10) | ((c[1] >> 3) << 5) | (c[2] >> 3);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    let bestKey = 0;
+    let best = -1;
+    for (const [k, v] of counts) {
+      if (v > best) {
+        best = v;
+        bestKey = k;
+      }
+    }
+    const r = ((bestKey >> 10) & 31) << 3;
+    const g = ((bestKey >> 5) & 31) << 3;
+    const b = (bestKey & 31) << 3;
+    const share = best / Math.max(1, Math.ceil(img.width / 3));
+    rows.push({ color: [r, g, b], share });
+  }
+  const bands = [];
+  let start = 0;
+  const same = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) < 12;
+  for (let y = 1; y <= rows.length; y++) {
+    if (y === rows.length || !same(rows[y].color, rows[start].color) || y - start >= 400) {
+      bands.push({ from: start, to: y - 1, color: rows[start].color, share: rows[Math.floor((start + y - 1) / 2)].share });
+      start = y;
+    }
+  }
+  return bands.filter((b) => b.to - b.from >= 2);
+}
+
 const hex = (c) => `#${c.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 const out = [];
 out.push(`diff-map ${width}x${height} — threshold ${pixelThreshold}, cell ${cols}x${rows}`);
@@ -140,5 +181,9 @@ for (const b of bands) {
     `${String(b.y).padStart(4)}  ${String(b.diffPct).padStart(6)}   ${hex(b.refMean)}  ${hex(b.candMean)}`,
   );
 }
+out.push("");
+out.push("row bands (dominant colour per run of rows)");
+out.push("  reference:  " + rowBands(ref).map((b) => `${b.from}-${b.to} ${hex(b.color)}`).join("  "));
+out.push("  candidate:  " + rowBands(cand).map((b) => `${b.from}-${b.to} ${hex(b.color)}`).join("  "));
 process.stdout.write(out.join("\n") + "\n");
 void path;
