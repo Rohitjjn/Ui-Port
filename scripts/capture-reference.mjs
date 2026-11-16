@@ -185,7 +185,14 @@ try {
         fs.mkdirSync(dir, { recursive: true });
         const started = Date.now();
         try {
+          // A state can outlive its own capture: the player overlay opened on the home route
+          // stays open when the next capture navigates to the hash route, and it then dominates
+          // that screen's screenshot (library dropped from 86.9% to 68.3% when this happened).
+          // Each capture therefore starts from a cold document, not from whatever the previous
+          // state left behind.
+          await page.goto("about:blank");
           await page.goto(url, { waitUntil: "domcontentloaded" });
+          await page.addStyleTag({ content: FREEZE_CSS });
           await page.waitForTimeout(150);
           const applied = await applyState(page, state);
           if (!applied && state !== "default") {
