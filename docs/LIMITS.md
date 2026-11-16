@@ -61,6 +61,23 @@ numbers.
 **Loss:** 1px AA fringes on every glyph; occasionally a 1–2dp line-height difference.
 **Log:** `font-rasterization` (unavoidable) or `text-rendering` (wrong family/weight — a bug, fix it).
 
+**Measured on this project (2026-11-15).** "Bundle the exact files" is the right advice and it
+made the port *worse* here, which is worth recording. `scripts/capture-reference.mjs` aborts
+every request that is not same-origin, so the prototype's Google Fonts stylesheet never loads
+and the reference is captured with the browser's **fallback** stacks (`serif`,
+`ui-sans-serif`), not with Instrument Serif and Inter. Bundling the real webfonts
+(`composeResources/font/uiport_*`, SIL OFL, with the licence texts) scored 89.26% against
+94.96% for the platform families, because the webfont metrics differ from the fallback's and
+line counts changed with them: the banner broke into 3 lines where the capture has 3 but at a
+different width, the hero title into 1 line where the capture has 2 and the hero description
+into 3 where the capture has 4.
+
+Two ways out, both cheap, and the choice is the capture owner's rather than the port's:
+(a) allow same-origin font resources in the capture so the reference uses the webfonts, then
+switch `UiPortFonts` to the bundled families; or (b) declare the fallback metrics the
+specification and delete the bundled files. Until then `UiPortFonts` uses the platform
+families and this file records why.
+
 ## 6. Sub-pixel layout — `subpixel-layout`
 
 CSS lays out in fractional CSS pixels; Compose rounds to device pixels. A 0.5px border becomes 1 or 0.
