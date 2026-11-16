@@ -225,8 +225,8 @@ jobs:
               const fs = require('fs');
               const lines = fs.readFileSync('/tmp/diffmap.txt', 'utf8').split('\n');
               const chunks = [];
-              for (let i = 0; i < lines.length; i += 22) chunks.push(lines.slice(i, i + 22).join(' | '));
-              chunks.forEach((c, i) => console.log('::notice title=diff map ' + (i + 1) + '::' + c.replace(/%/g, '%25')));
+              for (let i = 0; i < lines.length; i += 26) chunks.push(lines.slice(i, i + 26).join(' | '));
+              chunks.slice(0, 9).forEach((c, i) => console.log('::notice title=diff map ' + (i + 1) + '::' + c.replace(/%/g, '%25')));
             " || true
           fi
           echo "--- reference geometry digest ---"

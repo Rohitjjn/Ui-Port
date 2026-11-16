@@ -181,6 +181,25 @@ for (const b of bands) {
     `${String(b.y).padStart(4)}  ${String(b.diffPct).padStart(6)}   ${hex(b.refMean)}  ${hex(b.candMean)}`,
   );
 }
+// Exact probes. A modal colour can be ambiguous between two near-whites (paper #faf8f3
+// vs card #ffffff); the pixel at a named coordinate cannot be. This is what settles where
+// a card actually starts and ends.
+const probeCols = String(flag("columns", "8,200,370"))
+  .split(",")
+  .map((v) => Number(v))
+  .filter((v) => Number.isFinite(v) && v >= 0 && v < width);
+const probeStep = Number(flag("step", 12));
+if (probeCols.length) {
+  out.push("");
+  out.push(`pixel probes (y step ${probeStep}; R=reference C=candidate)`);
+  for (const x of probeCols) {
+    const rows = [];
+    for (let y = 0; y < height; y += probeStep) {
+      rows.push(`${y}:${hex(at(ref, x, y))}/${hex(at(cand, x, y))}`);
+    }
+    out.push(`  x=${x}  ${rows.join(" ")}`);
+  }
+}
 out.push("");
 out.push("row bands (dominant colour per run of rows)");
 out.push("  reference:  " + rowBands(ref).map((b) => `${b.from}-${b.to} ${hex(b.color)}`).join("  "));
