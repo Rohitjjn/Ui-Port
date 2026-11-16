@@ -98,19 +98,19 @@ export const STATE_SCRIPT = (state) => {
     candidates[0].click();
     return true;
   }
-  if (state === "player") {
+  if (state === "player-start") {
     // The now-playing surface is not a route: it is an overlay the mini player opens, and the
-    // mini player only exists once something is queued. So this follows the real path — start
-    // the first track, then open the player — instead of failing on a cold page. Both steps
-    // are ordinary clicks on elements the page itself renders; nothing is injected.
-    let open = document.querySelector("[aria-label='Open player']");
-    if (!open) {
-      const track = document.querySelector("[data-testid='track-row'], main button");
-      if (!track) return false;
-      track.click();
-      open = document.querySelector("[aria-label='Open player']");
-      if (!open) return false;
-    }
+    // mini player only exists once something is queued. One click per call, because the click
+    // handler updates React state and the mini player is not in the DOM on the same tick —
+    // a single script that clicks twice would find nothing to click the second time.
+    const track = document.querySelector("main button");
+    if (!track) return false;
+    track.click();
+    return true;
+  }
+  if (state === "player-open") {
+    const open = document.querySelector("[aria-label='Open player']");
+    if (!open) return false;
     open.click();
     return true;
   }

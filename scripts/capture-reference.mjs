@@ -106,6 +106,16 @@ async function applyState(page, state) {
       await page.waitForTimeout(150);
       return focused;
     }
+    case "player": {
+      // Two separate evaluations, because React needs a tick between the two clicks: start
+      // the first track, let the mini player mount, then open the player from it.
+      const started = await page.evaluate(STATE_SCRIPT, "player-start");
+      if (!started) return false;
+      await page.waitForTimeout(400);
+      const opened = await page.evaluate(STATE_SCRIPT, "player-open");
+      await page.waitForTimeout(500);
+      return opened;
+    }
     case "empty":
     case "loading":
     case "error":
