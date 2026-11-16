@@ -136,7 +136,7 @@ jobs:
             const report = JSON.parse(fs.readFileSync(p, 'utf8'));
             const list = Array.isArray(report) ? report : (report.results || report.captures || []);
             for (const r of list) {
-              const line = (r.screen || r.id) + '/' + (r.state || 'default') + ' -> ' + (r.status || 'unknown');
+              const line = (r.screen || r.id) + '/' + (r.state || 'default') + (r.playing ? ' playing=' + r.playing : '') + ' -> ' + (r.status || 'unknown');
               if (r.status === 'captured') console.log('::notice title=capture ' + (r.screen || r.id) + '::' + line + ' nodes=' + (r.nodeCount ?? '?'));
               else console.log('::warning title=capture failed::' + line + ' ' + JSON.stringify(r).slice(0, 200));
             }

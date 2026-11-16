@@ -188,6 +188,15 @@ try {
           const png = path.join(dir, `${state}.png`);
           await page.screenshot({ path: png, animations: "disabled", caret: "hide", fullPage: false });
           const geometry = await page.evaluate(GEOMETRY_SCRIPT);
+          // Which track the page is playing, so a ported now-playing screen can be rendered
+          // with the same one. Comparing two screenshots of different tracks measures content,
+          // not layout, and this is the only cheap way to know.
+          const playing = await page
+            .evaluate(() => {
+              const el = document.querySelector("[aria-label='Open player'] div, [aria-label='Open player'] span");
+              return el ? (el.textContent || "").trim().slice(0, 80) : null;
+            })
+            .catch(() => null);
           fs.writeFileSync(path.join(dir, `${state}.geometry.json`), `${JSON.stringify(geometry, null, 2)}\n`);
           results.push({
             screen: capture.id,
@@ -196,6 +205,7 @@ try {
             status: "captured",
             screenshot: path.relative(process.cwd(), png),
             nodeCount: geometry.length,
+            playing,
             ms: Date.now() - started,
           });
         } catch (err) {
