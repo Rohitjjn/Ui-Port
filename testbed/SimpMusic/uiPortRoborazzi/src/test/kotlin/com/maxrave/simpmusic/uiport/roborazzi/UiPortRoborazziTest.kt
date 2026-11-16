@@ -26,8 +26,10 @@ import org.robolectric.annotation.GraphicsMode
  *   -> uiPortRoborazzi/build/ui-port-output/<device>/<screen>/default.png
  *   -> uiPortRoborazzi/build/ui-port-output/<device>/<screen>/default.semantics.json
  *
- * The qualifiers come from `config/viewports.json` (phone = 393 x 852 dp at 2x); a different
- * density is a different layout and the diff would measure the density, not the port.
+ * The qualifiers come from `config/viewports.json` (phone = 393 x 852 dp at 2x), which produces
+ * the 786 x 1704 px image the reference capture takes at the same DPR. A different density is a
+ * different image of the same layout and the diff would measure the density, not the port —
+ * which is exactly what happened while the reference was forced to 1x by Paparazzi's clamp.
  *
  * `GraphicsMode.NATIVE` is required for text: Robolectric's legacy graphics stub draws glyphs as
  * boxes, which would make every text measurement meaningless while still producing a plausible
@@ -35,7 +37,7 @@ import org.robolectric.annotation.GraphicsMode
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], qualifiers = "w393dp-h852dp-xxhdpi")
+@Config(sdk = [34], qualifiers = "w393dp-h852dp-xhdpi")
 class UiPortRoborazziTest {
     @get:Rule
     val compose = createComposeRule()

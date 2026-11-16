@@ -93,22 +93,15 @@ jobs:
       # image from an older commit measures the fixture, not the port.
       - name: Capture the reference
         run: |
-          # Compare at DPR 1 on both sides: Paparazzi clamps a snapshot to 1000 px on the
-          # long edge, so a 2x render is impossible. Written here rather than in config/ so
-          # the plugin's own device table keeps the real (2x) values.
-          node -e "
-            const v = require('./config/viewports.json');
-            for (const k of Object.keys(v.targets)) v.targets[k].dpr = 1;
-            require('fs').writeFileSync('/tmp/viewports-1x.json', JSON.stringify(v, null, 2));
-          "
+          # The reference is captured at the configured DPR (phone = 2), because the renderer
+          # that produces the verdict can now match it: Roborazzi draws through Robolectric's
+          # own canvas, so the 1000 px long-edge clamp that forced every earlier comparison down
+          # to 1x (a Paparazzi/layoutlib limit) no longer applies. A 2x comparison sees the
+          # antialiasing at the size users actually get, instead of at half of it.
           node scripts/plan-capture.mjs testbed/prototype \
-            --viewports /tmp/viewports-1x.json \
             --devices "$UIPORT_DEVICE" --states default,player --screens "$SCREENS" \
             --base-url http://127.0.0.1:4173 --out .uiport/capture-spec.json
-          # The capture reads its DPR from the viewports file, not from the spec, so the
-          # same 1x file has to be passed here too.
           node scripts/capture-reference.mjs --base-url http://127.0.0.1:4173 \
-            --viewports /tmp/viewports-1x.json \
             --spec .uiport/capture-spec.json --out .uiport/reference
           # Now playing is not a route: it is the full-player overlay, reached by clicking
           # the mini player, so the capture script records it as a *state* of the home
@@ -318,6 +311,20 @@ jobs:
             }
             console.log(\`::notice title=port summary::counts \${JSON.stringify(r.counts)}\`);
           "
+          echo "--- geometry gate (candidate semantics vs reference DOM) ---"
+          for f in .uiport/output/"$UIPORT_DEVICE"/*/default.semantics.json; do
+            [ -e "$f" ] || continue
+            screen=$(basename "$(dirname "$f")")
+            ref=.uiport/reference/"$UIPORT_DEVICE"/"$screen"/default.geometry.json
+            [ -e "$ref" ] || continue
+            set +e
+            node scripts/geometry-compare.mjs --ref "$ref" --cand "$f" --tolerance 1.0 > /tmp/geo-$screen.txt 2>&1
+            set -e
+            head -12 /tmp/geo-$screen.txt | while IFS= read -r line; do
+              echo "::notice title=geometry $screen::${line}"
+            done
+          done
+
           echo "--- textual diff map (every screen) ---"
           : > /tmp/diffmap.txt
           for refpng in .uiport/reference/"$UIPORT_DEVICE"/*/default.png; do
