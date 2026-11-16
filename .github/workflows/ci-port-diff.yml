@@ -212,6 +212,10 @@ jobs:
             head -c 1200 "$f"
             echo
           done
+          echo "--- textual diff map (phone/home) ---"
+          node scripts/diff-map.mjs \
+            --reference .uiport/reference/"$UIPORT_DEVICE"/home/default.png \
+            --candidate .uiport/output/"$UIPORT_DEVICE"/home/default.png || true
           # Publish the numbers as annotations: artifacts and logs are blob-hosted and not
           # readable from every environment.
           node -e "
