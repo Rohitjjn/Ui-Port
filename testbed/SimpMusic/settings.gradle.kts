@@ -64,6 +64,7 @@ include(
     ":listenTogether",
     ":loginSync",
     ":uiPortScreenshots",
+    ":uiPortRoborazzi",
 )
 
 // core modules

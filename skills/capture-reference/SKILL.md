@@ -29,7 +29,26 @@ the diff step needs.
      --out .uiport/capture-spec.json
    ```
 
-3. Capture:
+3. **Vendor the fonts first.** This is not optional and it is not a "nice to have" — it is the
+   single largest source of meaningless diffs:
+
+   ```
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/vendor-fonts.mjs           # res/font -> prototype + app
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/vendor-fonts.mjs --check   # fails if any mirror drifted
+   ```
+
+   `config/fonts.json` is the manifest: it names the families, the weights, the files and the
+   licences. The capture serves those files **from disk** (it never lets the page reach a CDN),
+   waits for `document.fonts.ready`, then asserts inside the page that every expected family and
+   weight is `loaded` and that nothing else was rendered. A missing or unloaded face is a hard
+   failure (`status: font-check-failed`, exit code 8) — never a warning, because a reference
+   photographed in a fallback font is a reference the app cannot match, and the difference is
+   invisible unless you look for it.
+
+   The same files must be in the Compose app (`composeResources/font`, loaded by
+   `UiPortFonts`). `--check` is what keeps the two in step.
+
+4. Capture:
 
    ```
    node ${CLAUDE_PLUGIN_ROOT}/scripts/capture-reference.mjs \
@@ -39,8 +58,10 @@ the diff step needs.
 
    Exit code 7 means Playwright or its browser is unavailable: re-plan for CI (see
    `skills/preflight/references/execution-modes.md`) instead of trying to work around it.
+   Exit code 8 means the vendored fonts did not load: fix the manifest or the CSS, do not
+   screenshot anyway.
 
-4. Measure the noise floor immediately, before any port work:
+5. Measure the noise floor immediately, before any port work:
 
    ```
    node ${CLAUDE_PLUGIN_ROOT}/scripts/capture-reference.mjs ... --out .uiport/reference/run2
@@ -51,7 +72,7 @@ the diff step needs.
    Record the number in `.uiport/state.json` (`noiseFloor`) and in the worklog. A web-vs-web
    score below 99.5% means the capture is not deterministic yet — fix that first.
 
-5. Skim a few screenshots yourself. A blank page, a spinner, or a font fallback caught here
+6. Skim a few screenshots yourself. A blank page, a spinner, or a font fallback caught here
    saves a whole port iteration later.
 
 ## Rules
@@ -62,6 +83,10 @@ the diff step needs.
 - One viewport per configured device target with the configured DPR. A capture at the wrong
   DPR cannot be compared with anything.
 - Keep the spec in `.uiport/capture-spec.json` so a later re-capture draws the same screens.
+- Never capture with a page that fell back to a system font. The check is automatic; do not
+  "just take the screenshot" when it fails, and do not silence it for one screen.
+- If the prototype legitimately uses a display face that is not vendored, add it to
+  `config/fonts.json` with its licence. The capture reports unvendored families by name.
 
 ## References
 

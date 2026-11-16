@@ -151,6 +151,11 @@ jobs:
             console.log('::notice title=capture total::' + list.length + ' capture(s)');
           "
 
+      # A drifted mirror means the reference and the app are drawing different outlines, so the
+      # whole run would measure the fonts. Fail here, before a render or a diff is computed.
+      - name: Check the font mirrors before anything is believed
+        run: node scripts/vendor-fonts.mjs --check
+
       - name: Accept Android SDK licences and write local.properties
         working-directory: testbed/SimpMusic
         run: |
@@ -183,40 +188,60 @@ jobs:
           echo "--- configs ---"; head -40 /tmp/configs.txt
           set -e
 
-      - name: Render the ported screens (Paparazzi, desktop JVM)
+      # Two renderers, on purpose. Roborazzi (Robolectric) is the one that produces the
+      # verdict: it renders at the reference's real size and density, and it is driven by the
+      # Compose test rule, which is the only supported way to read the semantics tree the
+      # geometry gate needs. Paparazzi is kept as evidence that the fallback still works — it
+      # clamps a snapshot to 1000 px, so its image is 1x and is compared as a separate device
+      # (`phone-1x`), never mixed into the real numbers.
+      - name: Render the ported screens (Roborazzi, Robolectric on the JVM)
         working-directory: testbed/SimpMusic
         run: |
           set +e
-          ./gradlew :uiPortScreenshots:recordPaparazzi \
-            --stacktrace 2>&1 | tee /tmp/gradle.log
+          ./gradlew :uiPortRoborazzi:testDebugUnitTest --stacktrace 2>&1 | tee /tmp/gradle-roborazzi.log
           code=${PIPESTATUS[0]}
           set -e
           if [ "$code" != "0" ]; then
-            # Publish the compiler/test errors as annotations: the log blob is not readable
-            # from every environment, annotations are.
-            # Print the "What went wrong" block verbatim: Gradle's own summary is the most
-            # useful text, and it does not match the error-shaped patterns above.
-            sed -n '/\* What went wrong/,/^\* Try:/p' /tmp/gradle.log | head -30 | while IFS= read -r line; do
-              echo "::error title=gradle::${line}"
+            sed -n '/What went wrong/,/^Try:/p' /tmp/gradle-roborazzi.log | head -30 | while IFS= read -r line; do
+              echo "::error title=gradle (roborazzi)::${line}"
             done
-            grep -nE "^e: |error:|Caused by:|Unresolved reference|Could not (find|resolve)|> Could|^Execution failed" /tmp/gradle.log | head -30 | while IFS= read -r line; do
-              echo "::error title=gradle::${line}"
+            grep -nE "^e: |error:|Caused by:|Unresolved reference|Could not (find|resolve)|^Execution failed" /tmp/gradle-roborazzi.log | head -30 | while IFS= read -r line; do
+              echo "::error title=gradle (roborazzi)::${line}"
+            done
+            exit "$code"
+          fi
+          find uiPortRoborazzi/build/ui-port-output -type f | sort
+
+      - name: Render the fallback (Paparazzi, layoutlib) as a separate 1x device
+        working-directory: testbed/SimpMusic
+        continue-on-error: true
+        run: |
+          set +e
+          ./gradlew :uiPortScreenshots:recordPaparazzi --stacktrace 2>&1 | tee /tmp/gradle.log
+          code=${PIPESTATUS[0]}
+          set -e
+          if [ "$code" != "0" ]; then
+            # A failing fallback is reported, never hidden: it means the documented escape hatch
+            # for Android-only engines is broken for this project.
+            sed -n '/What went wrong/,/^Try:/p' /tmp/gradle.log | head -20 | while IFS= read -r line; do
+              echo "::error title=gradle (paparazzi fallback)::${line}"
             done
             exit "$code"
           fi
           find uiPortScreenshots/build/ui-port-output uiPortScreenshots/src/test/snapshots -name "*.png" 2>/dev/null | sort
-          echo "--- paparazzi task candidates ---"
-          ./gradlew :composeApp:tasks --all 2>/dev/null | grep -i paparazzi || true
 
-      # Roborazzi writes images offscreen (its own canvas), so the semantics dump is
-      # produced by the same test into the same folder. Both are copied to the layout the
-      # diff expects: <device>/<screen>/<state>.png
       - name: Collect renders
         run: |
-          rm -rf .uiport/output
+          rm -rf .uiport/output .uiport/output-1x
           mkdir -p .uiport/output
+          if [ -d testbed/SimpMusic/uiPortRoborazzi/build/ui-port-output ]; then
+            cp -r testbed/SimpMusic/uiPortRoborazzi/build/ui-port-output/* .uiport/output/
+          fi
+          # The Paparazzi fallback renders at 1x; it gets its own device directory so a 1x image
+          # is never compared against a 2x reference as if the difference were layout.
           if [ -d testbed/SimpMusic/uiPortScreenshots/build/ui-port-output ]; then
-            cp -r testbed/SimpMusic/uiPortScreenshots/build/ui-port-output/* .uiport/output/
+            mkdir -p .uiport/output-1x
+            cp -r testbed/SimpMusic/uiPortScreenshots/build/ui-port-output/* .uiport/output-1x/
           fi
           echo "--- rendered ---"
           find .uiport/output -type f | sort
@@ -332,6 +357,7 @@ jobs:
           name: uiport-port-diff-${{ github.run_id }}
           path: |
             .uiport/output/**
+            .uiport/output-1x/**
             .uiport/diffs/**
           retention-days: 30
           if-no-files-found: warn

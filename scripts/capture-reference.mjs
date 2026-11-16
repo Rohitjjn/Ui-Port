@@ -21,6 +21,15 @@ import path from "node:path";
 import process from "node:process";
 import { buildCapturePlan, hashUrl, validateSpec } from "./lib/capture-spec.mjs";
 import { FREEZE_CSS, GEOMETRY_SCRIPT, SEED_SCRIPT, STATE_SCRIPT, STABILITY_SCRIPT, validateInjection } from "./lib/browser-inject.mjs";
+import {
+  FONT_ASSERT_SCRIPT,
+  FONT_LOAD_SCRIPT,
+  defaultFontConfigPath,
+  expectedFaces,
+  fontFaceCss,
+  fontStackOverrideCss,
+  loadFontConfig,
+} from "./lib/fonts.mjs";
 import { readJson, readJsonSafe, walk } from "./lib/fs-utils.mjs";
 
 const args = process.argv.slice(2);
@@ -32,6 +41,7 @@ const flag = (name, fallback = null) => {
 };
 
 const EXIT_NO_BROWSER = 7;
+const EXIT_FONT = 8;
 
 const baseUrl = flag("base-url", "http://localhost:4173");
 const outRoot = path.resolve(flag("out", ".uiport/reference"));
@@ -39,6 +49,16 @@ const specFile = flag("spec");
 const viewportsFile = path.resolve(flag("viewports", path.join(import.meta.dirname, "..", "config", "viewports.json")));
 const viewports = readJson(viewportsFile);
 const only = flag("only") ? String(flag("only")).split(",").map((s) => s.trim()) : null;
+
+// Fonts are not an optional detail: if the reference and the app render different files, every
+// text measurement is comparing typefaces instead of layout. The manifest is read from the plugin
+// root by default and the faces are injected into the page as local @font-face rules, so the
+// capture never depends on a network stylesheet (all off-origin requests are blocked below).
+const fontConfigFile = path.resolve(String(flag("fonts", defaultFontConfigPath())));
+const fontConfig = loadFontConfig(fontConfigFile);
+const fontCss = `${fontFaceCss(fontConfig)}\n${fontStackOverrideCss(fontConfig)}`;
+const expected = expectedFaces(fontConfig);
+const fontDir = path.resolve(path.dirname(fontConfigFile), "..", fontConfig.sources.directory);
 
 let spec;
 if (specFile) {
@@ -167,8 +187,26 @@ try {
       reducedMotion: "reduce",
     });
     // No network: the prototype must be self-contained (bundled fonts, bundled data).
+    //
+    // The vendored font files are served from disk here rather than from the prototype's own
+    // server. That is deliberate: the prototype is a third-party artifact that may load its fonts
+    // from a CDN, and a reference captured with a CDN font is a reference the app can never match.
+    // Serving them from `res/font` makes the reference independent of both the network and the
+    // prototype's markup.
     await context.route("**/*", (route) => {
       const url = route.request().url();
+      if (url.startsWith(`${baseUrl}${fontConfig.urlBase}/`) || url.includes(`${fontConfig.urlBase}/`)) {
+        const name = url.split("?")[0].split("/").pop();
+        const file = path.join(fontDir, name ?? "");
+        if (fs.existsSync(file)) {
+          return route.fulfill({
+            status: 200,
+            contentType: name?.endsWith(".css") ? "text/css" : "font/ttf",
+            body: fs.readFileSync(file),
+          });
+        }
+        return route.fulfill({ status: 404, body: "" });
+      }
       if (url.startsWith(baseUrl) || url.startsWith("data:") || url.startsWith("blob:")) return route.continue();
       return route.abort();
     });
@@ -177,6 +215,11 @@ try {
     await page.addInitScript(SEED_SCRIPT);
     await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
     await page.addStyleTag({ content: FREEZE_CSS });
+    // Injected after the app's own styles so the declared families win: the prototype's
+    // `--font-sans`/`--font-serif` stacks name Inter and Instrument Serif, and these @font-face
+    // rules are what make those names resolve to the vendored files in both the reference and
+    // the Compose app.
+    await page.addStyleTag({ content: fontCss });
 
     for (const capture of captures) {
       for (const state of capture.states ?? ["default"]) {
@@ -193,6 +236,10 @@ try {
           await page.goto("about:blank");
           await page.goto(url, { waitUntil: "domcontentloaded" });
           await page.addStyleTag({ content: FREEZE_CSS });
+          // Both stylesheets, again: `about:blank` threw away the document the first injection
+          // went into. Without this the fonts silently revert to the prototype's fallbacks for
+          // every capture after the first, which is exactly the class of bug this harness is for.
+          await page.addStyleTag({ content: fontCss });
           await page.waitForTimeout(150);
           const applied = await applyState(page, state);
           if (!applied && state !== "default") {
@@ -200,7 +247,42 @@ try {
             continue;
           }
           await waitForStable(page);
+          // Fonts, in this order: wait for the load, then verify what actually rendered. A
+          // screenshot taken before `document.fonts.ready` is a screenshot of fallback glyphs;
+          // one taken after it without verification can still be a fallback if a rule never
+          // applied. Both cases are silent without this check, which is why they were.
           await page.evaluate(() => document.fonts?.ready);
+          // Explicitly load the declared faces (Chromium is lazy), then let `document.fonts.ready`
+          // settle again. A face whose file 404s ends up in `error`/`unloaded` and fails below.
+          const fontLoad = await page.evaluate(FONT_LOAD_SCRIPT, expected);
+          await page.evaluate(() => document.fonts?.ready);
+          const fontCheck = await page.evaluate(FONT_ASSERT_SCRIPT, expected);
+          if (!fontCheck.ok) {
+            failures++;
+            results.push({
+              screen: capture.id,
+              device: deviceName,
+              state,
+              status: "font-check-failed",
+              missing: fontCheck.missing,
+              fontLoad,
+              used: fontCheck.used.slice(0, 12),
+              ms: Date.now() - started,
+            });
+            process.stderr.write(
+              `capture-reference: ${capture.id}/${deviceName}/${state} did not load the vendored fonts: ` +
+                `${fontCheck.missing.map((m) => `${m.family} ${m.weight}`).join(", ")}. ` +
+                "Refusing to capture a reference whose typeface the app cannot match.\n",
+            );
+            continue;
+          }
+          if (fontCheck.usedButNotVendored.length) {
+            // Not fatal: the prototype may render a display face we have not vendored, and the
+            // honest response is to record it so the category can be declared, not to guess.
+            process.stderr.write(
+              `capture-reference: warning: ${capture.id} renders families that are not vendored: ${fontCheck.usedButNotVendored.join(", ")}\n`,
+            );
+          }
           await page.waitForTimeout(250);
           const png = path.join(dir, `${state}.png`);
           await page.screenshot({ path: png, animations: "disabled", caret: "hide", fullPage: false });
@@ -222,6 +304,13 @@ try {
             status: "captured",
             screenshot: path.relative(process.cwd(), png),
             nodeCount: geometry.length,
+            fonts: {
+              ok: fontCheck.ok,
+              loaded: fontCheck.loaded.map((l) => `${l.family} ${l.weight} ${l.status}`),
+              load: fontLoad,
+              used: fontCheck.used,
+              notVendored: fontCheck.usedButNotVendored,
+            },
             playing,
             ms: Date.now() - started,
           });
