@@ -121,13 +121,16 @@ jobs:
             # The player overlay is a state of the home route, but a capture restricted to the
             # screens the port renders may not include home at all. Any screen's player state
             # shows the same overlay, so take whichever one actually exists.
-            src=\$(ls "$dev"*/player.png 2>/dev/null | head -1)
-            if [ -n "\$src" ]; then
+            found=""
+            for candidate in "$dev"*/player.png; do
+              if [ -f "$candidate" ]; then found="$candidate"; break; fi
+            done
+            if [ -n "$found" ]; then
               mkdir -p "$dev/nowplaying"
-              cp "\$src" "$dev/nowplaying/default.png"
-              geo="\${src%.png}.geometry.json"
-              [ -f "\$geo" ] && cp "\$geo" "$dev/nowplaying/default.geometry.json"
-              echo "::notice title=nowplaying reference::\${dev}nowplaying/default.png (from \${src#\$dev})"
+              cp "$found" "$dev/nowplaying/default.png"
+              geo="${found%.png}.geometry.json"
+              if [ -f "$geo" ]; then cp "$geo" "$dev/nowplaying/default.geometry.json"; fi
+              echo "::notice title=nowplaying reference::${dev}nowplaying/default.png (from ${found#"$dev"})"
             else
               echo "::warning title=nowplaying reference::no player-state capture was produced; nowplaying stays unscored"
             fi
