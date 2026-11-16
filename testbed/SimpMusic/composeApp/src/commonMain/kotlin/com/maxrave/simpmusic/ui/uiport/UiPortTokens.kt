@@ -52,29 +52,8 @@ object UiPortTokens {
     /** Vertical rhythm: `space-y-10` between home sections. */
     val sectionGap = 40.dp
 
-    /**
-     * Page padding on a compact (phone) viewport: the shell's `px-4`.
-     *
-     * The capture corroborates it three ways: the header starts at x=16, the hero cover
-     * starts at 16 + 20 (card padding) + 1 (hairline) = 37, and the header row closes
-     * exactly: 209 (title column) + 12 (gap-3) + 140 (two 44px icon buttons, a 40px
-     * avatar and their gaps) = 361 = 393 - 2x16.
-     */
+    /** Page padding on a compact (phone) viewport: `px-4`. */
     val pagePadding = 16.dp
-
-    /**
-     * Width of the header's title column.
-     *
-     * The web header is a flex row whose left column is not `flex-1`, so it shrinks to its
-     * widest child: the 14px subtitle, whose max-content width is 209px. That is what
-     * makes the 32px greeting wrap onto two 40px lines in the reference, and it is the
-     * reason the card below starts at y=322 instead of y=282. Compose measures text
-     * children with the full incoming width, so the column is stated explicitly.
-     */
-    val headerColumnWidth = 209.dp
-
-    /** The signed-out banner's text box: the capture measured 258x57 (three 19px lines). */
-    val bannerTextWidth = 258.dp
 
     /** The shell's `main` gets `pt-2`, which is where the first capture box (y=16) comes from. */
     val mainPadding = 8.dp

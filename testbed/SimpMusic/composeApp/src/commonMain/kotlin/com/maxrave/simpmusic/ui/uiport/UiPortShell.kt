@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,12 +53,15 @@ object UiPortShell {
 }
 
 /**
- * The bottom bar is not given a fixed height: it is `py-2` + an `h-8` icon pill + an
- * 11px/1.45 label, which is 8 + 32 + 16 + 8 = 64, plus the 1px hairline. The capture put
- * the nav links at y=786 in an 852-tall frame (66px, including the hairline), so the bar
- * takes its own height from its content and the scroll area above it stops where it stops.
- * `safe-bottom` is `env(safe-area-inset-bottom)`, which resolves to 0 at DPR 1.
+ * Height of the bottom bar as rendered at DPR 1.
+ *
+ * The web nav is `py-2` (8+8) + an `h-8` icon pill (32) + an 11px label with the default
+ * 1.45 line-height (16) = 72px, plus a 1px hairline. `safe-bottom` is
+ * `env(safe-area-inset-bottom)`, which resolves to 0 at DPR 1 under Playwright, so 73 is
+ * the full height. The capture shows the nav labels at y=786 in an 852-tall frame, which
+ * is exactly 73px of bar.
  */
+private val navBarHeight = 72.dp
 
 @Composable
 fun UiPortBottomNav(
@@ -79,6 +80,7 @@ fun UiPortBottomNav(
                 Modifier
                     .fillMaxWidth()
                     .windowInsetsPadding(WindowInsets.navigationBars)
+                    .height(navBarHeight)
                     .padding(vertical = 8.dp)
                     .layoutProbe("nav.row"),
             horizontalArrangement = Arrangement.SpaceAround,
@@ -110,7 +112,6 @@ fun UiPortBottomNav(
                         color = if (active) UiPortTokens.ink else UiPortTokens.mute,
                         fontSize = 11.sp,
                         lineHeight = 16.sp,
-                        fontFamily = UiPortFonts.sans,
                         fontWeight = FontWeight.Medium,
                     )
                 }
@@ -138,35 +139,20 @@ fun UiPortLoginBanner(modifier: Modifier = Modifier) {
             color = UiPortTokens.charcoal,
             fontSize = UiPortTokens.subtitle,
             lineHeight = 19.sp,
-            fontFamily = UiPortFonts.sans,
-            // The capture's banner text is a 258x57 box: three 19px lines. Compose's
-            // platform sans is narrower than the capture host's fallback, so the same
-            // string fits on two lines at that width; the width is pinned to the measured
-            // text box and the button keeps its own measured 55px so the three lines are
-            // reproduced rather than approximated.
-            modifier = Modifier.width(UiPortTokens.bannerTextWidth),
+            modifier = Modifier.weight(1f),
             onTextLayout = { UiPortLayoutProbe.recordText("banner.text", it.lineCount, it.size) },
         )
-        // `Button size="sm"`: h-9 (36px) with a 13px label, per the capture's 55x36 box.
-        Spacer(Modifier.weight(1f))
         Box(
             modifier =
                 Modifier
                     .height(36.dp)
                     .clip(RoundedCornerShape(percent = 50))
                     .background(UiPortTokens.sage)
-                    .padding(horizontal = 12.dp)
+                    .padding(horizontal = 16.dp)
                     .semantics { contentDescription = "Log in" },
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                "Log in",
-                color = UiPortTokens.paper,
-                fontSize = UiPortTokens.subtitle,
-                lineHeight = 19.sp,
-                fontFamily = UiPortFonts.sans,
-                fontWeight = FontWeight.Medium,
-            )
+            Text("Log in", color = UiPortTokens.paper, fontSize = UiPortTokens.subtitle, fontWeight = FontWeight.Medium)
         }
     }
 }
