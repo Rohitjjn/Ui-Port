@@ -292,6 +292,10 @@ export function inferStates(source) {
   if (/<dialog|Modal|Sheet|Drawer|open=/.test(source)) states.add("overlay");
   if (/onFocus|focus-visible|:focus/.test(source)) states.add("focus");
   if (/Tabs|tab\s*===|activeTab/.test(source)) states.add("tabbed");
+  // A full player that opens over the page is a reachable state of the screen it opens on.
+  // It is detected by the control that opens it, not by an import of the component, because
+  // the player is mounted by the shell while the trigger lives on the screen.
+  if (/Open player|openPlayer\(|FullPlayer/.test(source)) states.add("player");
   return [...states];
 }
 

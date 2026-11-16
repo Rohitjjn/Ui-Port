@@ -8,6 +8,16 @@
  */
 export const STATES = ["default", "empty", "loading", "error", "overlay", "focus", "tabbed", "player"];
 
+/**
+ * States the *shell* provides rather than the screen.
+ *
+ * The full player is mounted once by `AppShell` and opened from the mini player, which is
+ * itself part of the shell, so it is reachable from any route even though no screen file
+ * mentions it. Inferring it per screen would silently drop it — which is what happened: the
+ * capture plan asked for `player` and produced only `default`.
+ */
+const SHELL_STATES = new Set(["player"]);
+
 export function deviceTargetsFromConfig(viewports, requested) {
   const all = Object.keys(viewports?.targets ?? {});
   if (!requested || requested === "all") return all;
@@ -33,8 +43,9 @@ export function buildCapturePlan(scan, options = {}) {
     if (screenFilter && !screenFilter.has(screen.id)) continue;
     if (screen.isShell) continue;
     if (screen.route === "*") continue;
-    // Only capture states that the prototype can actually show.
-    const available = new Set(screen.states ?? ["default"]);
+    // Only capture states that the prototype can actually show: the screen's own, plus the
+    // ones the shell mounts for every route.
+    const available = new Set([...(screen.states ?? ["default"]), ...SHELL_STATES]);
     const states = wantedStates.filter((s) => s === "default" || available.has(s));
     for (const device of devices) {
       plan.push({
