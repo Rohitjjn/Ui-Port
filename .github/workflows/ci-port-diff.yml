@@ -229,6 +229,18 @@ jobs:
               chunks.forEach((c, i) => console.log('::notice title=diff map ' + (i + 1) + '::' + c.replace(/%/g, '%25')));
             " || true
           fi
+          echo "--- reference geometry digest ---"
+          node scripts/annotate-geometry.mjs --file .uiport/reference/"$UIPORT_DEVICE"/home/default.geometry.json > /tmp/geodigest.txt 2>&1 || true
+          cat /tmp/geodigest.txt || true
+          if [ -s /tmp/geodigest.txt ]; then
+            node -e "
+              const fs = require('fs');
+              const lines = fs.readFileSync('/tmp/geodigest.txt', 'utf8').split('\n');
+              const chunks = [];
+              for (let i = 0; i < lines.length; i += 24) chunks.push(lines.slice(i, i + 24).join(' | '));
+              chunks.slice(0, 10).forEach((c, i) => console.log('::notice title=reference layout ' + (i + 1) + '::' + c.replace(/%/g, '%25')));
+            " || true
+          fi
           # Publish the numbers as annotations: artifacts and logs are blob-hosted and not
           # readable from every environment.
           node -e "
