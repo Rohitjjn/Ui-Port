@@ -21,7 +21,7 @@ it. Anything that could not be measured is listed as a gap, not as a pass.
 | Tablet and desktop layouts (B.5) | **not started** | — |
 | Engine wiring (B.6) | **not started** | — |
 | Debug APK as a downloadable artifact for the *ported* UI (B.7) | **not built** | — |
-| Delivery ZIP attached to release `v0.1.0` | ZIP built, **not attached** | §6 |
+| Delivery ZIP attached to release `v0.1.0` | **done** | asset `ui-port-v0.1.0.zip`, 391,887 B, run [43810401233](https://github.com/Rohitjjn/Ui-Port/actions/runs/43810401233) |
 
 ## 2. Fidelity scores — per screen, per device
 
@@ -101,13 +101,20 @@ captured with fallback stacks. Both the measurement and the two ways out are rec
 
 ## 6. Release
 
-`v0.1.0` exists with source and notes but **no artifacts**: the environment could not upload
-from here. The exact command is in `docs/RELEASE.md`:
+**`v0.1.0` now carries its artifact**:
+<https://github.com/Rohitjjn/Ui-Port/releases/download/v0.1.0/ui-port-v0.1.0.zip> —
+391,887 bytes, 144 entries, state `uploaded`.
 
-```bash
-gh release upload v0.1.0 dist/ui-port-v0.1.0.zip --clobber
-```
+The ZIP is built by `node scripts/package-zip.mjs`, which excludes `testbed/`, `node_modules/`,
+`.git/` and build output; the workflow that publishes it (`.github/workflows/release-asset.yml`)
+independently re-checks that the archive has 0 forbidden paths and at least 100 entries *before*
+uploading, so a truncated or polluted archive fails the job instead of shipping.
 
-The ZIP (132 entries, 0.66 MB) is built by `node scripts/package-zip.mjs`, which verifies that
-`testbed/` build outputs are excluded, and the cleanup procedure that proves the plugin works
-without the test bed is `docs/CLEANUP.md`.
+Publishing had to move to a runner: `gh release upload` from the authoring environment dies with
+`Post "https://uploads.github.com/…": EOF` because the egress allowlist does not include the
+uploads host. The first runner attempt also created a spurious release tagged with the branch name
+(a fallback to `github.ref_name`); it was deleted with `--cleanup-tag` and the fallback is now the
+documented tag. Both facts are recorded in `docs/RELEASE.md` so nobody repeats them.
+
+`docs/CLEANUP.md` holds the procedure that proves the plugin still works with the test bed
+removed (164 pass / 12 skipped / 0 fail).

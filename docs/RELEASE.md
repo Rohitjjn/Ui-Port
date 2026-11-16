@@ -42,11 +42,26 @@ gh release upload v0.1.0 dist/ui-port-v0.1.0.zip
 ## Status of the 0.1.0 release
 
 - Release created and public: <https://github.com/Rohitjjn/Ui-Port/releases/tag/v0.1.0>
-- **The ZIP asset upload failed twice** with `Post "https://uploads.github.com/...": EOF`. The cause
-  is the build environment's egress allowlist: release *metadata* goes to `api.github.com` (allowed)
-  while release *assets* are uploaded to `uploads.github.com` (not reachable here). Nothing is wrong
-  with the archive — `gh release upload v0.1.0 dist/ui-port-v0.1.0.zip` from a normal machine
-  completes it, or attach the file through the GitHub web UI.
+- **Asset attached and verified**: `ui-port-v0.1.0.zip`, 391,887 bytes, state `uploaded` —
+  <https://github.com/Rohitjjn/Ui-Port/releases/download/v0.1.0/ui-port-v0.1.0.zip>
+  (run [43810401233](https://github.com/Rohitjjn/Ui-Port/actions/runs/43810401233): 144 entries,
+  0 forbidden paths, `unzip -p … .claude-plugin/plugin.json` prints the manifest before upload).
+
+### How the asset got there, and why the first two attempts failed
+
+`gh release upload` from the authoring environment fails with a bare
+`Post "https://uploads.github.com/…": EOF`. The cause is an egress allowlist that covers
+`api.github.com` and `codeload.github.com` but not the uploads host; nothing is wrong with the
+archive. `workflow_dispatch` is also unavailable here (403, and a workflow is only dispatchable
+once it exists on the default branch), so the asset is published by `.github/workflows/release-asset.yml`
+on a temporary `push` trigger, which was removed in the commit immediately after the successful run.
+
+The first run of that workflow exposed a real bug and it is fixed: the tag fell back to
+`github.ref_name`, which on a branch push is the *branch*, so it created a release tagged
+`arena/a9a40385-ui-port`. That release was deleted (`gh release delete … --cleanup-tag`) and the
+fallback is now the literal documented tag, never a ref.
+- Re-attaching by hand, if it is ever needed: `gh release upload v0.1.0 dist/ui-port-v0.1.0.zip --clobber`
+  from a machine with normal egress, or run the `release-asset` workflow with `tag=v0.1.0`.
 - **CI evidence now exists** (2026-11-15): `ci-static` [43809265679], `ci-unit` [43809265653] and
   `ci-hooks-matrix` [43809265785] are green, and `ci-port-diff` [43809265671] runs the real
   Playwright capture, the Paparazzi render and the pixel/SSIM diff on every push.
