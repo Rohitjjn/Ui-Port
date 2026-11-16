@@ -122,7 +122,7 @@ private fun HomeHeader() {
                 color = UiPortTokens.ink,
                 fontSize = UiPortTokens.heroTitle,
                 lineHeight = 40.sp,
-                fontFamily = UiPortFonts.serif,
+                fontFamily = UiPortFonts.serif(),
             )
             Spacer(Modifier.height(4.dp))
             Text(
@@ -239,7 +239,7 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
             color = UiPortTokens.ink,
             fontSize = UiPortTokens.featuredTitle,
             lineHeight = 36.sp,
-            fontFamily = UiPortFonts.serif,
+            fontFamily = UiPortFonts.serif(),
         )
         Spacer(Modifier.height(4.dp))
         Text(
@@ -305,7 +305,7 @@ private fun ShelfSection(shelf: UiPortFixtures.Shelf) {
                     color = UiPortTokens.ink,
                     fontSize = UiPortTokens.sectionTitle,
                     lineHeight = 28.sp,
-                    fontFamily = UiPortFonts.serif,
+                    fontFamily = UiPortFonts.serif(),
                 )
                 if (shelf.subtitle != null) {
                     Text(
@@ -373,7 +373,7 @@ private fun RecentlyPlayed(tracks: List<UiPortFixtures.Track> = emptyList()) {
             color = UiPortTokens.ink,
             fontSize = UiPortTokens.sectionTitle,
             lineHeight = 28.sp,
-            fontFamily = UiPortFonts.serif,
+            fontFamily = UiPortFonts.serif(),
         )
         Text("From your listening history", color = UiPortTokens.mute, fontSize = UiPortTokens.subtitle, lineHeight = 19.sp)
         Spacer(Modifier.height(12.dp))

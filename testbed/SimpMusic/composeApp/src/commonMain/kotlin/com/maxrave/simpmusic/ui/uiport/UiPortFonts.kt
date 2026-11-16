@@ -1,9 +1,15 @@
 package com.maxrave.simpmusic.ui.uiport
 
-import androidx.compose.ui.text.font.Font
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+// org.jetbrains.compose.resources.Font, not androidx.compose.ui.text.font.Font: the
+// composeResources accessors (`Res.font.*`) are FontResource values and only this overload
+// accepts them. The androidx one takes a path + AssetManager and fails with "argument type
+// mismatch" — which is exactly how this was found.
+import org.jetbrains.compose.resources.Font
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.uiport_instrument_serif
 import simpmusic.composeapp.generated.resources.uiport_inter_medium
@@ -29,15 +35,25 @@ import simpmusic.composeapp.generated.resources.uiport_inter_semibold
  * fix in the screen, not something Compose should fake by shearing glyphs.
  */
 object UiPortFonts {
-    val serif: FontFamily =
-        FontFamily(
-            Font(Res.font.uiport_instrument_serif, FontWeight.Normal, FontStyle.Normal),
-        )
+    // Reading a composeResources font is a @Composable operation (it needs the resource
+    // environment), so the families are remembered per composition rather than built as
+    // top-level `val`s. The screens are the only consumers, so this costs one allocation per
+    // screen and removes the alternative — a global that silently needs a Context.
+    @Composable
+    fun serif(): FontFamily =
+        remember {
+            FontFamily(
+                Font(Res.font.uiport_instrument_serif, FontWeight.Normal, FontStyle.Normal),
+            )
+        }
 
-    val sans: FontFamily =
-        FontFamily(
-            Font(Res.font.uiport_inter_regular, FontWeight.Normal, FontStyle.Normal),
-            Font(Res.font.uiport_inter_medium, FontWeight.Medium, FontStyle.Normal),
-            Font(Res.font.uiport_inter_semibold, FontWeight.SemiBold, FontStyle.Normal),
-        )
+    @Composable
+    fun sans(): FontFamily =
+        remember {
+            FontFamily(
+                Font(Res.font.uiport_inter_regular, FontWeight.Normal, FontStyle.Normal),
+                Font(Res.font.uiport_inter_medium, FontWeight.Medium, FontStyle.Normal),
+                Font(Res.font.uiport_inter_semibold, FontWeight.SemiBold, FontStyle.Normal),
+            )
+        }
 }

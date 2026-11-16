@@ -127,7 +127,7 @@ private fun LibraryHeader() {
                 color = UiPortTokens.mute,
                 fontSize = UiPortTokens.kickerSize,
                 lineHeight = 16.sp,
-                fontFamily = UiPortFonts.sans,
+                fontFamily = UiPortFonts.sans(),
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 1.1.sp,
             )
@@ -143,7 +143,7 @@ private fun LibraryHeader() {
                 // 40 rather than the glyph height keeps the box at exactly 40.
                 lineHeight = 40.sp,
                 maxLines = 1,
-                fontFamily = UiPortFonts.serif,
+                fontFamily = UiPortFonts.serif(),
             )
         }
         Row(
@@ -168,7 +168,7 @@ private fun LibraryHeader() {
                 color = UiPortTokens.ink,
                 fontSize = UiPortTokens.subtitle,
                 lineHeight = 19.sp,
-                fontFamily = UiPortFonts.sans,
+                fontFamily = UiPortFonts.sans(),
                 fontWeight = FontWeight.Medium,
             )
         }
@@ -201,7 +201,7 @@ private fun ChipRow(activeChip: String) {
                     color = if (active) UiPortTokens.paper else UiPortTokens.charcoal,
                     fontSize = UiPortTokens.subtitle,
                     lineHeight = 19.sp,
-                    fontFamily = UiPortFonts.sans,
+                    fontFamily = UiPortFonts.sans(),
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                 )
@@ -264,7 +264,7 @@ private fun TileGrid(tiles: List<UiPortFixtures.LibraryTile>) {
                                 color = UiPortTokens.ink,
                                 fontSize = 14.sp,
                                 lineHeight = 20.sp,
-                                fontFamily = UiPortFonts.sans,
+                                fontFamily = UiPortFonts.sans(),
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -274,7 +274,7 @@ private fun TileGrid(tiles: List<UiPortFixtures.LibraryTile>) {
                                 color = UiPortTokens.mute,
                                 fontSize = UiPortTokens.caption,
                                 lineHeight = 17.sp,
-                                fontFamily = UiPortFonts.sans,
+                                fontFamily = UiPortFonts.sans(),
                                 maxLines = 1,
                             )
                         }
@@ -305,14 +305,14 @@ private fun CollectionSection(
                 color = UiPortTokens.ink,
                 fontSize = UiPortTokens.sectionTitle,
                 lineHeight = 28.sp,
-                fontFamily = UiPortFonts.serif,
+                fontFamily = UiPortFonts.serif(),
             )
             if (action != null) {
                 Text(
                     text = action,
                     color = UiPortTokens.sage,
                     fontSize = UiPortTokens.subtitle,
-                    fontFamily = UiPortFonts.sans,
+                    fontFamily = UiPortFonts.sans(),
                     fontWeight = FontWeight.Medium,
                 )
             }
@@ -342,7 +342,7 @@ private fun CreatePlaylistCard() {
                     .background(UiPortTokens.sand),
         )
         Spacer(Modifier.height(8.dp))
-        Text("Create", color = UiPortTokens.mute, fontSize = UiPortTokens.subtitle, fontFamily = UiPortFonts.sans)
+        Text("Create", color = UiPortTokens.mute, fontSize = UiPortTokens.subtitle, fontFamily = UiPortFonts.sans())
     }
 }
 
@@ -364,7 +364,7 @@ private fun PlaylistCard(playlist: UiPortFixtures.Playlist) {
             color = UiPortTokens.ink,
             fontSize = 14.sp,
             lineHeight = 20.sp,
-            fontFamily = UiPortFonts.sans,
+            fontFamily = UiPortFonts.sans(),
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -374,7 +374,7 @@ private fun PlaylistCard(playlist: UiPortFixtures.Playlist) {
             color = UiPortTokens.mute,
             fontSize = UiPortTokens.caption,
             lineHeight = 17.sp,
-            fontFamily = UiPortFonts.sans,
+            fontFamily = UiPortFonts.sans(),
             maxLines = 1,
         )
     }
@@ -397,7 +397,7 @@ private fun AlbumCard(album: UiPortFixtures.Album) {
             color = UiPortTokens.ink,
             fontSize = 14.sp,
             lineHeight = 20.sp,
-            fontFamily = UiPortFonts.sans,
+            fontFamily = UiPortFonts.sans(),
             fontWeight = FontWeight.Medium,
             maxLines = 1,
         )
@@ -406,7 +406,7 @@ private fun AlbumCard(album: UiPortFixtures.Album) {
             color = UiPortTokens.mute,
             fontSize = UiPortTokens.caption,
             lineHeight = 17.sp,
-            fontFamily = UiPortFonts.sans,
+            fontFamily = UiPortFonts.sans(),
             maxLines = 1,
         )
     }
@@ -430,7 +430,7 @@ private fun ArtistCard(artist: UiPortFixtures.Artist) {
             color = UiPortTokens.ink,
             fontSize = 14.sp,
             lineHeight = 20.sp,
-            fontFamily = UiPortFonts.sans,
+            fontFamily = UiPortFonts.sans(),
             fontWeight = FontWeight.Medium,
             maxLines = 1,
         )
@@ -439,7 +439,7 @@ private fun ArtistCard(artist: UiPortFixtures.Artist) {
             color = UiPortTokens.mute,
             fontSize = UiPortTokens.caption,
             lineHeight = 17.sp,
-            fontFamily = UiPortFonts.sans,
+            fontFamily = UiPortFonts.sans(),
         )
     }
 }

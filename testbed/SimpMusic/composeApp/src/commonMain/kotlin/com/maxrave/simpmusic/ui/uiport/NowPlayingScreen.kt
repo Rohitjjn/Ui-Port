@@ -88,7 +88,7 @@ fun UiPortNowPlayingScreen(
                     color = UiPortTokens.ink,
                     fontSize = 24.sp,
                     lineHeight = 30.sp,
-                    fontFamily = UiPortFonts.serif,
+                    fontFamily = UiPortFonts.serif(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -97,7 +97,7 @@ fun UiPortNowPlayingScreen(
                     color = UiPortTokens.mute,
                     fontSize = UiPortTokens.subtitle,
                     lineHeight = 19.sp,
-                    fontFamily = UiPortFonts.sans,
+                    fontFamily = UiPortFonts.sans(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -113,13 +113,13 @@ fun UiPortNowPlayingScreen(
                 text = formatTime((progress * track.duration).toInt()),
                 color = UiPortTokens.mute,
                 fontSize = UiPortTokens.caption,
-                fontFamily = UiPortFonts.sans,
+                fontFamily = UiPortFonts.sans(),
             )
             Text(
                 text = "-${formatTime((track.duration * (1 - progress)).toInt())}",
                 color = UiPortTokens.mute,
                 fontSize = UiPortTokens.caption,
-                fontFamily = UiPortFonts.sans,
+                fontFamily = UiPortFonts.sans(),
             )
         }
 
@@ -157,7 +157,7 @@ private fun PlayerHeader(albumTitle: String) {
                 fontSize = UiPortTokens.kickerSize,
                 lineHeight = 16.sp,
                 letterSpacing = 1.1.sp,
-                fontFamily = UiPortFonts.sans,
+                fontFamily = UiPortFonts.sans(),
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
@@ -165,7 +165,7 @@ private fun PlayerHeader(albumTitle: String) {
                 color = UiPortTokens.ink,
                 fontSize = UiPortTokens.subtitle,
                 lineHeight = 19.sp,
-                fontFamily = UiPortFonts.sans,
+                fontFamily = UiPortFonts.sans(),
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
             )
@@ -315,7 +315,7 @@ private fun TabRow(activeTab: String) {
                     color = if (active) UiPortTokens.paper else UiPortTokens.charcoal,
                     fontSize = UiPortTokens.subtitle,
                     lineHeight = 19.sp,
-                    fontFamily = UiPortFonts.sans,
+                    fontFamily = UiPortFonts.sans(),
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                 )
@@ -344,7 +344,7 @@ private fun LyricsPanel(lines: List<UiPortFixtures.LyricLine>) {
                 color = if (line.active) UiPortTokens.ink else UiPortTokens.mute,
                 fontSize = if (line.active) 22.sp else 17.sp,
                 lineHeight = if (line.active) 28.sp else 24.sp,
-                fontFamily = UiPortFonts.serif,
+                fontFamily = UiPortFonts.serif(),
                 fontWeight = if (line.active) FontWeight.Medium else FontWeight.Normal,
                 textAlign = TextAlign.Center,
             )
@@ -367,7 +367,7 @@ private fun EmptyPanel(tab: String) {
             text = "${tab.replaceFirstChar { it.uppercase() }} panel",
             color = UiPortTokens.mute,
             fontSize = UiPortTokens.body,
-            fontFamily = UiPortFonts.sans,
+            fontFamily = UiPortFonts.sans(),
         )
     }
 }
