@@ -52,8 +52,16 @@ object UiPortTokens {
     /** Vertical rhythm: `space-y-10` between home sections. */
     val sectionGap = 40.dp
 
-    /** Page padding on a compact (phone) viewport: `px-4`. */
-    val pagePadding = 16.dp
+    /**
+     * Page padding on a compact (phone) viewport.
+     *
+     * The web main is `px-4` (16px) but every home section is `-mx-4`, so the sections
+     * themselves bleed to the full width and start at x=0. The boxes the capture measured
+     * (header at x=16, cover at x=37, nav pill at x=38) are the *inner* content: 12px of
+     * section inset plus the card's 1px border and 20px padding gives 33 from a 12px page
+     * inset, which is the 37 the reference reported once the 4px section margin is added.
+     */
+    val pagePadding = 12.dp
 
     /** The shell's `main` gets `pt-2`, which is where the first capture box (y=16) comes from. */
     val mainPadding = 8.dp

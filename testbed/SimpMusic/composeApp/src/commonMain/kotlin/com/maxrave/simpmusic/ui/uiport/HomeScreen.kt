@@ -113,12 +113,16 @@ private fun HomeHeader() {
                 maxLines = 1,
             )
             Spacer(Modifier.height(4.dp))
+            // The capture shows the greeting wrapping onto two 40px lines inside a 209px
+            // column; the port wraps the same way rather than shrinking the type.
             Text(
                 text = "${UiPortFixtures.FROZEN_GREETING}, Guest",
                 color = UiPortTokens.ink,
                 fontSize = UiPortTokens.heroTitle,
                 lineHeight = 40.sp,
                 fontFamily = UiPortFonts.serif,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(4.dp))
             Text(
