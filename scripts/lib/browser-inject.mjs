@@ -100,10 +100,13 @@ export const STATE_SCRIPT = (state) => {
   }
   if (state === "player-start") {
     // The now-playing surface is not a route: it is an overlay the mini player opens, and the
-    // mini player only exists once something is queued. One click per call, because the click
-    // handler updates React state and the mini player is not in the DOM on the same tick —
-    // a single script that clicks twice would find nothing to click the second time.
-    const track = document.querySelector("main button");
+    // mini player only exists once something is queued. So start a track by clicking one — but
+    // "the first button in main" is the header's Notifications control, which navigates away.
+    // A track row is identified by what it renders: cover art (an <img>) and a duration in its
+    // text. If neither exists, this is a page with no playable content and the state is
+    // honestly reported as unreachable rather than faked.
+    const buttons = [...document.querySelectorAll("main button")];
+    const track = buttons.find((b) => b.querySelector("img") && /\d+:\d\d/.test(b.textContent || "")) || buttons.find((b) => b.querySelector("img"));
     if (!track) return false;
     track.click();
     return true;
