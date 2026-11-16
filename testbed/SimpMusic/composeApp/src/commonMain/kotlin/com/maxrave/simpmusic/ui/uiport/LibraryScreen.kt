@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,13 +61,14 @@ fun UiPortLibraryScreen(
         ) {
             LibraryHeader()
 
-            Spacer(Modifier.height(UiPortTokens.sectionGap))
+            Spacer(Modifier.height(32.dp))
             ChipRow(activeChip)
 
-            Spacer(Modifier.height(UiPortTokens.sectionGap))
+            // The chip row is `space-y-8` from the header and the grid is 32px below it.
+            Spacer(Modifier.height(32.dp))
             TileGrid(tiles)
 
-            Spacer(Modifier.height(UiPortTokens.sectionGap))
+            Spacer(Modifier.height(UiPortTokens.sectionGapCompact))
             CollectionSection(title = "Your playlists", action = "See all") {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     items(playlists) { playlist -> PlaylistCard(playlist) }
@@ -74,14 +76,14 @@ fun UiPortLibraryScreen(
                 }
             }
 
-            Spacer(Modifier.height(UiPortTokens.sectionGap))
+            Spacer(Modifier.height(UiPortTokens.sectionGapCompact))
             CollectionSection(title = "Saved albums") {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     items(savedAlbums) { album -> AlbumCard(album) }
                 }
             }
 
-            Spacer(Modifier.height(UiPortTokens.sectionGap))
+            Spacer(Modifier.height(UiPortTokens.sectionGapCompact))
             CollectionSection(title = "Followed artists", action = "See all") {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     items(followedArtists) { artist -> ArtistCard(artist) }
@@ -120,7 +122,11 @@ private fun LibraryHeader() {
                 text = "Your Library",
                 color = UiPortTokens.ink,
                 fontSize = UiPortTokens.heroTitle,
+                // The capture measures this title as a single 40px line (163x40) — unlike
+                // the home greeting, which wraps in its narrower column. One line-height of
+                // 40 rather than the glyph height keeps the box at exactly 40.
                 lineHeight = 40.sp,
+                maxLines = 1,
                 fontFamily = UiPortFonts.serif,
             )
         }
@@ -201,9 +207,11 @@ private fun TileGrid(tiles: List<UiPortFixtures.LibraryTile>) {
                         modifier =
                             Modifier
                                 .weight(1f)
+                                .shadow(2.dp, RoundedCornerShape(UiPortTokens.radiusSm))
                                 .clip(RoundedCornerShape(UiPortTokens.radiusSm))
                                 .background(UiPortTokens.card)
                                 .border(1.dp, UiPortTokens.line, RoundedCornerShape(UiPortTokens.radiusSm))
+                                .layoutProbe("tile")
                                 .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),

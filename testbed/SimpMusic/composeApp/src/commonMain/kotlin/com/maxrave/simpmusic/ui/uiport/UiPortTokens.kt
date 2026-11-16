@@ -52,6 +52,9 @@ object UiPortTokens {
     /** Vertical rhythm: `space-y-10` between home sections. */
     val sectionGap = 40.dp
 
+    /** The library screen's rhythm is `space-y-8`. */
+    val sectionGapCompact = 32.dp
+
     /** Page padding on a compact (phone) viewport: `px-4`. */
     val pagePadding = 16.dp
 
