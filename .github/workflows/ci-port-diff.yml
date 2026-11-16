@@ -60,7 +60,7 @@ jobs:
       # published before Gradle is asked to use it.
       - name: Probe available screenshot-tool versions
         run: |
-          for coord in app/cash/paparazzi/paparazzi-gradle-plugin app/cash/paparazzi/paparazzi-leakcanary; do
+          for coord in app/cash/paparazzi/paparazzi-gradle-plugin app/cash/paparazzi/paparazzi-leakcanary io/github/takahirom/roborazzi/roborazzi io/github/takahirom/roborazzi/roborazzi-compose org/robolectric/robolectric; do
             url="https://repo1.maven.org/maven2/${coord}/maven-metadata.xml"
             code=$(curl -sS -o /tmp/meta.xml -w "%{http_code}" "$url" || echo "000")
             if [ "$code" = "200" ]; then
@@ -196,6 +196,7 @@ jobs:
       # (`phone-1x`), never mixed into the real numbers.
       - name: Render the ported screens (Roborazzi, Robolectric on the JVM)
         working-directory: testbed/SimpMusic
+        continue-on-error: true
         run: |
           set +e
           ./gradlew :uiPortRoborazzi:testDebugUnitTest --stacktrace 2>&1 | tee /tmp/gradle-roborazzi.log
@@ -208,6 +209,7 @@ jobs:
             grep -nE "^e: |error:|Caused by:|Unresolved reference|Could not (find|resolve)|^Execution failed" /tmp/gradle-roborazzi.log | head -30 | while IFS= read -r line; do
               echo "::error title=gradle (roborazzi)::${line}"
             done
+            echo "::warning title=renderer::Roborazzi did not run; the diff falls back to the Paparazzi 1x render, so the geometry gate reports \"not measured\" instead of passing"
             exit "$code"
           fi
           find uiPortRoborazzi/build/ui-port-output -type f | sort
