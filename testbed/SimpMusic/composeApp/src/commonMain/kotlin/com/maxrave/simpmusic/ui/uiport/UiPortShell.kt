@@ -108,7 +108,7 @@ fun UiPortBottomNav(
                         color = if (active) UiPortTokens.ink else UiPortTokens.mute,
                         fontSize = 11.sp,
                         lineHeight = 16.sp,
-                        fontFamily = UiPortFonts.sans(),
+                        fontFamily = UiPortFonts.sans,
                         fontWeight = FontWeight.Medium,
                     )
                 }
@@ -136,7 +136,7 @@ fun UiPortLoginBanner(modifier: Modifier = Modifier) {
             color = UiPortTokens.charcoal,
             fontSize = UiPortTokens.subtitle,
             lineHeight = 19.sp,
-            fontFamily = UiPortFonts.sans(),
+            fontFamily = UiPortFonts.sans,
             modifier = Modifier.weight(1f),
             onTextLayout = { UiPortLayoutProbe.recordText("banner.text", it.lineCount, it.size) },
         )
@@ -156,7 +156,7 @@ fun UiPortLoginBanner(modifier: Modifier = Modifier) {
                 color = UiPortTokens.paper,
                 fontSize = UiPortTokens.subtitle,
                 lineHeight = 19.sp,
-                fontFamily = UiPortFonts.sans(),
+                fontFamily = UiPortFonts.sans,
                 fontWeight = FontWeight.Medium,
             )
         }

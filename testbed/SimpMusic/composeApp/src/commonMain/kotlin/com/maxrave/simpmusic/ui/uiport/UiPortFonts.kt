@@ -1,48 +1,32 @@
 package com.maxrave.simpmusic.ui.uiport
 
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import org.jetbrains.compose.resources.Font
-import simpmusic.composeapp.generated.resources.Res
-import simpmusic.composeapp.generated.resources.uiport_instrument_serif
-import simpmusic.composeapp.generated.resources.uiport_inter_medium
-import simpmusic.composeapp.generated.resources.uiport_inter_regular
-import simpmusic.composeapp.generated.resources.uiport_inter_semibold
 
 /**
- * Typefaces used by the ported screens, and the reason they are bundled.
+ * Typefaces used by the ported screens — and why these are the platform families.
  *
- * The prototype's `--font-serif` stack is "Instrument Serif", "Cormorant Garamond", Georgia,
- * serif and its `--font-sans` stack starts with Inter; the reference capture was taken with
- * the real webfonts loaded. Compose's `FontFamily.Serif`/`SansSerif` are *different*
- * typefaces, and the difference is not cosmetic: line breaks change. With platform fonts
- * the 13px login banner fitted on two lines where the reference has three, the 14px hero
- * description fitted on two where the reference has four, and the greeting fitted on one
- * line of 32px type where the reference has two. Every one of those differences moves the
- * whole page below it, so a band of the screenshot cannot match no matter how carefully the
- * layout is written.
+ * The prototype's stylesheet asks for "Instrument Serif" and "Inter", but the reference
+ * capture never gets them: `scripts/capture-reference.mjs` aborts every request that is not
+ * same-origin ("the prototype must be self-contained"), so the Google Fonts stylesheet is
+ * blocked and the browser resolves the stacks to their generic fallbacks: `serif` and
+ * `ui-sans-serif`/`system-ui`.
  *
- * Both families are Open Font License, and the licence texts ship next to the binaries in
- * `composeResources/font/OFL-*.txt`.
+ * That is measured, not assumed. With the real webfonts bundled the score fell from
+ * 94.96% to 89.26%: the greeting stayed two lines (209x82) but the banner fitted three
+ * lines where the capture has four, the hero title fitted one line where the capture has
+ * two, and the hero description fitted three where the capture has four. Every one of those
+ * is a line-count difference, and line counts are exactly what the pixel diff sees.
+ *
+ * So the port uses the platform families, because the platform families are what the
+ * reference actually rendered with. The bundled webfont resources stay in the repository
+ * (`composeResources/font/uiport_*`, SIL OFL) for the case where the capture is later
+ * changed to allow same-origin bundled fonts: the intent is recorded in docs/LIMITS.md and
+ * switching back is a two-line change in this file.
  */
 object UiPortFonts {
-    /**
-     * "Instrument Serif" regular, as loaded by the web page.
-     *
-     * These are functions rather than properties because `Font(...)` from Compose
-     * Resources reads the packaged resource in a composable scope; the family is then
-     * rebuilt per call, which the font loader caches internally.
-     */
-    @Composable
-    fun serif(): FontFamily = FontFamily(Font(Res.font.uiport_instrument_serif, FontWeight.Normal))
+    /** The web stack's fallback for "Instrument Serif": `serif`. */
+    val serif: FontFamily = FontFamily.Serif
 
-    /** Inter 400/500/600, the three weights the prototype's `font-medium`/`font-semibold` use. */
-    @Composable
-    fun sans(): FontFamily =
-        FontFamily(
-            Font(Res.font.uiport_inter_regular, FontWeight.Normal),
-            Font(Res.font.uiport_inter_medium, FontWeight.Medium),
-            Font(Res.font.uiport_inter_semibold, FontWeight.SemiBold),
-        )
+    /** The web stack's fallback for "Inter": `ui-sans-serif, system-ui`. */
+    val sans: FontFamily = FontFamily.SansSerif
 }
