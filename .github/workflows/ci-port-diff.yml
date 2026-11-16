@@ -247,6 +247,14 @@ jobs:
           fi
           echo "--- rendered ---"
           find .uiport/output -type f | sort
+          echo "--- roborazzi task result ---"
+          # Paparazzi's task now succeeds even when there is nothing to copy — `continue-on-error`
+          # turns a failure into a green step, so the reason has to come from the log itself.
+          grep -E "roborazzi|No tests found|Test events were not received|uiPortRoborazzi" /tmp/gradle-roborazzi.log | tail -20 | while IFS= read -r line; do
+            echo "::notice title=roborazzi run::${line}"
+          done || echo "::warning title=roborazzi run::no roborazzi log"
+          echo "--- paparazzi fallback ---"
+          find .uiport/output-1x -type f 2>/dev/null | sort
           echo "--- reference ---"
           find .uiport/reference -type f | sort
           echo "--- whatever paparazzi wrote ---"
