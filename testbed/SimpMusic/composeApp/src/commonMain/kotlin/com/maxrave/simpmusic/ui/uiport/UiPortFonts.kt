@@ -40,20 +40,18 @@ object UiPortFonts {
     // top-level `val`s. The screens are the only consumers, so this costs one allocation per
     // screen and removes the alternative — a global that silently needs a Context.
     @Composable
-    fun serif(): FontFamily =
-        remember {
-            FontFamily(
-                Font(Res.font.uiport_instrument_serif, FontWeight.Normal, FontStyle.Normal),
-            )
-        }
+    fun serif(): FontFamily {
+        // `Font(...)` is itself @Composable, so it cannot be called inside a `remember` lambda
+        // (which is not composable). Read the font first, then remember the family keyed on it.
+        val font = Font(Res.font.uiport_instrument_serif, FontWeight.Normal, FontStyle.Normal)
+        return remember(font) { FontFamily(font) }
+    }
 
     @Composable
-    fun sans(): FontFamily =
-        remember {
-            FontFamily(
-                Font(Res.font.uiport_inter_regular, FontWeight.Normal, FontStyle.Normal),
-                Font(Res.font.uiport_inter_medium, FontWeight.Medium, FontStyle.Normal),
-                Font(Res.font.uiport_inter_semibold, FontWeight.SemiBold, FontStyle.Normal),
-            )
-        }
+    fun sans(): FontFamily {
+        val regular = Font(Res.font.uiport_inter_regular, FontWeight.Normal, FontStyle.Normal)
+        val medium = Font(Res.font.uiport_inter_medium, FontWeight.Medium, FontStyle.Normal)
+        val semibold = Font(Res.font.uiport_inter_semibold, FontWeight.SemiBold, FontStyle.Normal)
+        return remember(regular, medium, semibold) { FontFamily(regular, medium, semibold) }
+    }
 }
