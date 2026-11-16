@@ -54,4 +54,7 @@ object UiPortTokens {
 
     /** Page padding on a compact (phone) viewport: `px-4`. */
     val pagePadding = 16.dp
+
+    /** The shell's `main` gets `pt-2`, which is where the first capture box (y=16) comes from. */
+    val mainPadding = 8.dp
 }

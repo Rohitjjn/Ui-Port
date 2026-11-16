@@ -51,8 +51,16 @@ object UiPortShell {
     val defaultNav = listOf(NavItem("/", "Home"), NavItem("/search", "Search"), NavItem("/library", "Library"))
 }
 
-/** Height of the bottom bar, including its safe-area padding, as rendered at DPR 1. */
-private val navBarHeight = 60.dp
+/**
+ * Height of the bottom bar as rendered at DPR 1.
+ *
+ * The web nav is `py-2` (8+8) + an `h-8` icon pill (32) + an 11px label with the default
+ * 1.45 line-height (16) = 72px, plus a 1px hairline. `safe-bottom` is
+ * `env(safe-area-inset-bottom)`, which resolves to 0 at DPR 1 under Playwright, so 73 is
+ * the full height. The capture shows the nav labels at y=786 in an 852-tall frame, which
+ * is exactly 73px of bar.
+ */
+private val navBarHeight = 72.dp
 
 @Composable
 fun UiPortBottomNav(
@@ -71,7 +79,8 @@ fun UiPortBottomNav(
                 Modifier
                     .fillMaxWidth()
                     .windowInsetsPadding(WindowInsets.navigationBars)
-                    .height(navBarHeight),
+                    .height(navBarHeight)
+                    .padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -100,6 +109,7 @@ fun UiPortBottomNav(
                         text = item.label,
                         color = if (active) UiPortTokens.ink else UiPortTokens.mute,
                         fontSize = 11.sp,
+                        lineHeight = 16.sp,
                         fontWeight = FontWeight.Medium,
                     )
                 }

@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -41,8 +42,14 @@ import androidx.compose.ui.unit.sp
  * screenshot test with no ViewModel, no coroutine and no engine. Wiring to the real
  * SimpMusic engine is a separate, later step and does not change this file's layout.
  *
+ * Vertical rhythm is taken from the reference's measured boxes rather than guessed: the
+ * web shell is `pt-2 px-4` with `space-y-10`, the header is `pt-2` with a 32px/1.25
+ * serif title, the signed-out banner is `px-4 py-3`, and the featured card is `p-5`. The
+ * numbers below place the hero image at y=342 and the hero title at y=705, which is what
+ * the capture reported, so a mismatch is a real regression instead of a rounding drift.
+ *
  * The web original is a phone layout at the reference viewport (393x852). Breakpoint
- * behaviour (`lg:` classes) is deliberately not ported here; the tablet layout is a
+ * behaviour (`sm:`/`lg:` classes) is deliberately not ported here; the tablet layout is a
  * separate, separately measured port.
  */
 @Composable
@@ -58,17 +65,19 @@ fun UiPortHomeScreen(
                 modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = UiPortTokens.pagePadding),
+                    .padding(horizontal = UiPortTokens.pagePadding, vertical = UiPortTokens.mainPadding),
         ) {
             HomeHeader()
 
+            Spacer(Modifier.height(UiPortTokens.sectionGap))
             if (!signedIn) {
-                Spacer(Modifier.height(24.dp))
                 UiPortLoginBanner()
+                Spacer(Modifier.height(UiPortTokens.sectionGap))
             }
-
-            Spacer(Modifier.height(24.dp))
             FeaturedHero(featured)
+
+            Spacer(Modifier.height(UiPortTokens.sectionGap))
+            RecentlyPlayed()
 
             shelves.forEach { shelf ->
                 Spacer(Modifier.height(UiPortTokens.sectionGap))
@@ -78,6 +87,11 @@ fun UiPortHomeScreen(
     }
 }
 
+/**
+ * `pt-2` on the header. The kicker is a div, not a captured heading, but its box decides
+ * where the 80px-tall two-line title starts: 8 (main) + 8 (header) + 16 (kicker line) + 4
+ * (mt-1) = 36, matching the reference's `h1 y=36`.
+ */
 @Composable
 private fun HomeHeader() {
     Row(
@@ -85,22 +99,25 @@ private fun HomeHeader() {
             Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top,
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = UiPortFixtures.FROZEN_DATE_LABEL.uppercase(),
                 color = UiPortTokens.mute,
                 fontSize = UiPortTokens.kickerSize,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 1.2.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 1.1.sp,
+                maxLines = 1,
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "${UiPortFixtures.FROZEN_GREETING}, Guest",
                 color = UiPortTokens.ink,
                 fontSize = UiPortTokens.heroTitle,
-                lineHeight = 38.sp,
+                lineHeight = 40.sp,
                 fontFamily = UiPortFonts.serif,
             )
             Spacer(Modifier.height(4.dp))
@@ -108,6 +125,7 @@ private fun HomeHeader() {
                 text = "What is the best choice today?",
                 color = UiPortTokens.mute,
                 fontSize = UiPortTokens.body,
+                lineHeight = 20.sp,
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -123,18 +141,28 @@ private fun HomeHeader() {
                         .semantics { contentDescription = "Account" },
                 contentAlignment = Alignment.Center,
             ) {
-                Text("G", color = UiPortTokens.paper, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                Box(
+                    modifier =
+                        Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .border(1.5.dp, UiPortTokens.paper, CircleShape),
+                )
             }
         }
     }
 }
 
+/** `IconButton` size md = 44x44, ghost tone, 20px glyph, bell carries an 8px rose dot. */
 @Composable
-private fun HeaderIcon(label: String, showDot: Boolean) {
+private fun HeaderIcon(
+    label: String,
+    showDot: Boolean,
+) {
     Box(
         modifier =
             Modifier
-                .size(40.dp)
+                .size(44.dp)
                 .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
@@ -144,8 +172,8 @@ private fun HeaderIcon(label: String, showDot: Boolean) {
             modifier =
                 Modifier
                     .size(20.dp)
-                    .clip(RoundedCornerShape(UiPortTokens.radiusXs))
-                    .background(UiPortTokens.charcoal.copy(alpha = 0.7f)),
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(UiPortTokens.charcoal),
         )
         if (showDot) {
             Box(
@@ -161,23 +189,30 @@ private fun HeaderIcon(label: String, showDot: Boolean) {
     }
 }
 
+/**
+ * `.paper` card: white fill, 1px hairline, `rounded-xl` (the prototype's --radius-xl = 28),
+ * `p-5` padding. At the phone width the `sm:grid-cols-*` split does not apply, so the cover
+ * is a full-width square above the text.
+ */
 @Composable
 private fun FeaturedHero(album: UiPortFixtures.Album) {
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(UiPortTokens.radiusLg * 0.72f))
+                .clip(RoundedCornerShape(UiPortTokens.radiusXl))
                 .background(UiPortTokens.card)
+                .border(1.dp, UiPortTokens.line, RoundedCornerShape(UiPortTokens.radiusXl))
                 .padding(20.dp),
     ) {
         Box(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(300.dp)
+                    .height(319.dp)
                     .clip(RoundedCornerShape(UiPortTokens.radiusSm))
-                    .background(UiPortTokens.ivory),
+                    .background(UiPortTokens.ivory)
+                    .border(1.dp, UiPortTokens.ink.copy(alpha = 0.1f), RoundedCornerShape(UiPortTokens.radiusSm)),
         ) {
             UiPortArtwork.Cover(palette = album.palette)
         }
@@ -186,8 +221,9 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
             text = "FEATURED THIS WEEK",
             color = UiPortTokens.sage,
             fontSize = UiPortTokens.kickerSize,
-            letterSpacing = 1.2.sp,
-            fontWeight = FontWeight.Medium,
+            lineHeight = 16.sp,
+            letterSpacing = 1.1.sp,
+            fontWeight = FontWeight.SemiBold,
         )
         Spacer(Modifier.height(8.dp))
         Text(
@@ -202,25 +238,29 @@ private fun FeaturedHero(album: UiPortFixtures.Album) {
             text = "${album.artistNames.joinToString(", ")} · ${album.year}",
             color = UiPortTokens.charcoal,
             fontSize = 15.sp,
+            lineHeight = 22.sp,
         )
         Spacer(Modifier.height(16.dp))
         Text(
             text = album.description,
             color = UiPortTokens.charcoal,
             fontSize = UiPortTokens.body,
-            lineHeight = 22.sp,
+            lineHeight = 20.sp,
         )
         Spacer(Modifier.height(20.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            UiPortButton("Play", UiPortTokens.sage, UiPortTokens.paper)
-            UiPortButton("Save", UiPortTokens.ivory, UiPortTokens.ink)
-            UiPortButton("Open album", Color.Transparent, UiPortTokens.ink, bordered = true)
+            // `likedAlbums` is seeded with al1 in the prototype's library store, so the
+            // second button reads "Saved" in the reference capture.
+            UiPortPillButton("Play", UiPortTokens.ink, UiPortTokens.paper)
+            UiPortPillButton("Saved", UiPortTokens.ivory, UiPortTokens.ink)
+            UiPortPillButton("Open album", Color.Transparent, UiPortTokens.ink, bordered = true)
         }
     }
 }
 
+/** `Button` md: h-11, px-5, text-sm (14), font-medium, rounded-full. */
 @Composable
-private fun UiPortButton(
+private fun UiPortPillButton(
     label: String,
     background: Color,
     content: Color,
@@ -229,19 +269,18 @@ private fun UiPortButton(
     Box(
         modifier =
             Modifier
-                .height(40.dp)
+                .height(44.dp)
                 .clip(RoundedCornerShape(percent = 50))
                 .background(background)
-                .then(if (bordered) Modifier.borderLine() else Modifier)
-                .padding(horizontal = 18.dp),
+                .then(if (bordered) Modifier.border(1.dp, UiPortTokens.sand, RoundedCornerShape(percent = 50)) else Modifier)
+                .padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = content, fontSize = UiPortTokens.body, fontWeight = FontWeight.Medium)
+        Text(label, color = content, fontSize = UiPortTokens.body, fontWeight = FontWeight.Medium, maxLines = 1)
     }
 }
 
-private fun Modifier.borderLine(): Modifier = this.border(1.dp, UiPortTokens.ink.copy(alpha = 0.35f), RoundedCornerShape(percent = 50))
-
+/** `SectionHeader`: serif 24px title, 13px mute subtitle, `mb-3`. */
 @Composable
 private fun ShelfSection(shelf: UiPortFixtures.Shelf) {
     Column {
@@ -255,10 +294,16 @@ private fun ShelfSection(shelf: UiPortFixtures.Shelf) {
                     text = shelf.title,
                     color = UiPortTokens.ink,
                     fontSize = UiPortTokens.sectionTitle,
+                    lineHeight = 28.sp,
                     fontFamily = UiPortFonts.serif,
                 )
                 if (shelf.subtitle != null) {
-                    Text(text = shelf.subtitle, color = UiPortTokens.mute, fontSize = UiPortTokens.subtitle)
+                    Text(
+                        text = shelf.subtitle,
+                        color = UiPortTokens.mute,
+                        fontSize = UiPortTokens.subtitle,
+                        lineHeight = 19.sp,
+                    )
                 }
             }
             val action =
@@ -304,6 +349,51 @@ private fun ShelfSection(shelf: UiPortFixtures.Shelf) {
     }
 }
 
+/**
+ * "Recently played". The prototype renders it only when the listening history is not
+ * empty; the capture's store starts empty, so this section is absent from the reference
+ * and is driven by a parameter rather than assumed.
+ */
+@Composable
+private fun RecentlyPlayed(tracks: List<UiPortFixtures.Track> = emptyList()) {
+    if (tracks.isEmpty()) return
+    Column {
+        Text(
+            text = "Recently played",
+            color = UiPortTokens.ink,
+            fontSize = UiPortTokens.sectionTitle,
+            lineHeight = 28.sp,
+            fontFamily = UiPortFonts.serif,
+        )
+        Text("From your listening history", color = UiPortTokens.mute, fontSize = UiPortTokens.subtitle, lineHeight = 19.sp)
+        Spacer(Modifier.height(12.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            items(tracks) { track ->
+                Column(modifier = Modifier.width(120.dp)) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(120.dp)
+                                .clip(RoundedCornerShape(UiPortTokens.radiusSm)),
+                    ) {
+                        UiPortArtwork.Cover(palette = track.palette)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        track.title,
+                        color = UiPortTokens.ink,
+                        fontSize = UiPortTokens.subtitle,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(track.artist, color = UiPortTokens.mute, fontSize = UiPortTokens.caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun AlbumCard(album: UiPortFixtures.Album) {
     Column(modifier = Modifier.width(150.dp)) {
@@ -311,7 +401,7 @@ private fun AlbumCard(album: UiPortFixtures.Album) {
             modifier =
                 Modifier
                     .size(150.dp)
-                    .clip(RoundedCornerShape(2.dp)),
+                    .clip(RoundedCornerShape(UiPortTokens.radiusSm)),
         ) {
             UiPortArtwork.Cover(palette = album.palette)
         }
@@ -328,7 +418,7 @@ private fun PlaylistCard(playlist: UiPortFixtures.Playlist) {
             modifier =
                 Modifier
                     .size(150.dp)
-                    .clip(RoundedCornerShape(2.dp)),
+                    .clip(RoundedCornerShape(UiPortTokens.radiusSm)),
         ) {
             UiPortArtwork.Cover(palette = playlist.palette)
         }
@@ -355,6 +445,7 @@ private fun ArtistCard(artist: UiPortFixtures.Artist) {
     }
 }
 
+/** `TrackRow`: 48px cover, `py-2`, title 15/13, duration in the subtitle line. */
 @Composable
 private fun TrackRow(
     index: Int,
@@ -364,26 +455,27 @@ private fun TrackRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(56.dp),
+                .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
             modifier =
                 Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(2.dp)),
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(UiPortTokens.radiusSm)),
         ) {
             UiPortArtwork.Cover(palette = track.palette, seed = index)
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(track.title, color = UiPortTokens.ink, fontSize = UiPortTokens.body, fontWeight = FontWeight.Medium, maxLines = 1)
-            Text(track.artist, color = UiPortTokens.mute, fontSize = UiPortTokens.caption, maxLines = 1)
+            Text(track.title, color = UiPortTokens.ink, fontSize = 15.sp, lineHeight = 20.sp, maxLines = 1)
+            Text(
+                text = "${track.artist} · ${track.duration / 60}:${(track.duration % 60).toString().padStart(2, '0')}",
+                color = UiPortTokens.mute,
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                maxLines = 1,
+            )
         }
-        Text(
-            text = "${track.duration / 60}:${(track.duration % 60).toString().padStart(2, '0')}",
-            color = UiPortTokens.mute,
-            fontSize = UiPortTokens.caption,
-        )
     }
 }
