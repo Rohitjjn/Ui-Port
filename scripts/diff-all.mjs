@@ -62,6 +62,33 @@ function candidateDirFor(screen) {
   return withDevice;
 }
 
+/**
+ * Per-screen port-loop bookkeeping, kept next to the state file the port loop writes.
+ *
+ * `iterations` is what the cap is enforced against, and `residuals` is what the acceptance gate
+ * needs. Both are read from disk rather than assumed, so a run cannot accept a screen by
+ * forgetting how many times it has been tried or by declaring no residual.
+ */
+const portStateRes = readJsonSafe(path.resolve(flag("state", ".uiport/state.json")));
+const portState = portStateRes.ok ? portStateRes.value : null;
+const SKIP_RESIDUALS = new Set(["harness"]);
+
+function loopInfo(screen, device) {
+  const key = `${screen}::${device}`;
+  const counts = portState?.iterationCounts ?? {};
+  const residuals = portState?.residuals ?? {};
+  const raw = counts[key] ?? 0;
+  // Harness fixes (capture, fonts, viewport, diff config) are not port iterations: they are
+  // logged separately and excluded here, because counting them would let a broken harness burn
+  // a screen's budget before any layout work happened.
+  const harness = (portState?.harnessFixes?.[key] ?? []).length;
+  return {
+    iterations: Math.max(0, raw - harness),
+    harnessFixes: harness,
+    residualCategories: residuals[key]?.categories ?? [],
+  };
+}
+
 const baselineRes = readJsonSafe(baselineFile);
 const baseline = baselineRes.ok ? baselineRes.value : { schemaVersion: 1, scores: {} };
 
@@ -81,6 +108,7 @@ for (const screen of screens) {
   const candGeometry = path.join(candDir, "default.semantics.json");
   const outDir = calibrate ? outRoot : path.join(outRoot, device, screen);
   try {
+    const loop = loopInfo(screen, device);
     const result = compareScreens({
       referenceFile: refPng,
       candidateFile: candPng,
@@ -88,11 +116,12 @@ for (const screen of screens) {
       candidateGeometryFile: fs.existsSync(candGeometry) ? candGeometry : null,
       outputDir: outDir,
       thresholds,
-      iterations: 0,
-      residualCategories: [],
+      iterations: loop.iterations,
+      residualCategories: loop.residualCategories,
       screenName: screen,
       device,
     });
+    result.harnessFixes = loop.harnessFixes;
     results.push(result);
 
     const key = `${screen}::${device}`;
@@ -146,9 +175,13 @@ if (calibrate) {
     results: results.map((r) => ({
       screen: r.screen,
       status: r.status,
+      accepted: r.accepted ?? false,
       pixelMatchPct: r.pixel?.matchPct ?? null,
       ssim: r.ssim?.value ?? null,
       geometryCoveragePct: r.geometry?.coveragePct ?? null,
+      iterations: r.iterations ?? 0,
+      residualCategories: r.residualCategories ?? [],
+      gates: r.gates ?? null,
       reason: r.reason ?? null,
     })),
   };
@@ -174,10 +207,14 @@ function renderSummary(s) {
   const L = [];
   L.push(`# Diff summary — ${s.device}`, "");
   L.push(`Generated ${s.generatedAt}. Regression tolerance ${s.tolerance} points.`, "");
-  L.push("| Screen | Status | Pixel | SSIM | Geometry |", "| --- | --- | --- | --- | --- |");
+  L.push(
+    "| Screen | Status | Accepted | Pixel | SSIM (not gated) | Geometry | Iter | Residuals |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
+  );
   for (const r of s.results) {
     L.push(
-      `| ${r.screen} | ${r.status} | ${r.pixelMatchPct ?? "-"} | ${r.ssim ?? "-"} | ${r.geometryCoveragePct ?? "-"} |`,
+      `| ${r.screen} | ${r.status} | ${r.accepted ? "yes" : "no"} | ${r.pixelMatchPct ?? "-"} | ${r.ssim ?? "-"} | ` +
+        `${r.geometryCoveragePct ?? "not measured"} | ${r.iterations ?? 0} | ${(r.residualCategories ?? []).join(", ") || "-"} |`,
     );
   }
   L.push("");

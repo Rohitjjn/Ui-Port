@@ -95,7 +95,11 @@ describe("state", () => {
 
   test("iteration counter is per screen+device and reports the cap", () => {
     const s = emptyState();
-    for (let i = 1; i <= 5; i++) assert.equal(bumpIteration(s, "home", "phone"), i);
+    for (let i = 1; i <= 5; i++) {
+      const r = bumpIteration(s, "home", "phone");
+      assert.equal(r.counted, true);
+      assert.equal(r.used, i);
+    }
     assert.equal(s.iterationCounts["home::phone"], 5);
     assert.equal(s.iterationCounts["home::tablet"], undefined);
   });

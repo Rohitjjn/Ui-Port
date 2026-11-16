@@ -27,7 +27,7 @@ One job: produce a number you can trust and a verdict that follows the documente
    | Code | Meaning | Next |
    | --- | --- | --- |
    | 0 | matched | record and move on |
-   | 3 | accepted-with-notes | needs categorised residuals in the worklog |
+   | 3 | accepted-with-notes | above the floor **and** geometry gate passed **and** every residual categorised |
    | 5 | building | iterate (increment the counter, fix, re-render) |
    | 6 | blocked | stop and ask the user |
 
@@ -35,12 +35,20 @@ One job: produce a number you can trust and a verdict that follows the documente
    (how strongly), then the two side-by-side. A number without a look is how a wrong fix gets
    committed.
 
-4. Turn every remaining difference into a category from `docs/LIMITS.md`
+4. **Check the geometry gate before the pixel score.** `default.semantics.json` (Compose) is
+   compared with `default.geometry.json` (DOM) node by node at 1dp; the report prints the
+   percentage of reference nodes matched. Under 90% coverage, or no candidate dump at all, the
+   screen fails regardless of its pixel score — "not measured" is not a pass. Drive fixes from
+   the largest box error in the geometry report: it is usually the visual error too.
+
+5. Turn every remaining difference into a category from `docs/LIMITS.md`
    (`font-rasterization`, `text-rendering`, `shadow-elevation`, `blur-unsupported`,
    `blend-mode-unsupported`, `filter-unsupported`, `subpixel-layout`, `scrollbar`,
-   `platform-chrome`) or fix it. An unexplained difference is never "accepted with notes".
+   `platform-chrome`, `artwork-vector`) or fix it. An unexplained difference is never "accepted
+   with notes" — record the categories with `uiport state residuals <screen> --device <device>
+   --categories a,b`, which is what the gate reads.
 
-5. Update state: `state set-screen <screen> --device <device> --status <status> --score <pct>`
+6. Update state: `state set-screen <screen> --device <device> --status <status> --score <pct>`
    and one line per iteration in the worklog.
 
 ## Rules
@@ -50,8 +58,10 @@ One job: produce a number you can trust and a verdict that follows the documente
 - Never lower the acceptance floor to make a screen pass. The floor is in
   `config/thresholds.json` for the whole run; a screen that cannot reach it is blocked and
   explained.
-- The iteration cap is 5 per screen per device. At the cap: accepted-with-notes if above the
-  floor and fully explained, otherwise blocked with the diff images attached.
+- The acceptance bar is three gates: pixel ≥ 95% (`acceptanceFloorPct`, goal 99%), geometry
+  coverage ≥ 90% with a real candidate dump, and fully categorised residuals. SSIM is reported,
+  not gated (see `docs/LIMITS.md` §0 for why). At the cap: blocked with the diff images and the
+  numbers attached, whether or not the pixel score cleared the floor.
 - Re-run the noise-floor calibration if captures suddenly start disagreeing; renderer
   noise masquerading as a regression wastes iterations.
 

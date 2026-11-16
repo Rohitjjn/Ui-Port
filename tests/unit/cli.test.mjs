@@ -70,8 +70,19 @@ describe("uiport CLI", () => {
       cli(p.dir, "state", "init");
       for (let i = 0; i < 4; i++) cli(p.dir, "state", "bump", "home", "--device", "phone");
       const fifth = JSON.parse(cli(p.dir, "state", "bump", "home", "--device", "phone").stdout);
-      assert.equal(fifth.iterations, 5);
+      assert.equal(fifth.used, 5);
       assert.equal(fifth.capReached, true);
+      // The sixth attempt is refused rather than silently recorded, and exits non-zero so a
+      // scripted loop stops instead of burning CI minutes past the cap.
+      const sixth = cli(p.dir, "state", "bump", "home", "--device", "phone");
+      assert.equal(sixth.code, 7);
+      assert.equal(JSON.parse(sixth.stdout).exhausted, true);
+      // A harness fix is not a port iteration: it is logged and does not consume budget.
+      const harness = JSON.parse(cli(p.dir, "state", "bump", "home", "--device", "phone", "--kind", "harness", "--reason", "capture viewport").stdout);
+      assert.equal(harness.counted, false);
+      assert.equal(harness.used, 5);
+      const residuals = JSON.parse(cli(p.dir, "state", "residuals", "home", "--device", "phone", "--categories", "text-rendering,shadow-elevation").stdout);
+      assert.deepEqual(residuals.categories, ["text-rendering", "shadow-elevation"]);
     } finally {
       p.cleanup();
     }
@@ -190,6 +201,12 @@ describe("diff-all", () => {
     save(out, "default.png", fakeScreen());
     p.json(".uiport/reference/phone/home/default.geometry.json", [{ text: "Buy", role: "button", x: 8, y: 100, w: 24, h: 12 }]);
     p.json(".uiport/output/phone/home/default.semantics.json", [{ text: "Buy", role: "button", x: 8, y: 100, w: 24, h: 12 }]);
+    // Acceptance needs a declared residual; the port loop writes it into state.json, and the
+    // gate reads it from there rather than assuming a perfect pair needs no explanation.
+    p.json(".uiport/state.json", {
+      iterationCounts: { "home::phone": 2 },
+      residuals: { "home::phone": { categories: ["font-rasterization"] } },
+    });
     return p;
   }
 
@@ -205,6 +222,8 @@ describe("diff-all", () => {
       const summary = JSON.parse(p.read(".uiport/output/summary.json"));
       assert.equal(summary.counts.matched, 1);
       assert.equal(summary.results[0].pixelMatchPct, 100);
+      assert.equal(summary.results[0].accepted, true);
+      assert.equal(summary.results[0].iterations, 2);
     } finally {
       p.cleanup();
     }

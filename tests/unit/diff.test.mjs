@@ -132,41 +132,123 @@ describe("geometry comparison", () => {
 });
 
 describe("acceptance decisions", () => {
-  const T = DEFAULT_THRESHOLDS;
+  const T = {
+    ...DEFAULT_THRESHOLDS,
+    acceptance: { requiresGeometry: true },
+    residualCategories: { categories: ["font-rasterization", "shadow-elevation", "artwork-vector"] },
+  };
   const geoOk = { coveragePct: 99 };
+  const residual = ["font-rasterization"];
 
-  test("above the goal is matched", () => {
-    const r = decideOutcome({ pixelMatchPct: 99.95, ssimValue: 1, geometry: geoOk, iterations: 1, thresholds: T });
+  test("above the goal is matched and accepted", () => {
+    const r = decideOutcome({
+      pixelMatchPct: 99.5,
+      ssimValue: 1,
+      geometry: geoOk,
+      iterations: 1,
+      thresholds: T,
+      residualCategories: residual,
+    });
     assert.equal(r.status, "matched");
+    assert.equal(r.accepted, true);
+    assert.match(r.reason, /goal/);
   });
 
-  test("between floor and goal with explained residuals is accepted with notes", () => {
+  test("between the floor and the goal is accepted when layout and residuals are accounted for", () => {
     const r = decideOutcome({
-      pixelMatchPct: 99.0,
-      ssimValue: 0.998,
+      pixelMatchPct: 96.0,
+      ssimValue: 0.62,
       geometry: geoOk,
       iterations: 3,
       thresholds: T,
-      residualExplained: true,
+      residualCategories: residual,
     });
-    assert.equal(r.status, "accepted-with-notes");
-    assert.match(r.reason, /categorised/);
+    assert.equal(r.status, "matched");
+    assert.equal(r.accepted, true);
+    // A low SSIM must not block acceptance: it is reported, not gated.
+    assert.equal(r.ssim.gating, false);
+    assert.match(r.reason, /below goal/);
   });
 
-  test("between floor and goal with unexplained residuals keeps building", () => {
-    const r = decideOutcome({ pixelMatchPct: 99.0, ssimValue: 0.998, geometry: geoOk, iterations: 1, thresholds: T });
+  test("a perfect pixel match needs no residual category, and says so", () => {
+    // 100% means there are no residual pixels to explain; requiring a category there would
+    // force a run to invent one, which is exactly the dishonesty the gate exists to prevent.
+    const r = decideOutcome({ pixelMatchPct: 100, ssimValue: 1, geometry: geoOk, iterations: 0, thresholds: T });
+    assert.equal(r.status, "matched");
+    assert.match(r.reason, /no residual pixels to explain/);
+  });
+
+  test("the configured acceptance block is read, not assumed", () => {
+    // requiresGeometry=false is the only way to accept an unmeasured screen, and it has to come
+    // from config rather than a default, so a project can deliberately trade the gate away.
+    const noGeo = { ...T, acceptance: { requiresGeometry: false } };
+    const r = decideOutcome({ pixelMatchPct: 96, ssimValue: 0.9, geometry: null, iterations: 1, thresholds: noGeo, residualCategories: residual });
+    assert.equal(r.status, "matched");
+    assert.equal(r.unmet.length, 0);
+  });
+
+  test("above the floor with an unexplained residual keeps building", () => {
+    const r = decideOutcome({ pixelMatchPct: 96.0, ssimValue: 0.9, geometry: geoOk, iterations: 1, thresholds: T });
     assert.equal(r.status, "building");
+    assert.match(r.unmet.join(" "), /residual/);
+  });
+
+  test("a residual category outside the configured list is not an explanation", () => {
+    const r = decideOutcome({
+      pixelMatchPct: 97.0,
+      ssimValue: 0.9,
+      geometry: geoOk,
+      iterations: 1,
+      thresholds: T,
+      residualCategories: ["because I said so"],
+    });
+    assert.equal(r.status, "building");
+    assert.match(r.unmet.join(" "), /unknown residual category/);
+  });
+
+  test("a missing semantics dump is not a pass: geometry unmeasured blocks acceptance", () => {
+    const r = decideOutcome({
+      pixelMatchPct: 99.9,
+      ssimValue: 1,
+      geometry: null,
+      iterations: 1,
+      thresholds: T,
+      residualCategories: residual,
+    });
+    assert.equal(r.status, "building");
+    assert.equal(r.accepted, false);
+    assert.match(r.unmet.join(" "), /geometry not measured/);
   });
 
   test("below the floor at the iteration cap is blocked and asks the user", () => {
-    const r = decideOutcome({ pixelMatchPct: 97.0, ssimValue: 0.9, geometry: geoOk, iterations: 5, thresholds: T });
+    const r = decideOutcome({
+      pixelMatchPct: 94.9,
+      ssimValue: 0.9,
+      geometry: geoOk,
+      iterations: 5,
+      thresholds: T,
+      residualCategories: residual,
+    });
     assert.equal(r.status, "blocked");
-    assert.match(r.reason, /below the acceptance floor/);
+    assert.match(r.reason, /iteration cap/);
   });
 
-  test("good pixels but a broken layout is not matched", () => {
-    const r = decideOutcome({ pixelMatchPct: 99.95, ssimValue: 1, geometry: { coveragePct: 50 }, iterations: 1, thresholds: T });
+  test("good pixels but a broken layout is not accepted", () => {
+    const r = decideOutcome({
+      pixelMatchPct: 99.5,
+      ssimValue: 1,
+      geometry: { coveragePct: 50 },
+      iterations: 1,
+      thresholds: T,
+      residualCategories: residual,
+    });
     assert.equal(r.status, "building");
+    assert.match(r.unmet.join(" "), /geometry coverage/);
+  });
+
+  test("the configured floor is 95 and the goal 99", () => {
+    assert.equal(DEFAULT_THRESHOLDS.acceptanceFloorPct, 95);
+    assert.equal(DEFAULT_THRESHOLDS.goalPixelMatchPct, 99);
   });
 });
 
@@ -178,11 +260,21 @@ describe("noise floor", () => {
   });
 
   test("a jittery renderer lowers the thresholds and says so", () => {
-    const r = thresholdFloorFromNoise(99.0, DEFAULT_THRESHOLDS);
+    // 90% same-side noise is worse than the 95% floor, so the floor must come down and the
+    // adjustment must be recorded — cross-platform noise is not a layout bug.
+    const r = thresholdFloorFromNoise(90.0, DEFAULT_THRESHOLDS);
     assert.equal(r.adjusted, true);
-    assert.equal(r.effectiveFloorPct, 98);
-    assert.equal(r.effectiveGoalPct, 99);
+    assert.equal(r.effectiveFloorPct, 89);
+    assert.equal(r.effectiveGoalPct, 90);
     assert.match(r.note, /renderer noise/);
+  });
+
+  test("noise better than the floor leaves the floor alone", () => {
+    // A 99% same-side score is consistent with a 95% cross-engine floor: two different engines
+    // are allowed to differ more than two captures of the same one.
+    const r = thresholdFloorFromNoise(99.0, DEFAULT_THRESHOLDS);
+    assert.equal(r.adjusted, false);
+    assert.equal(r.effectiveFloorPct, 95);
   });
 
   test("calibration on disk reads both renders", () => {
@@ -233,8 +325,11 @@ describe("full comparison report", () => {
       const ref = save(p.dir, "ref.png", fakeScreen());
       const cand = save(p.dir, "cand.png", fakeScreen());
       const result = compareScreens({ referenceFile: ref, candidateFile: cand, screenName: "home", device: "phone" });
-      assert.equal(result.status, "matched");
+      // 100% pixels but no geometry dump and no declared residual: not accepted, by design.
       assert.equal(result.pixel.matchPct, 100);
+      assert.equal(result.accepted, false);
+      assert.equal(result.status, "building");
+      assert.match(result.unmet.join(" "), /geometry not measured/);
     } finally {
       p.cleanup();
     }
@@ -280,8 +375,8 @@ describe("full comparison report", () => {
 describe("thresholds config", () => {
   test("reads the repository's real config/thresholds.json", () => {
     const t = loadThresholds("config/thresholds.json");
-    assert.equal(t.acceptanceFloorPct, 98.5);
-    assert.equal(t.goalPixelMatchPct, 99.9);
+    assert.equal(t.acceptanceFloorPct, 95);
+    assert.equal(t.goalPixelMatchPct, 99);
     assert.equal(t.maxIterationsPerScreenPerDevice, 5);
     assert.equal(t.pixelmatch.threshold, 0.1);
     assert.equal(t.geometry.toleranceDp, 1.0);

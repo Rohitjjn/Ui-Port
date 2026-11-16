@@ -107,29 +107,101 @@ export function ssimScore(refPng, candPng, opts = {}) {
 }
 
 /** Bounding boxes: web geometry dump vs Compose semantics dump. */
-export function decideOutcome({ pixelMatchPct, ssimValue, geometry, iterations, thresholds = DEFAULT_THRESHOLDS, residualExplained = false }) {
+/**
+ * Acceptance decision.
+ *
+ * A screen is ACCEPTED only when all three hold:
+ *   1. pixel match >= the acceptance floor (95%),
+ *   2. the geometry gate passes — key nodes within tolerance, coverage above the minimum,
+ *   3. every residual difference is explained by a declared residual category.
+ *
+ * SSIM is reported and tracked, never gated. It reacts to anti-aliasing and text rasterisation,
+ * which are engine differences rather than port defects; `ssim.gate === false` in config makes
+ * that explicit rather than an accident of code order.
+ *
+ * The geometry gate is not decoration: 5% of a 393x852 screen is ~17k pixels, which is more
+ * than a title plus a two-line paragraph, so a pixel score alone can hide a block that never
+ * rendered or rendered 40px low.
+ */
+/**
+ * Geometry, in words. A gate that was deliberately switched off must say so in the accepted
+ * reason rather than quoting a coverage number it never measured.
+ */
+function geometryNote(geometry, required) {
+  if (geometry && typeof geometry.coveragePct === "number") return `geometry ${geometry.coveragePct}% coverage`;
+  return required ? "geometry NOT MEASURED" : "geometry not measured (gate disabled in config)";
+}
+
+/** How the residual gate was satisfied, in words a report can quote. */
+function residualNote(categories) {
+  return categories?.length ? `residuals categorised [${categories.join(", ")}]` : "no residual pixels to explain";
+}
+
+export function decideOutcome({
+  pixelMatchPct,
+  ssimValue,
+  geometry,
+  iterations,
+  thresholds = DEFAULT_THRESHOLDS,
+  residualCategories = [],
+  residualExplained = false,
+}) {
   const floor = thresholds.acceptanceFloorPct;
   const goal = thresholds.goalPixelMatchPct;
   const cap = thresholds.maxIterationsPerScreenPerDevice;
-  const geometryOk = !geometry || geometry.coveragePct >= (thresholds.geometry?.minNodeCoveragePct ?? 90);
-  const aboveGoal = pixelMatchPct >= goal && (!geometry || geometryOk);
-  if (aboveGoal) return { status: "matched", reason: `pixel match ${pixelMatchPct}% >= goal ${goal}%` };
-  if (pixelMatchPct >= floor && residualExplained) {
+  const minCoverage = thresholds.geometry?.minNodeCoveragePct ?? 90;
+  const requiresGeometry = thresholds.acceptance?.requiresGeometry !== false;
+
+  // Geometry can only be gated when both sides produced a dump. A missing dump is reported as
+  // "not measured" and blocks acceptance, because "could not check" is not "checked and fine".
+  const geometryMeasured = Boolean(geometry && typeof geometry.coveragePct === "number");
+  const geometryOk = geometryMeasured && geometry.coveragePct >= minCoverage;
+  // A perfect pixel match has no residual pixels to explain, so the residual gate is
+  // vacuously satisfied there. Every other score must account for its differences.
+  const noResidualPixels = pixelMatchPct >= 100;
+  const explained = noResidualPixels || residualExplained || (residualCategories?.length ?? 0) > 0;
+  const catalogued =
+    noResidualPixels ||
+    residualCategories.length === 0 ||
+    residualCategories.every((c) => (thresholds.residualCategories?.categories ?? []).includes(c));
+
+  const unmet = [];
+  if (pixelMatchPct < floor) unmet.push(`pixel ${pixelMatchPct}% < floor ${floor}%`);
+  if (requiresGeometry && !geometryMeasured) unmet.push("geometry not measured (no candidate semantics dump)");
+  if (requiresGeometry && geometryMeasured && !geometryOk) {
+    unmet.push(`geometry coverage ${geometry.coveragePct}% < ${minCoverage}%`);
+  }
+  if (!explained) unmet.push("residual differences are not categorised");
+  if (!catalogued) unmet.push(`unknown residual category in [${residualCategories.join(", ")}]`);
+
+  if (unmet.length === 0) {
+    const best = pixelMatchPct >= goal;
     return {
-      status: "accepted-with-notes",
-      reason: `pixel match ${pixelMatchPct}% is above the floor ${floor}% but below the goal ${goal}%; every residual difference is categorised`,
+      status: "matched",
+      accepted: true,
+      reason: `accepted: pixel ${pixelMatchPct}% (>= ${best ? `goal ${goal}` : `floor ${floor}, below goal ${goal}`}%), ${geometryNote(geometry, requiresGeometry)}, ${residualNote(residualCategories)}`,
+      unmet: [],
+      ssim: { value: ssimValue, gating: false, note: "reported only" },
     };
   }
+
   if (iterations >= cap) {
     return {
       status: "blocked",
-      reason:
-        pixelMatchPct >= floor
-          ? `iteration cap (${cap}) reached at ${pixelMatchPct}% with unexplained residual differences — ask the user`
-          : `iteration cap (${cap}) reached at ${pixelMatchPct}%, below the acceptance floor ${floor}% — ask the user`,
+      accepted: false,
+      reason: `iteration cap (${cap}) reached: ${unmet.join("; ")} — record the blocker and ask the user`,
+      unmet,
+      ssim: { value: ssimValue, gating: false, note: "reported only" },
     };
   }
-  return { status: "building", reason: `pixel match ${pixelMatchPct}% below floor/goal; ${cap - iterations} iteration(s) left` };
+
+  return {
+    status: "building",
+    accepted: false,
+    reason: `${unmet.join("; ")}; ${Math.max(0, cap - iterations)} iteration(s) left`,
+    unmet,
+    ssim: { value: ssimValue, gating: false, note: "reported only" },
+  };
 }
 
 /**
@@ -169,7 +241,7 @@ export function compareScreens({
     geometry,
     iterations,
     thresholds,
-    residualExplained: residualCategories.length > 0,
+    residualCategories,
   });
   const result = {
     screen: screenName,
@@ -190,7 +262,34 @@ export function compareScreens({
     masks,
     residualCategories,
     iterations,
+    iterationsLeft: Math.max(0, (thresholds.maxIterationsPerScreenPerDevice ?? 5) - iterations),
     status: outcome.status,
+    accepted: outcome.accepted,
+    unmet: outcome.unmet,
+    // The gate table must agree with the verdict above, or a report shows "residual: fail"
+    // next to an accepted screen and nobody can tell which one to believe.
+    gates: {
+      pixel: { value: px.matchPct, floor: thresholds.acceptanceFloorPct, goal: thresholds.goalPixelMatchPct, pass: px.matchPct >= thresholds.acceptanceFloorPct },
+      geometry: geometry
+        ? {
+            coveragePct: geometry.coveragePct,
+            floorPct: thresholds.geometry?.minNodeCoveragePct ?? 90,
+            pass: geometry.coveragePct >= (thresholds.geometry?.minNodeCoveragePct ?? 90),
+          }
+        : {
+            measured: false,
+            pass: thresholds.acceptance?.requiresGeometry === false,
+            note: thresholds.acceptance?.requiresGeometry === false
+              ? "not measured, gate disabled in config"
+              : "no candidate semantics dump — not measured is not a pass",
+          },
+      residual: {
+        categories: residualCategories,
+        pass: px.matchPct >= 100 || residualCategories.length > 0,
+        note: px.matchPct >= 100 ? "no residual pixels to explain" : undefined,
+      },
+      ssim: { value: ss.ssim, gating: thresholds.ssim?.gate === true, note: "reported only" },
+    },
     reason: outcome.reason,
   };
   if (outputDir) {
@@ -250,11 +349,17 @@ export function thresholdFloorFromNoise(noisePct, thresholds = DEFAULT_THRESHOLD
     return { effectiveFloorPct: floor, effectiveGoalPct: goal, adjusted: false, note: "renderer is deterministic" };
   }
   const effectiveFloor = round(Math.min(floor, noisePct - 1), 2);
+  const effectiveGoal = round(Math.min(goal, noisePct), 2);
+  // `adjusted` must mean "the numbers actually moved". A 99% same-side score is consistent with
+  // a 95% cross-engine floor, so nothing changes and nothing should be reported as lowered.
+  const adjusted = effectiveFloor < floor || effectiveGoal < goal;
   return {
     effectiveFloorPct: effectiveFloor,
-    effectiveGoalPct: round(Math.min(goal, noisePct), 2),
-    adjusted: true,
-    note: `same-side re-render scores ${noisePct}%; cross-platform thresholds were lowered so renderer noise is not reported as a layout bug`,
+    effectiveGoalPct: effectiveGoal,
+    adjusted,
+    note: adjusted
+      ? `same-side re-render scores ${noisePct}%; cross-platform thresholds were lowered so renderer noise is not reported as a layout bug`
+      : `same-side re-render scores ${noisePct}%, which is consistent with the configured floor; no adjustment needed`,
   };
 }
 

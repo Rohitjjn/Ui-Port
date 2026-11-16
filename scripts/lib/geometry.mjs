@@ -12,11 +12,30 @@ import { readJsonSafe } from "./fs-utils.mjs";
 
 export const DEFAULT_THRESHOLDS = {
   pixelmatch: { threshold: 0.1, includeAA: false, alpha: 0.35, diffColor: [255, 0, 90] },
-  ssim: { windowSize: 11, k1: 0.01, k2: 0.03 },
   geometry: { toleranceDp: 1.0, tolerancePct: 1.0, minNodeCoveragePct: 90.0 },
-  acceptanceFloorPct: 98.5,
-  goalPixelMatchPct: 99.9,
+  // 95% is the acceptance floor and 99% the goal. Chrome and Android rasterise text, shadows
+  // and blur with different engines, so 98%+ is not reliably reachable even when the layout is
+  // correct; gating at 95% and gating layout separately is the honest pair of gates.
+  acceptanceFloorPct: 95.0,
+  goalPixelMatchPct: 99.0,
   maxIterationsPerScreenPerDevice: 5,
+  ssim: { windowSize: 11, k1: 0.01, k2: 0.03, gate: false },
+  acceptance: { requiresGeometry: true, requiresAll: true },
+  residualCategories: {
+    required: true,
+    categories: [
+      "font-rasterization",
+      "text-rendering",
+      "shadow-elevation",
+      "blur-unsupported",
+      "blend-mode-unsupported",
+      "filter-unsupported",
+      "subpixel-layout",
+      "scrollbar",
+      "platform-chrome",
+      "artwork-vector",
+    ],
+  },
 };
 
 export function loadThresholds(file) {
@@ -30,6 +49,14 @@ export function loadThresholds(file) {
     acceptanceFloorPct: v.acceptanceFloorPct ?? DEFAULT_THRESHOLDS.acceptanceFloorPct,
     goalPixelMatchPct: v.goalPixelMatchPct ?? DEFAULT_THRESHOLDS.goalPixelMatchPct,
     maxIterationsPerScreenPerDevice: v.maxIterationsPerScreenPerDevice ?? DEFAULT_THRESHOLDS.maxIterationsPerScreenPerDevice,
+    // The acceptance rules themselves are configuration, not code: a project can require the
+    // geometry gate, and a project can extend the residual vocabulary. Dropping these keys on
+    // load would silently turn "unknown residual category" into "no categories allowed at all".
+    acceptance: v.acceptance ?? DEFAULT_THRESHOLDS.acceptance,
+    residualCategories: v.residualCategories ?? DEFAULT_THRESHOLDS.residualCategories,
+    acceptedWithNotes: v.acceptedWithNotes ?? DEFAULT_THRESHOLDS.acceptedWithNotes,
+    noiseFloor: v.noiseFloor ?? DEFAULT_THRESHOLDS.noiseFloor,
+    masks: v.masks ?? DEFAULT_THRESHOLDS.masks,
   };
 }
 

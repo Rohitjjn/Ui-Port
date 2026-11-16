@@ -43,14 +43,19 @@ You build one screen. Input: `{screen, device, referenceDir, outputDir, projectR
    - find the single largest difference (geometry report first, then heat map),
    - fix exactly that,
    - increment the counter (`state bump`) and repeat.
-6. Stop at the cap (5) and report the state honestly: `matched`, `accepted-with-notes` (with
-   categorised residuals) or `blocked` (with what is unexplained).
+6. Stop at the cap (5, enforced by `state bump` which exits 7) and report the state honestly:
+   `matched`, `accepted-with-notes` (pixel within floor..goal **and** geometry gate passed **and**
+   every residual categorised) or `blocked` (with the numbers and what is unexplained). Record the
+   categories the gate reads: `state residuals <screen> --device <device> --categories a,b`.
 
 ## Hard rules
 
 - Edit UI files only. Engine files are protected; if the screen cannot be built without one, stop
   and report — do not attempt the edit.
 - Never change `config/thresholds.json`, the capture config, or the reference images.
+- If the harness itself is what is wrong (viewport, DPR, fonts, fixture, mask), log it with
+  `state bump --kind harness --reason "..."`: it is not a port iteration and must not spend the
+  screen's budget.
 - Never approximate a value that exists in the geometry dump.
 - Never use a network call or live data. Fixtures only.
 - Keep the composable stateless: `state` in, callbacks out.

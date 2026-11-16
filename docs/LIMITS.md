@@ -8,6 +8,64 @@ values `config/thresholds.json` allows for `accepted-with-notes`.
 
 ---
 
+## 0. Why the acceptance floor is 95% and not 100%
+
+The floor is **95% pixel match**, the goal is **~99%**, and both numbers come from the engines rather
+than from taste. This section is the rationale the floor is required to carry.
+
+**Chrome and Android do not rasterise text the same way.** The reference is Chromium/Skia on desktop;
+the candidate is Skia on Android through Paparazzi's layoutlib. Same font file, same size, same
+colour — still a different rasteriser build, different hinting, different gamma-corrected blending,
+different gamma for the AA fringe. A single 16sp glyph in a 393dp-wide screen is ~1.4% of the width
+of a text column; a screen with 40–60 text runs has thousands of edges, and *every* edge whose
+antialiasing lands differently is a changed pixel under the diff threshold. Text alone therefore
+costs a couple of percent on a text-dense screen even when the layout is identical.
+
+**Shadows and elevation** are computed by a different model (CSS `box-shadow` with spread and
+multiple layers vs. `RenderEffect`/`ElevationOverlay`), and soft shadows spread over a large area —
+one card's shadow is hundreds of pixels of low-amplitude difference.
+
+**Blur, filters and blend modes** cannot be reproduced at all under layoutlib (sections 1–3), which
+sets a hard ceiling per screen: a glass header over artwork is a large, deliberately unexplained
+region.
+
+**Why not 100%:** a 100% floor would only be reachable by making the Compose screen a bitmap of the
+reference, which is not a port. **Why not 85%:** below ~90% the pixel metric stops being sensitive to
+*real* errors — a 12dp vertical shift of a whole content column, a missing divider, or a wrong
+font weight still scores in the high 80s on a busy screen. The floor has to sit above the engine
+noise and below the size of a layout mistake. Measured on the three phone screens of this project,
+engine-only noise (identical layout, different rasteriser) lands in the low-to-mid 90s, and the real
+defects we found and fixed — a mis-sized hero banner, a wrongly-wrapped title — scored 79–87%. 95%
+separates those two populations with margin on both sides.
+
+**Therefore pixel match alone is not acceptance.** A 95% score can hide a wrong layout: the content
+of a screen is a minority of its pixels, so moving a whole column by 20dp, or swapping two
+sections, still leaves the background, chrome and gaps matching. So `ACCEPTED` requires all three of:
+
+1. **pixel match ≥ 95%** (`acceptanceFloorPct`, goal `goalPixelMatchPct` = 99);
+2. **the geometry gate passes** — the Compose semantics dump is compared node-by-node against the
+   DOM geometry dump, and the report states the *percentage of reference nodes matched within
+   1dp*; the gate needs ≥ 90% coverage, and **an unmeasured screen is not a pass**
+   ("could not check" is a distinct, failing state);
+3. **every remaining residual is explained by a declared category** from the list below.
+
+**SSIM is reported and tracked, never gated.** It is a structural comparison and it is genuinely
+useful as a trend, but it is not monotonic with perceived similarity here: a screen whose text
+re-wraps from 3 lines to 4 can *improve* SSIM while being obviously wrong, and a one-pixel border
+shift barely moves it. Until its noise floor is calibrated per project (`--calibrate` writes
+`noise-floor.json`), gating on it would be a number we cannot defend. `config/thresholds.json` keeps
+`ssim.gate: false` with the reason attached, so the decision travels with the config.
+
+**Iteration budget.** At most **5 port iterations per screen per device**, enforced in
+`.uiport/state.json` (`scripts/lib/state.mjs` `bumpIteration`, exit code 7 at the cap) rather than by
+asking nicely in a prompt. A screen that hits the cap is `BLOCKED` with the blocker written down —
+not silently retried, and not accepted. **Harness fixes do not spend this budget**: fixing the
+capture (fonts, viewport, diff config, a mask) is repair of the measuring instrument, so it is
+logged under `harnessFixes` with a reason and excluded from the count. If we spent the budget on our
+own bugs, a screen could be declared blocked having never been ported once.
+
+---
+
 ## 1. Blur and glass — `blur-unsupported`
 
 **Web:** `backdrop-filter: blur(20px)`, `filter: blur(...)`.

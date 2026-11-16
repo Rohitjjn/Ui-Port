@@ -45,3 +45,13 @@ export function fakeScreen({ width = 80, height = 120, shift = 0, tint = [0, 0, 
   rect(png, 8, 100, 24, 12, [113, 131, 107, 255]);
   return png;
 }
+
+/** Matching geometry dumps for fakeScreen(): one header, one card, one label, one button. */
+export function fakeNodes({ shift = 0 } = {}) {
+  return [
+    { text: "Library", role: "heading", x: 0, y: 0, w: 80, h: 10 },
+    { text: "Album", role: "img", x: 8 + shift, y: 20, w: 40, h: 30 },
+    { text: "Artist", role: "text", x: 12 + shift, y: 24, w: 20, h: 6 },
+    { text: "Play", role: "button", x: 8, y: 100, w: 24, h: 12 },
+  ];
+}

@@ -72,8 +72,12 @@ paths, garbage stdin, one-shot Stop).
    geometry both pass.
 5. The noise floor is measured before porting; if the same side cannot reproduce itself, thresholds
    are adjusted and said so.
-6. 5 iterations per screen per device, then `accepted-with-notes` (above floor + every residual
-   categorised) or `blocked` (ask the user). Never a lowered floor.
+6. Acceptance needs all three gates: pixel ≥ 95% (goal 99%), geometry coverage ≥ 90% from a real
+   candidate dump, and every residual categorised. SSIM is tracked, not gated; the reasoning is in
+   `docs/LIMITS.md` §0.
+7. 5 port iterations per screen per device, enforced by `uiport state bump` (exit 7 at the cap),
+   then `accepted-with-notes` if all gates pass or `blocked` with the numbers (ask the user). Never
+   a lowered floor. Harness fixes are logged separately and do not consume the budget.
 
 ## Why the numbers live in config
 

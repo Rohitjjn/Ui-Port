@@ -11,7 +11,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import test, { describe } from "node:test";
 import { tmpProject } from "../helpers/fixtures.mjs";
-import { fakeScreen, save } from "../helpers/images.mjs";
+import { fakeNodes, fakeScreen, save } from "../helpers/images.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const NODE = process.execPath;
@@ -59,6 +59,18 @@ describe("end-to-end procedure (synthetic project)", () => {
       save(path.join(p.dir, ".uiport/reference/phone/search"), "default.png", fakeScreen());
       save(path.join(p.dir, ".uiport/output/phone/search"), "default.png", fakeScreen({ shift: 6 }));
 
+      // Both sides emit a node dump, because geometry is a gate: a screen with no candidate
+      // dump is "not measured" and cannot be accepted however good the pixels look.
+      const dump = (rel, nodes, name) => {
+        fs.mkdirSync(path.join(p.dir, rel), { recursive: true });
+        fs.writeFileSync(path.join(p.dir, rel, name), JSON.stringify(nodes));
+      };
+      dump(".uiport/reference/phone/home", fakeNodes(), "default.geometry.json");
+      dump(".uiport/output/phone/home", fakeNodes(), "default.semantics.json");
+      // search is shifted by 6dp, which is beyond the 1dp tolerance: geometry must catch it.
+      dump(".uiport/reference/phone/search", fakeNodes(), "default.geometry.json");
+      dump(".uiport/output/phone/search", fakeNodes({ shift: 6 }), "default.semantics.json");
+
       const diff = (() => {
         try {
           return {
@@ -77,11 +89,16 @@ describe("end-to-end procedure (synthetic project)", () => {
       const summary = JSON.parse(p.read(".uiport/output/summary.json"));
       assert.equal(summary.counts.matched, 1);
       assert.equal(summary.counts.building, 1);
+      const searchRow = summary.results.find((r) => r.screen === "search");
+      // 99.25% is above the 95% floor, so the only thing keeping it out is geometry.
+      assert.ok(searchRow.pixelMatchPct > 95, `search pixel ${searchRow.pixelMatchPct} should clear the floor`);
+      assert.match(searchRow.reason, /geometry coverage/, "geometry, not pixels, must be what blocks it");
 
       cli(p.dir, "state", "set-screen", "home", "--device", "phone", "--status", "matched", "--score", "100");
       cli(p.dir, "state", "set-screen", "search", "--device", "phone", "--status", "building", "--score", "96.1");
       const bump = JSON.parse(cli(p.dir, "state", "bump", "search", "--device", "phone").stdout);
-      assert.equal(bump.iterations, 1);
+      assert.equal(bump.used, 1);
+      assert.equal(bump.remaining, 4);
       assert.equal(bump.capReached, false);
 
       // Step 5: verify records evidence, packaging includes the worklog.

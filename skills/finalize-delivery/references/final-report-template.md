@@ -9,13 +9,26 @@ Prototype: <path or archive>    Engine commits touched: <list or none>
 
 ## Scores
 
-| Screen | Device | Status | Pixel match | SSIM | Geometry coverage | Iterations |
-| --- | --- | --- | --- | --- | --- | --- |
-| home | phone | matched | 99.62% | 0.9987 | 99.1% | 2 |
-| ... | | | | | | |
+One row per screen **per device** — never average devices into one number, and never a row without
+the run it came from.
 
-Noise floor: web-vs-web <x>%, compose-vs-compose <y>%.
-Effective thresholds for this run: floor <a>%, goal <b>%.
+| Screen | Device | Status | Accepted | Pixel | SSIM (not gated) | Geometry | Iterations | Residual category |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| home | phone | matched | yes | 99.62% | 0.9987 | 99.1% | 2 | font-rasterization |
+| library | tablet | building | no | 91.30% | 0.9210 | 88.0% | 4 | unmeasured |
+| ... | | | | | | | | |
+
+Score provenance (a score is a pair of inputs plus the run that produced them, never a bare number):
+
+| Screen | Device | Reference | Candidate | Run |
+| --- | --- | --- | --- | --- |
+| home | phone | `.uiport/reference/phone/home/default.png` (captured <date>) | Paparazzi `<build>/ui-port-output/phone/home/default.png` | <url/id> |
+
+Noise floor: web-vs-web <x>%, compose-vs-compose <y>% (`--calibrate` → `noise-floor.json`).
+Effective thresholds for this run: floor <a>%, goal <b>% (`config/thresholds.json`).
+Acceptance = pixel ≥ floor **and** geometry gate passed (measured, ≥ 90% coverage) **and** every
+residual categorised. SSIM is reported only. A `BLOCKED` row carries the blocker and the number of
+iterations spent; max 5 port iterations per screen per device, harness fixes excluded.
 
 ## Residual differences
 

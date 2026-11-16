@@ -243,10 +243,14 @@ jobs:
       - name: Diff every rendered screen
         run: |
           set +e
+          # --state is what makes the gates enforceable here: iteration counts and declared
+          # residual categories live in .uiport/state.json, so a screen cannot be accepted by
+          # a run that forgot how many times it was tried or what its differences were.
           node scripts/diff-all.mjs \
             --reference .uiport/reference \
             --candidate .uiport/output \
             --device "$UIPORT_DEVICE" \
+            --state .uiport/state.json \
             --out .uiport/diffs
           code=$?
           set -e
@@ -272,7 +276,9 @@ jobs:
             }
             const r = require('./.uiport/diffs/summary.json');
             for (const s of r.results || []) {
-              console.log(\`::notice title=\${s.screen} (\${r.device})::\${s.status} pixel \${s.pixelMatchPct ?? '-'}% ssim \${s.ssim ?? '-'} geometry \${s.geometryCoveragePct ?? '-'}%\`);
+              var gates = s.gates ? Object.keys(s.gates).map(function (k) { return k + '=' + (s.gates[k].pass ? 'pass' : 'fail'); }).join(' ') : 'gates=?';
+              var resid = (s.residualCategories && s.residualCategories.length) ? s.residualCategories.join(',') : 'none';
+              console.log(\`::notice title=\${s.screen} (\${r.device})::\${s.status} accepted=\${s.accepted} pixel \${s.pixelMatchPct ?? '-'}% ssim \${s.ssim ?? '-'} geometry \${s.geometryCoveragePct ?? '-'}% iter \${s.iterations} residuals \${resid} | \${gates}\`);
               if (s.reason) console.log(\`::error title=\${s.screen} reason::\${s.reason}\`);
             }
             console.log(\`::notice title=port summary::counts \${JSON.stringify(r.counts)}\`);

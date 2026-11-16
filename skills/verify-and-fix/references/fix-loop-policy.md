@@ -4,7 +4,7 @@
 
 | Loop | Cap | Source |
 | --- | --- | --- |
-| Visual iterations per screen per device | 5 | `config/thresholds.json` → `visual.maxIterationsPerScreenPerDevice` |
+| Port iterations per screen per device | 5 | `config/thresholds.json` → `visual.maxIterationsPerScreenPerDevice`, enforced by `uiport state bump` (exit 7 at the cap) |
 | Fix attempts per distinct failure in verify | 6 | `config/thresholds.json` → `loops.maxFixAttemptsPerFailure` |
 | Screens per run | 64 | `loops.maxScreensPerRun` (a guard against runaway plans) |
 
@@ -25,7 +25,8 @@ When several things fail at once, fix them in this order — cheaper and more li
 
 ## When to ask the user instead of continuing
 
-- A screen is below the acceptance floor at the iteration cap.
+- A screen is below the acceptance floor at the iteration cap (or fails the geometry gate with
+  no iterations left) — accepted-with-notes is not available for a failed gate.
 - The only fix requires an engine edit that was refused.
 - A prototype feature has no engine equivalent and the gate answer was `ask-user`.
 - The build fails for a reason outside the port (missing SDK, license, secret) — that is

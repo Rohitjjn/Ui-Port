@@ -201,11 +201,53 @@ export function setScreenStatus(state, { screen, device, status, score, iteratio
   return state;
 }
 
-export function bumpIteration(state, screen, device) {
+/**
+ * Count a port iteration, and refuse to exceed the cap.
+ *
+ * The cap lives in `config/thresholds.json` and is enforced here rather than in prose, because a
+ * cap that only exists in a document is a cap that gets exceeded (that is exactly what happened:
+ * `home` used ten iterations against a stated budget of five).
+ *
+ * `kind` distinguishes a port iteration — a change to the ported layout or styling — from a
+ * harness fix: capture, fonts, viewport or diff configuration. A harness fix is recorded and
+ * does **not** consume the screen's budget, since a broken measurement is not evidence about the
+ * port and the layout work has not started yet.
+ */
+export function bumpIteration(state, screen, device, { kind = "port", reason = null, cap = 5 } = {}) {
   state.iterationCounts = state.iterationCounts ?? {};
   const key = `${screen}::${device}`;
-  state.iterationCounts[key] = (state.iterationCounts[key] ?? 0) + 1;
-  return state.iterationCounts[key];
+  const used = state.iterationCounts[key] ?? 0;
+
+  if (kind === "harness") {
+    state.harnessFixes = state.harnessFixes ?? {};
+    state.harnessFixes[key] = state.harnessFixes[key] ?? [];
+    state.harnessFixes[key].push({ at: new Date().toISOString(), reason });
+    return { counted: false, used, remaining: Math.max(0, cap - used), why: "harness fix: counter reset, not consumed" };
+  }
+
+  if (used >= cap) {
+    return {
+      counted: false,
+      used,
+      remaining: 0,
+      exhausted: true,
+      why: `iteration cap (${cap}) already reached for ${key}: document the blocker and ask the user instead of iterating`,
+    };
+  }
+  state.iterationCounts[key] = used + 1;
+  state.iterations = state.iterations ?? [];
+  state.iterations.push({ at: new Date().toISOString(), screen, device, kind, reason, n: used + 1 });
+  return { counted: true, used: used + 1, remaining: Math.max(0, cap - (used + 1)) };
+}
+
+/** Residual categories a reviewer has declared for a screen, which the acceptance gate reads. */
+export function setResiduals(state, screen, device, categories) {
+  state.residuals = state.residuals ?? {};
+  state.residuals[`${screen}::${device}`] = {
+    categories: [...new Set(categories)],
+    at: new Date().toISOString(),
+  };
+  return state.residuals[`${screen}::${device}`];
 }
 
 /** Next step that is not done, used by /uiport-resume. */

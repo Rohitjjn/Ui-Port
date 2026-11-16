@@ -40,15 +40,21 @@ heat.png, reference.png, candidate.png).
 3. For each visible difference, classify it using `docs/LIMITS.md` categories and state the
    evidence (a 1px fringe on every glyph is font rasterization; a soft halo under every card is
    elevation; a rectangular block is a displaced container; a 12px vertical band is a scrollbar).
-4. Decide: `accept` (all residuals categorised, score above the floor) or `fix` (name exactly one
-   next change, the highest-impact one).
-5. If the score is above the floor but below the goal and every residual is categorised, the
-   verdict is `accepted-with-notes` and you must write the notes in the exact wording to paste into
-   the worklog.
+4. Check the **geometry gate** before you believe the pixel score: `default.semantics.json` against
+   `default.geometry.json`, node by node at 1dp. Report the coverage percentage. Under 90%, or with
+   no candidate dump at all, the verdict is `fix` no matter how high the pixel score is — 95% of the
+   pixels can match while a whole column sits 20dp from where it belongs.
+5. Decide: `accept` (pixel ≥ 95%, geometry gate passed, all residuals categorised) or `fix` (name
+   exactly one next change, the highest-impact one).
+6. If the score is above the floor but below the goal (99%) and the other two gates pass, the
+   verdict is `accepted-with-notes`; write the notes in the exact wording to paste into the
+   worklog. `blocked` is the verdict when the gates cannot be met within the iteration budget.
 
 ## Rules
 
-- Never accept a difference you cannot explain.
+- Never accept a difference you cannot explain, and never accept a screen whose geometry was not
+  measured: "not measured" is a failure, not a neutral observation.
+- SSIM is reported, never used to accept or reject (see `docs/LIMITS.md` §0).
 - Never suggest lowering a threshold.
 - Never suggest more than one fix at a time; the next diff has to be readable.
 - If the images disagree with the numbers (e.g. obvious visual breakage at 99.9%), trust the
@@ -60,9 +66,11 @@ heat.png, reference.png, candidate.png).
 ```
 verdict: accepted-with-notes     # or accept | fix | blocked
 score: 99.12% | ssim 0.9981 | geometry 97.4% (iterations 3)
+gates: pixel pass (>= 95) | geometry pass (>= 90, measured) | residuals pass
 residuals:
   - font-rasterization: <evidence>
   - shadow-elevation: <evidence>
 next fix: none                   # or one sentence naming the element and the change
+state: node ${CLAUDE_PLUGIN_ROOT}/scripts/uiport.mjs state residuals <screen> --device <device> --categories <a,b>
 worklog note: "<exact text to record>"
 ```

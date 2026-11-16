@@ -21,6 +21,7 @@ import process from "node:process";
 import {
   applyAnswers,
   bumpIteration,
+  setResiduals,
   emptyState,
   loadState,
   nextStep,
@@ -42,6 +43,10 @@ import {
 import { UIPORT_DIR, ensureDir, exists, readJson, readJsonSafe, writeJsonAtomic } from "./lib/fs-utils.mjs";
 import { loadAnswers, validateAnswers, REQUIRED_GATE_KEYS } from "./lib/answers.mjs";
 import { spawnSync } from "node:child_process";
+import { loadThresholds } from "./lib/geometry.mjs";
+
+// Repository root: the plugin itself, which is where config/thresholds.json lives.
+const ROOT = path.resolve(import.meta.dirname, "..");
 
 const rawArgs = process.argv.slice(2);
 
@@ -187,13 +192,36 @@ function cmdState() {
   }
   if (sub === "bump") {
     const screen = rest[0];
-    if (!screen) fail("usage: state bump <screen> --device phone", 2);
+    if (!screen) fail("usage: state bump <screen> --device phone [--kind port|harness] [--reason ...]", 2);
     const { state } = loadState(projectRoot);
     const device = String(flag("device", "phone"));
-    const count = bumpIteration(state, screen, device);
-    const limit = Number(flag("limit", 5));
+    // The cap is configuration, not a CLI default: reading it from thresholds.json means the
+    // enforced cap and the documented cap cannot drift apart.
+    const thresholds = loadThresholds(path.resolve(ROOT, "config", "thresholds.json"));
+    const limit = Number(flag("limit", thresholds.maxIterationsPerScreenPerDevice ?? 5));
+    const kind = String(flag("kind", "port"));
+    const reason = flag("reason", null);
+    const result = bumpIteration(state, screen, device, { kind, reason, cap: limit });
     saveState(projectRoot, state);
-    out({ screen, device, iterations: count, limit, capReached: count >= limit });
+    if (result.exhausted) {
+      // A cap that can be exceeded is not a cap. This exits non-zero so a scripted loop stops.
+      out({ screen, device, ...result, limit, capReached: true });
+      process.exitCode = 7;
+      return;
+    }
+    out({ screen, device, ...result, limit, capReached: result.used >= limit });
+    return;
+  }
+  if (sub === "residuals") {
+    const screen = rest[0];
+    if (!screen) fail("usage: state residuals <screen> --device phone --categories a,b", 2);
+    const { state } = loadState(projectRoot);
+    const device = String(flag("device", "phone"));
+    const raw = flag("categories", "");
+    if (!raw) fail("state residuals: --categories is required (comma separated)", 2);
+    const entry = setResiduals(state, screen, device, String(raw).split(",").map((c) => c.trim()).filter(Boolean));
+    saveState(projectRoot, state);
+    out({ screen, device, ...entry });
     return;
   }
   if (sub === "summary") {
