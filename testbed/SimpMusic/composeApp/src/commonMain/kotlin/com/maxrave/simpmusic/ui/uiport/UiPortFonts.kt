@@ -1,7 +1,7 @@
 package com.maxrave.simpmusic.ui.uiport
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.font.FontFamily
-import org.jetbrains.compose.resources.ExperimentalResourceApi
 import androidx.compose.ui.text.font.FontWeight
 import org.jetbrains.compose.resources.Font
 import simpmusic.composeapp.generated.resources.Res
@@ -26,13 +26,20 @@ import simpmusic.composeapp.generated.resources.uiport_inter_semibold
  * Both families are Open Font License, and the licence texts ship next to the binaries in
  * `composeResources/font/OFL-*.txt`.
  */
-@OptIn(ExperimentalResourceApi::class)
 object UiPortFonts {
-    /** "Instrument Serif" regular, as loaded by the web page. */
-    val serif: FontFamily = FontFamily(Font(Res.font.uiport_instrument_serif, FontWeight.Normal))
+    /**
+     * "Instrument Serif" regular, as loaded by the web page.
+     *
+     * These are functions rather than properties because `Font(...)` from Compose
+     * Resources reads the packaged resource in a composable scope; the family is then
+     * rebuilt per call, which the font loader caches internally.
+     */
+    @Composable
+    fun serif(): FontFamily = FontFamily(Font(Res.font.uiport_instrument_serif, FontWeight.Normal))
 
     /** Inter 400/500/600, the three weights the prototype's `font-medium`/`font-semibold` use. */
-    val sans: FontFamily =
+    @Composable
+    fun sans(): FontFamily =
         FontFamily(
             Font(Res.font.uiport_inter_regular, FontWeight.Normal),
             Font(Res.font.uiport_inter_medium, FontWeight.Medium),
