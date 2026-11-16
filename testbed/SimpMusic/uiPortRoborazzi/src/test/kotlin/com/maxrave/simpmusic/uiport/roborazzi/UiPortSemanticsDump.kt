@@ -17,8 +17,8 @@ import org.json.JSONObject
  *
  * Coordinates are **dp**, not device pixels, and the conversion is explicit (`Density`), because
  * the web side measures CSS pixels and the whole point of the comparison is that both sides agree
- * on a unit. `boundsInRoot` is already in dp when divided by density, which is why the density is
- * read from the rule rather than assumed to be 2.
+ * on a unit. `boundsInRoot` reports device pixels, so each box is divided by the rule's density
+ * once, here — which is why the density is read from the rule rather than assumed to be 2.
  *
  * Every node that carries text, a content description or a test tag is emitted; decorative layout
  * nodes are skipped because the web dump cannot represent them (a `<div>` with no text is not in
@@ -47,11 +47,14 @@ fun dumpSemantics(rule: ComposeContentTestRule, path: String, root: SemanticsNod
                     keyNames.contains("Heading") -> "heading"
                     else -> null
                 }
+        // `boundsInRoot` is a Rect in **device pixels**; the web dump is in CSS pixels (= dp at
+        // this viewport). Dividing here, once, is what makes the two dumps comparable, and it is
+        // why the density is read from the rule instead of assumed.
         val bounds = node.boundsInRoot
-        val x = bounds.left.value
-        val y = bounds.top.value
-        val w = bounds.width.value
-        val h = bounds.height.value
+        val x = bounds.left / density
+        val y = bounds.top / density
+        val w = bounds.width / density
+        val h = bounds.height / density
         if ((text != null || testId != null) && w > 0f && h > 0f) {
             nodes.put(
                 JSONObject()
@@ -75,7 +78,8 @@ fun dumpSemantics(rule: ComposeContentTestRule, path: String, root: SemanticsNod
     // different numbers, and a reviewer needs to see which one they are reading.
     println(
         "[ui-port] semantics ${file.name}: ${nodes.length()} nodes, " +
-            "root ${rootNode.boundsInRoot.width.value.toInt()}x${rootNode.boundsInRoot.height.value.toInt()} dp at density ${density}x",
+            "root ${(rootNode.boundsInRoot.width / density).toInt()}x${(rootNode.boundsInRoot.height / density).toInt()} dp " +
+            "at density ${density}x",
     )
 }
 
