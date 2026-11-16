@@ -39,6 +39,8 @@ came from the reference digest, whose numbers are quoted in the commit messages.
 | 2 | `space-y-8` instead of the home rhythm, one-line 40px title, 36px chips, paper shadow on the tiles | 85.7393% | 43805902225 |
 | 3 | Carousels bleed edge-to-edge (`-mx-4` + `px-4`), `space-y-10` between collections | 86.4814% | 43807081816 |
 | 4 | Tile padding 13 (border-box), probes on every tile row | 86.9157% | 43809265671 |
+| 5 | (regression, found and fixed) a leaked player overlay in the next screen's reference | 68.2612% | 43834780085 |
+| 6 | Every capture starts from a cold document | 86.9157% | 43835551613 |
 
 Where it now matches the capture exactly: the title's box (one 40px line at y=36), the chip row
 at y=108 with 36px chips on an 8px gutter, the first `.paper` tile at y=176 measuring 175x70 with
@@ -106,13 +108,25 @@ reports its successes is not measured, it is advertised.
 
 ## Now playing
 
-The ported overlay renders and reports its own boxes (`header` 361x52 at y=0, `art` 361x361 at
-y=60, `title` 183x30 at y=445, `play` 72x72 at y=564). It is **not scored**: the reference is
-captured by clicking the mini player on the home route, which queues that shelf's first track,
-while the fixture renders `t1`. Diffing those two would measure different content, so the screen
-is reported as unscored until both sides carry the same track. The capture side is ready — the
-`player` state exists in `scripts/lib/browser-inject.mjs` and the reference is relabelled from
-`home/player.png` to `nowplaying/default.png` with a CI notice.
+The overlay is scored: **79.303% pixel, SSIM 0.431** (run 43835731014). Getting a real number
+out of it took five fixes, all of them found by the harness refusing to lie:
+
+1. The `player` state did not exist in `applyState`'s switch, so the capture "succeeded" and
+   wrote a screenshot of the plain home page.
+2. One script cannot click twice: React needs a tick between starting a track and the mini
+   player existing, so it became two evaluations with a wait between them.
+3. The state was dropped by the capture plan: state inference reads the screen's own file, and
+   the player is mounted by the shell. Shell states are now a named set in `capture-spec.mjs`.
+4. "The first button in main" is the header's Notifications control — clicking it navigated to
+   `/notifications` and the state reported `state-not-reproducible`. A track row is now found by
+   what it renders: cover art and a duration.
+5. The overlay opened for the player state stayed open across captures, so `library`'s next
+   reference was taken with the player on top and fell from 86.9% to 68.3%. Every capture now
+   starts from `about:blank`.
+
+The ported screen reports its own boxes: `header` 361x52 at y=0, `art` 361x361 at y=60, `title`
+183x30 at y=445, `play` 72x72 at y=564. The remaining 20.7 points are concentrated in the
+header and the lyrics panel, not in the transport.
 
 ## Open items, in the order they should be done
 

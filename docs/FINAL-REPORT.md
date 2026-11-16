@@ -25,33 +25,34 @@ it. Anything that could not be measured is listed as a gap, not as a pass.
 
 ## 2. Fidelity scores — per screen, per device
 
-Only `phone` has been captured and ported. The numbers are the *current* CI state, plus the best
-state this phase reached where that differs.
+Only `phone` has been captured and ported. Every row is one line of the run's own summary
+(`pixel <n>% ssim <n> geometry <n>%`), copied from the annotations of run
+[43835731014](https://github.com/Rohitjjn/Ui-Port/actions/runs/43835731014).
 
-| Screen | Device | Pixel match | SSIM | Geometry | Status | Run |
+| Screen | Device | Pixel match | SSIM | Geometry | Status | Best seen in this phase |
 | --- | --- | --- | --- | --- | --- | --- |
-| `home` | phone 393x852 | **94.858%** | 0.738 | not measured | `building` (below 98.5% floor) | [43809265671](https://github.com/Rohitjjn/Ui-Port/actions/runs/43809265671) |
-| `home` (best seen) | phone 393x852 | **94.958%** | 0.742 | not measured | `building` | [43795122804](https://github.com/Rohitjjn/Ui-Port/actions/runs/43795122804) |
-| `library` | phone 393x852 | **86.916%** | see run | not measured | `building` | [43809265671](https://github.com/Rohitjjn/Ui-Port/actions/runs/43809265671) |
-| `nowplaying` | phone 393x852 | not scored | — | — | reference present, candidate missing | [43809265671](https://github.com/Rohitjjn/Ui-Port/actions/runs/43809265671) |
+| `home` | phone 393x852 | **94.858%** | 0.738 | not measured | `building` (below the 98.5% floor) | 94.958% (run 43795122804) |
+| `library` | phone 393x852 | **86.916%** | 0.565 | not measured | `building` | 86.916% (current) |
+| `nowplaying` | phone 393x852 | **79.303%** | 0.431 | not measured | `building` | 79.303% (first honest pair) |
 | tablet | — | — | — | — | not captured | — |
 | desktop | — | — | — | — | not captured | — |
 
 Reading the table honestly:
 
-- **No screen has reached the project's own 98.5% acceptance floor.** All three are `building`.
-  `home` is 3.6 points short, `library` 11.6 points short, and `nowplaying` is not comparable yet
-  because the reference for it is the full-player overlay captured on the home route (the port
-  renders it, the reference file exists, but the pair has not been scored in a run where both
-  sides were produced with the same content — the queued track differs between capture and
-  fixture, see §5).
-- **Geometry is not measured at all** (`-` in every report). The reference side writes
-  `default.geometry.json`; the Compose side still has no `default.semantics.json`, so
-  `diff-all.mjs` has nothing to compare and reports `null` instead of guessing. The candidate's
-  own boxes *are* published as CI annotations and are what every correction in this phase was
-  based on.
-- The full iteration-by-iteration record for `home` (10 runs) is in
-  `docs/phase-reports/phase-b4-phone-screens.md`.
+- **No screen has reached the project's own 98.5% acceptance floor.** `home` is 3.6 points
+  short, `library` 11.6, `nowplaying` 19.2. All three are `building`, which is the status the
+  diff engine assigns rather than a judgement call.
+- **Geometry is not measured** (`-` in every report and in the table above). The reference side
+  writes `default.geometry.json`; the Compose side still has no `default.semantics.json`, so
+  `diff-all.mjs` has nothing to compare and reports `null` rather than a guess. The candidate's
+  own boxes *are* published as CI annotations, and every correction in this phase was made from
+  them.
+- Each score is a pair. Moving `home`'s capture to include the player state changed `library`'s
+  reference too, because a state left open leaked into the next screen's screenshot; the fix
+  (a cold document per capture) is in the history and the number came back to 86.9%.
+
+Iteration-by-iteration records, including the runs that made things worse, are in
+`docs/phase-reports/phase-b4-phone-screens.md`.
 
 ## 3. What the numbers prove, and what they do not
 
@@ -69,6 +70,12 @@ Proven:
 3. The library screen's grid now matches the capture exactly where it was checked: title at
    y=36 (163x40 in the reference, one 40px line), chip row at y=108, first `.paper` tile at
    y=176 as 175x70, second column at x=203.
+4. The capture is honest about states it cannot reach. The now-playing overlay is not a route;
+   it is reachable only by starting a track and opening the mini player, and the capture does
+   exactly those two clicks. Two bugs on that path were found and fixed by the capture itself
+   reporting `state-not-reproducible` rather than by a screenshot that looked plausible: the
+   player state was missing from the state switch, and "the first button in main" is the
+   header's Notifications control, not a track.
 
 Not proven:
 
@@ -86,10 +93,11 @@ captured with fallback stacks. Both the measurement and the two ways out are rec
 
 ## 5. Open items, in priority order
 
-1. **`nowplaying` has no honest score.** The capture reaches the player by clicking the mini
-   player on the home route, which queues the shelf's first track; the fixture renders `t1`. Until
-   the same track is on both sides, a diff would measure different content, so it is reported as
-   unscored rather than as a number.
+1. **`nowplaying` content parity is assumed, not proven.** The capture starts whichever track
+   the page's first track row plays; the fixture renders `t1` ("Chapel Weather"). The capture
+   report now records the playing track as `playing=` so the two can be checked, but no run has
+   yet compared them. Until it does, the 79.303% is a number about *two screenshots*, not an
+   established statement that both show the same song.
 2. **Geometry coverage.** Emit `default.semantics.json` from the screenshot test so the 1 dp /
    90% coverage criteria can be evaluated. The layout probes are the interim substitute.
 3. **Font decision** (owner: capture config). Either allow same-origin fonts in
