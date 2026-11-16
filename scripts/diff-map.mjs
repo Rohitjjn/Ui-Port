@@ -184,11 +184,14 @@ for (const b of bands) {
 // Exact probes. A modal colour can be ambiguous between two near-whites (paper #faf8f3
 // vs card #ffffff); the pixel at a named coordinate cannot be. This is what settles where
 // a card actually starts and ends.
-const probeCols = String(flag("columns", "8,200,370"))
+const probeCols = String(flag("columns", "8,24,200,370"))
   .split(",")
   .map((v) => Number(v))
   .filter((v) => Number.isFinite(v) && v >= 0 && v < width);
 const probeStep = Number(flag("step", 12));
+/** A second, finer sweep on one column: block edges are what a port has to match first. */
+const fineCol = Number(flag("fine-column", 24));
+const fineStep = Number(flag("fine-step", 4));
 if (probeCols.length) {
   out.push("");
   out.push(`pixel probes (y step ${probeStep}; R=reference C=candidate)`);
@@ -198,6 +201,11 @@ if (probeCols.length) {
       rows.push(`${y}:${hex(at(ref, x, y))}/${hex(at(cand, x, y))}`);
     }
     out.push(`  x=${x}  ${rows.join(" ")}`);
+  }
+  if (Number.isFinite(fineCol) && fineCol >= 0 && fineCol < width) {
+    const rows = [];
+    for (let y = 0; y < height; y += fineStep) rows.push(`${y}:${hex(at(ref, fineCol, y))}/${hex(at(cand, fineCol, y))}`);
+    out.push(`  x=${fineCol} (step ${fineStep})  ${rows.join(" ")}`);
   }
 }
 out.push("");
