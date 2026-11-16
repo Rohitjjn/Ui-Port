@@ -73,6 +73,9 @@ object UiPortTokens {
      */
     val headerColumnWidth = 209.dp
 
+    /** The signed-out banner's text box: the capture measured 258x57 (three 19px lines). */
+    val bannerTextWidth = 258.dp
+
     /** The shell's `main` gets `pt-2`, which is where the first capture box (y=16) comes from. */
     val mainPadding = 8.dp
 }

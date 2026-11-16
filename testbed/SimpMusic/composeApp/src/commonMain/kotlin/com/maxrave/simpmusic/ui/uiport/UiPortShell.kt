@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -137,10 +139,16 @@ fun UiPortLoginBanner(modifier: Modifier = Modifier) {
             fontSize = UiPortTokens.subtitle,
             lineHeight = 19.sp,
             fontFamily = UiPortFonts.sans,
-            modifier = Modifier.weight(1f),
+            // The capture's banner text is a 258x57 box: three 19px lines. Compose's
+            // platform sans is narrower than the capture host's fallback, so the same
+            // string fits on two lines at that width; the width is pinned to the measured
+            // text box and the button keeps its own measured 55px so the three lines are
+            // reproduced rather than approximated.
+            modifier = Modifier.width(UiPortTokens.bannerTextWidth),
             onTextLayout = { UiPortLayoutProbe.recordText("banner.text", it.lineCount, it.size) },
         )
         // `Button size="sm"`: h-9 (36px) with a 13px label, per the capture's 55x36 box.
+        Spacer(Modifier.weight(1f))
         Box(
             modifier =
                 Modifier
