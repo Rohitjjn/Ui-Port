@@ -81,11 +81,11 @@
         "io.github.takahirom.roborazzi:roborazzi",
         "io.github.takahirom.roborazzi:roborazzi-compose"
       ],
-      "version": "1.53.1",
+      "version": "1.79.0",
       "install": "gradle test -Proborazzi.test.record=true",
       "requiresApproval": true,
       "phase": 0,
-      "notes": "Default choice. Pure JVM, works with the project's own Compose version, no emulator, and supports capturing explicit `@Config(qualifiers=...)` sizes. Known gap: blur/backdrop-filter effects may render differently or not at all under Robolectric (see docs/LIMITS.md). Fallback: Paparazzi when the project is Android-only and does not need Robolectric-specific features."
+      "notes": "Default choice. Pure JVM, works with the project's own Compose version, no emulator, and supports capturing explicit `@Config(qualifiers=...)` sizes. Known gap: blur/backdrop-filter effects may render differently or not at all under Robolectric (see docs/LIMITS.md). Fallback: Paparazzi when the project is Android-only and does not need Robolectric-specific features. Pin verified against https://api.github.com/repos/takahirom/roborazzi/releases on 2026-11-16 (1.79.0, published 2026-11-12); Robolectric 4.17 is the matching test runtime."
     },
     {
       "id": "paparazzi",
