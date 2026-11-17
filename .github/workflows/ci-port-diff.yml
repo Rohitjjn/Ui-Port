@@ -202,7 +202,10 @@ jobs:
             grep -nE "^e: |error:|Caused by:|Unresolved reference|Could not (find|resolve)|^Execution failed" /tmp/gradle-roborazzi.log | head -30 | while IFS= read -r line; do
               echo "::error title=gradle (roborazzi)::${line}"
             done
-            echo "::warning title=renderer::Roborazzi did not run; the diff falls back to the Paparazzi 1x render, so the geometry gate reports \"not measured\" instead of passing"
+            grep -nE "FAILED$|java\.lang\.|org\.json\.|AssertionError|IllegalState|Exception in" /tmp/gradle-roborazzi.log | head -12 | while IFS= read -r line; do
+              echo "::error title=roborazzi test::${line}"
+            done
+            echo "::warning title=renderer::Roborazzi did not run; the diff falls back to the Paparazzi 1x render, so the geometry gate reports not measured instead of passing"
             exit "$code"
           fi
           find uiPortRoborazzi/build/ui-port-output -type f | sort
