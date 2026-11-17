@@ -422,14 +422,6 @@ jobs:
           done < /tmp/scores-line.txt
           echo "--- score table ---"
           cat .uiport/diffs/summary.md || true
-          # Why the geometry gate failed, in one line, in its own step for the same reason the
-          # scores get one: the diff step's 50-annotation budget is spent on geometry detail before
-          # anything at the end of it can be seen.
-          node scripts/ci-scores-line.mjs "$SUMMARY" --shapes > /tmp/shapes-line.txt
-          while IFS= read -r line; do
-            echo "::notice title=geometry shape ${UIPORT_DEVICE}::${line}"
-          done < /tmp/shapes-line.txt
-
           # The render's own fingerprint. Without it, two runs from different commits that report
           # byte-identical scores are indistinguishable from two runs that re-used a cached jar,
           # and "the fix changed nothing" is indistinguishable from "the fix was not measured".

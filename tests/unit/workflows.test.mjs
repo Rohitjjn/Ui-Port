@@ -55,15 +55,26 @@ describe("GitHub workflows", () => {
     }
   });
 
-  test("the port-diff workflow keeps the score table and the geometry shape in their own steps", () => {
-    // Both exist because a step keeps only its first 50 annotations. If either is folded back into
-    // the diff step, the numbers disappear from the run page — which has now happened twice.
+  test("the scores survive the annotation budget: one line, one dedicated step, shape inline", () => {
+    // A job keeps only its first 50 annotations — not a step. The diff step emits 40+ of them for
+    // geometry detail, so the scores need their own step *and* the failure signature has to ride
+    // on the same line: a separate shapes notice in that step was dropped at 50 back when the
+    // budget was thought to be per step. Both halves of that lesson are asserted here.
     const doc = yaml.parse(fs.readFileSync(path.join(WORKFLOW_DIR, "ci-port-diff.yml"), "utf8"));
     const steps = doc.jobs["render-and-diff"].steps.map((s) => s.name ?? s.uses);
     const scoresStep = doc.jobs["render-and-diff"].steps.find((s) => s.name === "Publish the score table");
     assert.ok(scoresStep, "the scores step must exist as its own step");
     assert.match(scoresStep.run, /ci-scores-line\.mjs/);
-    assert.match(scoresStep.run, /--shapes/, "the geometry signature rides in the same dedicated step");
+    // Exactly two notices may come out of this step: the score table (with the shape inline) and
+    // the provenance fingerprint. Everything else that wants to say something has to fit on one of
+    // those two lines, because the budget is 50 per job and the diff step has already spent most
+    // of it.
+    const noticeTitles = [...scoresStep.run.matchAll(/::notice title=(\w+)/g)].map((m) => m[1]);
+    assert.deepEqual(
+      noticeTitles,
+      ["scores", "provenance"],
+      `unexpected notices in the scores step: ${noticeTitles.join(", ")}`,
+    );
     assert.ok(steps.includes("Diff every rendered screen"));
   });
 });

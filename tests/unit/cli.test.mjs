@@ -399,7 +399,7 @@ describe("package-zip", () => {
 });
 
 describe("ci-scores-line", () => {
-  test("--shapes puts every screen's failure signature on one line, and says so when there is none", () => {
+  test("the score line carries each screen's failure signature inline, and --shapes prints only those", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uiport-shapes-"));
     try {
       const write = (results) => {
@@ -411,6 +411,13 @@ describe("ci-scores-line", () => {
         { screen: "home", geometryCoveragePct: 0, geometryDelta: "systematic-offset — 100% of mismatched nodes sit within 0.5 dp of dy=2.1 dp" },
         { screen: "library", geometryCoveragePct: 0, geometryDelta: "scattered — no dominant offset" },
       ]);
+      // Inline: the annotation budget is per job, so a separate shape notice was dropped when the
+      // diff step had already spent all 50. The signature has to ride on the one line that survives.
+      const inline = execFileSync(process.execPath, [path.join(ROOT, "scripts/ci-scores-line.mjs"), withShapes], { encoding: "utf8" }).trim();
+      assert.equal(inline.split("\n").length, 1);
+      assert.match(inline, /^phone: home .* shape=systematic-offset\(dy2\.1\) \| library .* shape=scattered$/);
+      assert.doesNotMatch(inline.split(" | ")[0], /within 0\.5 dp/, "the sentence belongs in the report, not in the annotation");
+
       const out = execFileSync(process.execPath, [path.join(ROOT, "scripts/ci-scores-line.mjs"), withShapes, "--shapes"], { encoding: "utf8" }).trim();
       assert.equal(out.split("\n").length, 1, "a multi-line annotation is truncated after its first line");
       assert.match(out, /^home: systematic-offset/);
