@@ -67,10 +67,30 @@ export const GEOMETRY_SCRIPT = () => {
     const shownH = Math.min(r.bottom, vh) - Math.max(r.top, 0);
     return shownH >= Math.min(r.height, vh) * 0.5;
   };
+  // Covered by something painted on top, at the element's own centre.
+  //
+  // A full-screen overlay — the port's now-playing player — does not remove the page beneath it
+  // from the DOM, so `getBoundingClientRect` still reports the library rows it hides. The port
+  // renders an overlay, not those rows, so counting them makes the reference claim ~40 nodes the
+  // candidate can never have: `nowplaying` compared 55 reference nodes against 14 and could not
+  // have passed at any level of porting effort.
+  //
+  // This is the same argument as the viewport clip: compare only what the screenshot shows. It is
+  // deliberately a hit test at one point rather than a rectangle intersection, because a
+  // half-covered label is still readable and hiding it would be the opposite error.
+  const covered = (el, r) => {
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    if (x < 0 || y < 0 || x >= vw || y >= vh) return false;
+    const top = document.elementFromPoint(x, y);
+    if (!top) return false;
+    return top !== el && !el.contains(top) && !top.contains(el);
+  };
   for (const el of document.querySelectorAll(SEL)) {
     const r = el.getBoundingClientRect();
     if (r.width === 0 || r.height === 0) continue;
     if (!visible(r)) continue;
+    if (covered(el, r)) continue;
     const style = getComputedStyle(el);
     if (style.visibility === "hidden" || style.display === "none" || Number(style.opacity) === 0) continue;
     const text = (el.innerText ?? "").trim().replace(/\s+/g, " ").slice(0, 120);

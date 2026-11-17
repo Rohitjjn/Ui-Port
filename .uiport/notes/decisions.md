@@ -91,6 +91,13 @@ What remains is a different bug, not this one: the label is still `34.5` wide ag
 66x66, so the 34.5-wide leader must come from the `Text` inside it — that is the next thing to look
 at, and it is now a specific question rather than "the nav is wrong".
 
+**Measured after `c63d8ca`:** the three nav rows left the mismatch list entirely, `home`'s matched
+nodes went 0 -> 3 and coverage 0% -> 30%, and `library` went 0% -> 6.82% from the same change (its
+nav shares the shell). The mechanism: the DOM's labelled node for a nav item is the whole `<a>`,
+while an unmerged Compose tree only emits nodes that carry text or a tag — so the link had to be
+given `selectable(role = Role.Tab)` to exist as a node at all, which is also what a navigation
+target should be.
+
 **Cost, stated plainly:** the corrected bar height cost `home` 0.0906 pp (96.0406 -> 95.95) and
 gained `library` 0.0454 pp (87.5961 -> 87.6415). Both are under the 0.15 regression line, which is
 why the score did not fail the run and why this went unnoticed until the numbers were read side by

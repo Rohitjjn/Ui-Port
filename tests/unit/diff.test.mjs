@@ -468,6 +468,22 @@ describe("viewport clipping", () => {
     assert.match(source, /if \(!visible\(r\)\) continue;/);
     assert.match(source, /clipped:/, "a clipped node must say so, so it is not read as a layout error");
   });
+
+  test("a node hidden under an overlay is not in the reference either", () => {
+    // The now-playing player is a full-frame overlay: the library rows beneath it are still in the
+    // DOM and still have boxes, but the port renders an overlay, not those rows. Counting them made
+    // the reference claim ~40 nodes the candidate could never produce — `nowplaying` compared 55
+    // reference nodes against 14, so no amount of porting effort could have passed it.
+    const source = GEOMETRY_SCRIPT.toString();
+    assert.match(source, /document\.elementFromPoint/, "a hit test at the node's centre decides");
+    assert.match(source, /if \(covered\(el, r\)\) continue;/);
+    // It must be a point test, not an area test: a half-covered label is still readable, and
+    // dropping it would be the opposite error.
+    assert.doesNotMatch(source, /coveredArea|intersectionArea/);
+    // And it must not drop a node that merely contains the topmost element (the overlay is often a
+    // descendant of the screen's own scroll container).
+    assert.match(source, /!el\.contains\(top\) && !top\.contains\(el\)/);
+  });
 });
 
 describe("nested label matching", () => {
