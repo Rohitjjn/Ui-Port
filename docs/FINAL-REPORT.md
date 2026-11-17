@@ -9,15 +9,16 @@ it. Anything that could not be measured is listed as a gap, not as a pass.
 | Deliverable | State | Proof |
 | --- | --- | --- |
 | Plugin: 11 skills, 4 commands, 4 agents, 4 hooks | done | `node scripts/validate-plugin.mjs` → `OK — manifest, 11 skills, 4 agents, 4 commands, hooks, config and 20 referenced scripts` |
-| Scripts (21) + tests | done | `npm ci && npm test` → **185 tests, 185 pass, 0 fail** |
+| Scripts (22) + tests | done | `npm ci && npm test` → **211 tests, 211 pass, 0 fail** |
 | `config/` (pinned tools, viewports, thresholds) | done | enforced by `resolve-versions.mjs` |
-| Docs (26 files incl. 6 phase reports and the build log) | done | `node scripts/lint-markdown.mjs` → `OK — 66 file(s)` |
+| Docs (28 files incl. 7 phase reports and the build log) | done | `node scripts/lint-markdown.mjs` → `OK — 67 file(s)` |
 | Static checks in CI | **green** | `ci-static` run [43809265679](https://github.com/Rohitjjn/Ui-Port/actions/runs/43809265679) |
 | Unit tests in CI | **green** | `ci-unit` run [43809265653](https://github.com/Rohitjjn/Ui-Port/actions/runs/43809265653) |
 | Hook matrix ubuntu/windows/macos in CI | **green** | `ci-hooks-matrix` run [43809265785](https://github.com/Rohitjjn/Ui-Port/actions/runs/43809265785) |
 | `assembleDebug` of `testbed/SimpMusic` (baseline) | **green** | `ci-e2e-simpmusic` run [43683891163](https://github.com/Rohitjjn/Ui-Port/actions/runs/43683891163); APK artifact `simpmusic-debug-apk`, 299,225,803 B |
-| Reference capture (Playwright, phone) + noise floor | **done** | `ci-capture-reference` run [43809265711](https://github.com/Rohitjjn/Ui-Port/actions/runs/43809265711); 0% same-side noise, effective floor 98.5%, all four phone screens 100% / SSIM 1.0 |
-| Compose screenshot render + diff, in CI | **running, both screens below floor** | `ci-port-diff` run [43809265671](https://github.com/Rohitjjn/Ui-Port/actions/runs/43809265671) |
+| Reference capture (Playwright, phone, **vendored fonts**) + noise floor | **done** | `ci-capture-reference` run [44031611265](https://github.com/Rohitjjn/Ui-Port/actions/runs/44031611265); 100% same-side, 0% noise, floor 95%; every screen reports `vendored faces loaded — Inter,Instrument Serif` |
+| Compose render at the reference's DPR (Roborazzi) **with semantics dump** | **done** | `ci-port-diff` run [44031611265](https://github.com/Rohitjjn/Ui-Port/actions/runs/44031611265); renders 786x1704, 3 PNG + 3 `default.semantics.json` |
+| Diff + three acceptance gates (pixel / geometry / residuals) | **wired, 1 screen above the pixel floor, geometry gate failing on real findings** | same run; see §2 |
 | Tablet and desktop layouts (B.5) | **not started** | — |
 | Engine wiring (B.6) | **not started** | — |
 | Debug APK as a downloadable artifact for the *ported* UI (B.7) | **not built** | — |
@@ -25,17 +26,27 @@ it. Anything that could not be measured is listed as a gap, not as a pass.
 
 ## 2. Fidelity scores — per screen, per device
 
-Only `phone` has been captured and ported. Every row is one line of the run's own summary
-(`pixel <n>% ssim <n> geometry <n>%`), copied from the annotations of run
-[43835731014](https://github.com/Rohitjjn/Ui-Port/actions/runs/43835731014).
+Only `phone` has been captured and ported. Every row is the `scores phone` annotation of run
+[44031611265](https://github.com/Rohitjjn/Ui-Port/actions/runs/44031611265) (commit `4a0981c`),
+copied verbatim — together with that run's `provenance` annotation, which fingerprints the commit,
+the five screen sources and the three rendered PNGs so the row can be traced to an image.
 
-| Screen | Device | Pixel match | SSIM | Geometry | Status | Best seen in this phase |
-| --- | --- | --- | --- | --- | --- | --- |
-| `home` | phone 393x852 | **94.858%** | 0.738 | not measured | `building` (below the 98.5% floor) | 94.958% (run 43795122804) |
-| `library` | phone 393x852 | **86.916%** | 0.565 | not measured | `building` | 86.916% (current) |
-| `nowplaying` | phone 393x852 | **79.303%** | 0.431 | not measured | `building` | 79.303% (first honest pair) |
-| tablet | — | — | — | — | not captured | — |
-| desktop | — | — | — | — | not captured | — |
+The floor is now **95%** (goal 99%), and a screen is accepted only when pixels **and** geometry
+**and** residuals pass. Under that contract none of these three is accepted.
+
+| Screen | Device | Pixel match | SSIM (not gated) | Geometry | Iterations | Status | Residual category |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `home` | phone 393x852 @2x | **96.041%** | 0.7927 | 0% — gate failed | 0 | `building` (pixel passes, geometry fails) | none — every difference must still be categorised |
+| `library` | phone 393x852 @2x | **87.596%** | 0.5743 | 0% — gate failed | 0 | `building` (below floor) | none |
+| `nowplaying` | phone 393x852 @2x | **79.825%** | 0.5314 | 0% — gate failed | 0 | `building` (below floor) | none |
+| tablet | — | — | — | — | — | not captured | — |
+| desktop | — | — | — | — | — | not captured | — |
+
+The geometry `0%` is the *coverage* figure, and it is a real failure rather than an unmeasured
+screen: both dumps exist (26 vs 16 canonical nodes on `home`, 82 vs 28 on `library`). Phase B's
+report explains the two measurement bugs that produced a misleading 0% before (wrapper nodes,
+viewport clipping) and the one open question that blocks `library` and `nowplaying`
+(`.uiport/notes/decisions.md` N-1: the reference's scroll container is taller than the frame).
 
 Reading the table honestly:
 
