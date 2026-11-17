@@ -469,15 +469,23 @@ jobs:
           if-no-files-found: warn
 
   # The per-node table needs more than three lines per screen, and the job above has already spent
-  # its 50 annotations. The limit is per job, so this job gets its own 50 — which is the only
-  # reason a second job is worth its several minutes of setup. It re-renders nothing: it downloads
-  # the first job's artifact, which is also the check that the artifact contains what the report
-  # needs.
+  # its annotation budget. Two separate limits are at work, and both were measured the hard way:
+  #   - 50 annotations per job  -> a second job, not a second step;
+  #   - 10 notices per step     -> a screen's rows (header + 8 + a truncation note) fill a step,
+  #                                so three screens need three steps. A matrix gives each screen its
+  #                                own job, which also means one screen failing to render does not
+  #                                hide the other two.
+  # It re-renders nothing: it downloads the first job's artifact, which doubles as the check that
+  # the artifact contains what the report needs.
   geometry-detail:
     if: always()
     needs: [render-and-diff]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        screen: [home, library, nowplaying]
     steps:
       - uses: actions/checkout@v5
 
@@ -495,22 +503,14 @@ jobs:
           name: uiport-port-diff-${{ github.run_id }}
           path: .artifact
 
-      # Discovery rather than fixed paths: upload-artifact roots an archive at the least common
-      # ancestor of what it uploaded, so the internal layout depends on which paths were listed.
-      # Searching for the two directories the report needs is immune to that.
-      # What the artifact actually contains, as an annotation. Logs are blob-hosted and not
-      # readable from every environment; a job that reports "nothing to read" without saying what
-      # it looked at has cost two runs already.
-      - name: Say what the artifact contains
+      - name: Publish every geometry row for ${{ matrix.screen }}, worst first
         run: |
-          echo "::notice title=artifact contents::$(find .artifact -maxdepth 4 -type d \( -name home -o -name library -o -name nowplaying -o -name reference -o -name output \) 2>/dev/null | sort | tr '\n' ' ')"
-          echo "::notice title=artifact geometry files::$(find .artifact -name 'default.geometry.json' 2>/dev/null | sort | tr '\n' ' ')"
-          echo "::notice title=artifact semantics files::$(find .artifact -name 'default.semantics.json' 2>/dev/null | sort | tr '\n' ' ')"
-
-      - name: Publish every geometry row, worst first
-        run: |
+          if [ ! -d .artifact ]; then
+            echo "::warning title=geometry ${{ matrix.screen }}::the render job produced no artifact to read"
+            exit 0
+          fi
           node scripts/ci-geometry-report.mjs \
             --from-artifact .artifact \
             --device phone \
-            --limit 45
-
+            --screen "${{ matrix.screen }}" \
+            --limit 8

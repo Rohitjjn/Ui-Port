@@ -60,9 +60,14 @@ describe("GitHub workflows", () => {
     const detail = doc.jobs["geometry-detail"];
     assert.ok(detail, "a job of its own: the annotation limit is per job, so a second job gets a second 50");
     assert.deepEqual(detail.needs, ["render-and-diff"]);
+    // One job per screen, because the second limit is 10 notices *per step*: a screen's header plus
+    // eight rows fills a step, and the first version of this job therefore reported only `home`
+    // while the other two screens silently produced nothing.
+    assert.deepEqual(detail.strategy.matrix.screen, ["home", "library", "nowplaying"]);
     const step = detail.steps.find((s) => s.run?.includes("ci-geometry-report.mjs"));
     assert.ok(step, "the detail job runs the per-node report");
-    assert.match(step.run, /--limit 45/, "45 rows plus the per-screen headers stays inside 50");
+    assert.match(step.run, /--limit 8/, "header + 8 rows + at most one truncation note stays inside 10 notices");
+    assert.match(step.run, /--screen "\$\{\{ matrix\.screen \}\}"/, "each job reports one screen");
   });
 
   test("the scores survive the annotation budget: one line, one dedicated step, shape inline", () => {
