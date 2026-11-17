@@ -406,3 +406,35 @@ test("when nothing matches, the report says where each side's content sits", asy
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("the candidate extent is the whole set, not the first few nodes", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uiport-extent-"));
+  try {
+    const refDir = path.join(dir, "reference/phone/library");
+    const candDir = path.join(dir, "candidate/phone/library");
+    fs.mkdirSync(refDir, { recursive: true });
+    fs.mkdirSync(candDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(refDir, "default.geometry.json"),
+      JSON.stringify([{ text: "Most played", role: "button", x: 85, y: 274.09, w: 81.86, h: 20.3 }]),
+    );
+    // A header, four chips, and one node far down the page. Reporting the extent of the first six
+    // nodes says the screen ends at y=100 when it runs to y=640 — which would send the next
+    // investigation after a missing layout when the layout is there.
+    const cand = [
+      { text: "COLLECTION", role: "node", x: 16, y: 16, w: 82, h: 16 },
+      ...Array.from({ length: 4 }, (_, i) => ({ text: `chip${i}`, role: "node", x: 16 + i * 40, y: 100, w: 36, h: 28 })),
+      { text: "Late Shift", role: "node", x: 16, y: 640, w: 150, h: 180 },
+    ];
+    fs.writeFileSync(path.join(candDir, "default.semantics.json"), JSON.stringify(cand));
+    const out = execFileSync(
+      process.execPath,
+      [path.join(ROOT, "scripts/ci-geometry-report.mjs"), "--reference", path.join(dir, "reference"), "--candidate", path.join(dir, "candidate"), "--device", "phone"],
+      { encoding: "utf8" },
+    );
+    assert.match(out, /candidate nodes at y 16\.\.640/, "the extent is over every candidate node");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

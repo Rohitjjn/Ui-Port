@@ -165,11 +165,11 @@ function main() {
       },
       deltaSummary: comparison.deltaSummary,
       // Where the candidate's own text sits, for the digest: the first few boxes by position.
-      candidateSamples: canonicalNodes(candGeom)
-        .filter((n) => n.text)
-        .sort((a, b) => (a.y ?? 0) - (b.y ?? 0))
-        .slice(0, 6)
-        .map((n) => [n.x, n.y, n.w, n.h]),
+      candidateExtent: (() => {
+        const withText = canonicalNodes(candGeom).filter((n) => n.text && Number.isFinite(n.y));
+        if (withText.length === 0) return null;
+        return { minY: Math.min(...withText.map((n) => n.y)), maxY: Math.max(...withText.map((n) => n.y)) };
+      })(),
       // Mismatches first, worst first: a reader who stops after three lines should have seen the
       // three rows that matter most.
       rows: rows.slice(0, limit),
@@ -207,9 +207,13 @@ function main() {
     // A one-line digest of where the two sets sit, so "all missing" can be read as "the candidate's
   // content starts 300 dp lower" without seeing a single row. Without it, 8 missing rows out of a
   // 10-notice budget say nothing about *why* nothing matched.
-  if (s.rows.some((r) => r.kind === "missing") && s.candidateSamples?.length) {
+  if (s.rows.some((r) => r.kind === "missing") && s.candidateExtent) {
     const missingYs = s.rows.filter((r) => r.kind === "missing" && r.ref).map((r) => r.ref[1]);
-    const candYs = s.candidateSamples.map((c) => c[1]);
+    // The *whole* candidate set, not the sample: an earlier version took the max over the first six
+    // nodes and reported a screen's content as ending at y=118 when the six happened to be the
+    // header and the chips. A digest that says the candidate is empty when it is not is worse than
+    // no digest — it sends the next investigation to the wrong file.
+    const candYs = s.candidateExtent ? [s.candidateExtent.minY, s.candidateExtent.maxY] : [];
     const missingX = s.rows.filter((r) => r.kind === "missing" && r.ref).map((r) => r.ref[0]);
     lines.push(
       `::notice title=${s.screen} shape::${missingYs.length} missing at y ${Math.min(...missingYs)}..${Math.max(...missingYs)} / x ${Math.min(...missingX)}..${Math.max(...missingX)}; candidate nodes at y ${Math.min(...candYs)}..${Math.max(...candYs)}`,
