@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -54,15 +55,20 @@ object UiPortShell {
 }
 
 /**
- * Height of the bottom bar as rendered at DPR 1.
+ * Height of the bottom bar.
  *
- * The web nav is `py-2` (8+8) + an `h-8` icon pill (32) + an 11px label with the default
- * 1.45 line-height (16) = 72px, plus a 1px hairline. `safe-bottom` is
- * `env(safe-area-inset-bottom)`, which resolves to 0 at DPR 1 under Playwright, so 73 is
- * the full height. The capture shows the nav labels at y=786 in an 852-tall frame, which
- * is exactly 73px of bar.
+ * The NavLink is `flex flex-col gap-0.5 py-2` around an `h-8` pill and an 11px/16px label:
+ * 8 + 32 + 2 + 16 + 8 = 66, and the reference measures the link at 64x65.94 with its bottom
+ * edge at y=851.94 in an 852-tall frame — so the bar *is* the link's height, 66 dp, and the
+ * link fills it.
+ *
+ * This used to be 72 with an extra `padding(vertical = 8.dp)` on the Row, which left 56 dp
+ * for a Column that needs 66: the label was clipped to exactly 6 dp, measured as
+ * `cand[310.5,830 34.5x6]` against `ref[295.5,786.06 64x65.94]` for all three items. The
+ * padding is the link's own `py-2`, so applying it on the Row as well both shrank the box
+ * and double-counted it.
  */
-private val navBarHeight = 72.dp
+private val navBarHeight = 66.dp
 
 @Composable
 fun UiPortBottomNav(
@@ -82,7 +88,6 @@ fun UiPortBottomNav(
                     .fillMaxWidth()
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .height(navBarHeight)
-                    .padding(vertical = 8.dp)
                     .layoutProbe("nav.row"),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
@@ -95,8 +100,16 @@ fun UiPortBottomNav(
                 // what found it — the labels sat 38 dp high in a box 50 dp too short while the
                 // pixel score still read 96%. Position and size come from the class list, not
                 // from what looks close.
+                // `fillMaxHeight` because the link is the full height of the bar: the reference
+                // measures the link at 65.94 dp in a 66 dp bar, not a 66 dp link floating inside
+                // a taller one. Without it the box is only as tall as its content and the
+                // comparator has nothing to match the reference's 64x65.94 against.
                 Column(
-                    modifier = Modifier.defaultMinSize(minWidth = 64.dp).padding(vertical = 8.dp),
+                    modifier =
+                        Modifier
+                            .defaultMinSize(minWidth = 64.dp)
+                            .fillMaxHeight()
+                            .padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
