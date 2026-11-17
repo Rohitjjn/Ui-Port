@@ -76,7 +76,7 @@ export function loadThresholds(file) {
  */
 export function canonicalNodes(nodes = []) {
   const list = Array.isArray(nodes) ? nodes : (nodes?.nodes ?? []);
-  return list
+  const kept = list
     .filter((n) => {
       const hasText = typeof n?.text === "string" && n.text.trim().length > 0;
       const anchored = n?.testId != null && String(n.testId).length > 0;
@@ -86,6 +86,20 @@ export function canonicalNodes(nodes = []) {
       ...n,
       text: typeof n?.text === "string" ? n.text.trim().replace(/\s+/g, " ") : null,
     }));
+
+  // One node per (text, box). The DOM repeats a label when it repeats the element — `<p>4 items</p>`
+  // next to a `<span>4 items</span>` for the same count, at the same coordinates — and counting
+  // both inflates the reference set with a node the port can only ever produce once. The report
+  // then shows the same text "missing" twice, which reads like two dropped labels.
+  const seen = new Map();
+  for (const n of kept) {
+    const key = `${n.text ?? ""}|${n.x ?? ""}|${n.y ?? ""}|${n.w ?? ""}|${n.h ?? ""}`;
+    const existing = seen.get(key);
+    // Prefer the node with ancestors: it carries more information for the comparator, and for the
+    // same box and text they describe the same element.
+    if (!existing || (n.ancestors?.length ?? 0) > (existing.ancestors?.length ?? 0)) seen.set(key, n);
+  }
+  return [...seen.values()];
 }
 
 export function compareGeometry(refNodes = [], candNodes = [], opts = {}) {

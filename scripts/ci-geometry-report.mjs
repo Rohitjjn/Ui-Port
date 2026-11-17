@@ -138,7 +138,10 @@ function main() {
         d: null,
         worst: Infinity,
       })),
-    ].sort((a, b) => b.worst - a.worst);
+      // A missing node is the most severe finding — the thing is not there at all — and it has no
+      // delta to rank by, so it sorts first rather than last. Ordering by delta alone buried
+      // "this section never rendered" beneath eighteen 2 dp near-misses.
+    ].sort((a, b) => (a.kind === b.kind ? b.worst - a.worst : a.kind === "missing" ? -1 : 1));
 
     out.push({
       screen,

@@ -309,3 +309,52 @@ test("geometry report finds its inputs in an artifact whatever prefix the upload
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("the same label at the same box is one node, however many elements carry it", async () => {
+  const { canonicalNodes } = await import("../../scripts/lib/geometry.mjs");
+  // The DOM repeats a label when it repeats the element: `<p>4 items</p>` beside a
+  // `<span>4 items</span>` for the same count, at the same coordinates. Counting both made the
+  // report list the same text as "missing" twice, which reads like two dropped labels when the
+  // port can only ever produce one node.
+  const nodes = canonicalNodes([
+    { text: "Downloaded 4 items", role: "p", x: 16, y: 100, w: 120, h: 16 },
+    { text: "Downloaded 4 items", role: "span", x: 16, y: 100, w: 120, h: 16 },
+    { text: "Downloaded 4 items", role: "p", x: 16, y: 400, w: 120, h: 16 },
+  ]);
+  assert.equal(nodes.length, 2, "same text at the same box collapses; a different row does not");
+  // The survivor carries the ancestors: for the same box and text it is the more informative node.
+  const withAncestors = canonicalNodes([
+    { text: "Play", role: "span", x: 0, y: 0, w: 10, h: 10 },
+    { text: "Play", role: "button", x: 0, y: 0, w: 10, h: 10, ancestors: [{ x: 0, y: 0, w: 10, h: 10 }] },
+  ]);
+  assert.equal(withAncestors.length, 1);
+  assert.equal(withAncestors[0].role, "button");
+});
+
+test("rows are ordered by severity: a node that never rendered outranks any near-miss", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uiport-order-"));
+  try {
+    const refDir = path.join(dir, "reference/phone/library");
+    const candDir = path.join(dir, "candidate/phone/library");
+    fs.mkdirSync(refDir, { recursive: true });
+    fs.mkdirSync(candDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(refDir, "default.geometry.json"),
+      JSON.stringify([
+        { text: "Gone", role: "p", x: 16, y: 200, w: 80, h: 16 },
+        { text: "Kept", role: "p", x: 16, y: 300, w: 80, h: 16 },
+      ]),
+    );
+    fs.writeFileSync(path.join(candDir, "default.semantics.json"), JSON.stringify([{ text: "Kept", role: "node", x: 16, y: 300, w: 80, h: 16 }]));
+    const out = execFileSync(
+      process.execPath,
+      [path.join(ROOT, "scripts/ci-geometry-report.mjs"), "--reference", path.join(dir, "reference"), "--candidate", path.join(dir, "candidate"), "--device", "phone"],
+      { encoding: "utf8" },
+    ).trim();
+    const rows = out.split("\n").slice(1);
+    assert.match(rows[0], /missing::"Gone"/, "the node that never rendered is the first row");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
