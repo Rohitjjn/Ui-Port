@@ -169,6 +169,16 @@ width nor the 8 dp vertical padding, so each item was 34.5 dp wide instead of 64
 instead of 66. The pixel score could not see it — `home` was 96.0% throughout — which is precisely
 the argument for the geometry gate in section A. Fixed in `UiPortShell.kt`.
 
+After the fix, the same annotation no longer lists any nav item among the mismatches — the only
+remaining `home` finding is the hero description — and `home` moved from `95.9995%` to `96.0406%`.
+The pixel gain is small because a 30×16 dp bar is a tiny fraction of 786×1704; the geometry report
+is where the fix is visible, which is the point.
+
+Two runs whose sources differ only in CI/report files report byte-identical scores
+(`44026400996`, `44028326837`). That is expected, and each run now prints a `provenance`
+annotation with the commit, a hash of the five screen sources and a hash of the three rendered
+PNGs, so "the fix changed nothing" can be told apart from "the fix was never rendered".
+
 ## 6. What changed in the plugin, not just the testbed
 
 - `skills/capture-reference/SKILL.md`: vendoring is step 3, before capture, with the exit-code
