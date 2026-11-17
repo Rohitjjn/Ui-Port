@@ -164,6 +164,12 @@ function main() {
         missing: comparison.missing.length,
       },
       deltaSummary: comparison.deltaSummary,
+      // Where the candidate's own text sits, for the digest: the first few boxes by position.
+      candidateSamples: canonicalNodes(candGeom)
+        .filter((n) => n.text)
+        .sort((a, b) => (a.y ?? 0) - (b.y ?? 0))
+        .slice(0, 6)
+        .map((n) => [n.x, n.y, n.w, n.h]),
       // Mismatches first, worst first: a reader who stops after three lines should have seen the
       // three rows that matter most.
       rows: rows.slice(0, limit),
@@ -198,7 +204,18 @@ function main() {
         `::notice title=${s.screen} off::"${String(r.text).slice(0, 34)}" ref${box(r.ref)} cand${box(r.cand)} d=(${r.d.join(",")})${via}`,
       );
     }
-    if (s.rowsTotal > s.rows.length) lines.push(`::notice title=${s.screen} truncated::${s.rowsTotal - s.rows.length} more row(s), raise --limit`);
+    // A one-line digest of where the two sets sit, so "all missing" can be read as "the candidate's
+  // content starts 300 dp lower" without seeing a single row. Without it, 8 missing rows out of a
+  // 10-notice budget say nothing about *why* nothing matched.
+  if (s.rows.some((r) => r.kind === "missing") && s.candidateSamples?.length) {
+    const missingYs = s.rows.filter((r) => r.kind === "missing" && r.ref).map((r) => r.ref[1]);
+    const candYs = s.candidateSamples.map((c) => c[1]);
+    const missingX = s.rows.filter((r) => r.kind === "missing" && r.ref).map((r) => r.ref[0]);
+    lines.push(
+      `::notice title=${s.screen} shape::${missingYs.length} missing at y ${Math.min(...missingYs)}..${Math.max(...missingYs)} / x ${Math.min(...missingX)}..${Math.max(...missingX)}; candidate nodes at y ${Math.min(...candYs)}..${Math.max(...candYs)}`,
+    );
+  }
+  if (s.rowsTotal > s.rows.length) lines.push(`::notice title=${s.screen} truncated::${s.rowsTotal - s.rows.length} more row(s), raise --limit`);
   }
   process.stdout.write(`${lines.join("\n")}\n`);
 

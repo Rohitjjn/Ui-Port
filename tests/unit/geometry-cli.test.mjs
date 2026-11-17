@@ -363,3 +363,46 @@ test("rows are ordered by severity: a node that never rendered outranks any near
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("when nothing matches, the report says where each side's content sits", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uiport-shape-"));
+  try {
+    const refDir = path.join(dir, "reference/phone/library");
+    const candDir = path.join(dir, "candidate/phone/library");
+    fs.mkdirSync(refDir, { recursive: true });
+    fs.mkdirSync(candDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(refDir, "default.geometry.json"),
+      JSON.stringify([
+        { text: "Most played", role: "button", x: 85, y: 274.09, w: 81.86, h: 20.3 },
+        { text: "Cached", role: "button", x: 85, y: 356.09, w: 51.61, h: 20.3 },
+      ]),
+    );
+    fs.writeFileSync(
+      path.join(candDir, "default.semantics.json"),
+      JSON.stringify([
+        { text: "COLLECTION", role: "node", x: 16, y: 16, w: 82, h: 16 },
+        { text: "Your Library", role: "node", x: 16, y: 36, w: 135.5, h: 42 },
+      ]),
+    );
+    const out = execFileSync(
+      process.execPath,
+      [path.join(ROOT, "scripts/ci-geometry-report.mjs"), "--reference", path.join(dir, "reference"), "--candidate", path.join(dir, "candidate"), "--device", "phone"],
+      { encoding: "utf8" },
+    );
+    // "8 rows missing" says nothing; "missing at y 274..356, candidate nodes at y 16..36" says the
+    // candidate's content stops before the reference's begins — a different bug entirely.
+    assert.match(out, /shape::2 missing at y 274\.09\.\.356\.09 \/ x 85\.\.85; candidate nodes at y 16\.\.36/);
+    // A screen with no missing rows gets no digest: it would be noise.
+    fs.writeFileSync(path.join(refDir, "default.geometry.json"), JSON.stringify([{ text: "COLLECTION", role: "node", x: 16, y: 16, w: 82, h: 16 }]));
+    const clean = execFileSync(
+      process.execPath,
+      [path.join(ROOT, "scripts/ci-geometry-report.mjs"), "--reference", path.join(dir, "reference"), "--candidate", path.join(dir, "candidate"), "--device", "phone"],
+      { encoding: "utf8" },
+    );
+    assert.doesNotMatch(clean, /shape::/, "no missing rows means nothing to explain");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
