@@ -10,6 +10,14 @@ fixtures, before any engine code is involved.
 
 ## Procedure per screen (one at a time, one device at a time)
 
+0. **Know which slice you are in.** Read `.uiport/maps/run-plan.md` before touching the screen. If
+   the screen is not in the slice currently being ported, stop — porting it "while you are here"
+   is how a slice becomes a branch. Under `strangler`, the new composable goes into the flag's
+   slot and the old one stays; under `slices` the old one is deleted in this same slice; under
+   `batch` there is nothing to slot or delete yet. The tier that governs is the one
+   `node ${CLAUDE_PLUGIN_ROOT}/scripts/uiport.mjs size assess` reports, not the one you assumed
+   at the start.
+
 1. **Read the reference, not the whole prototype.** Look at
    `.uiport/reference/<device>/<screen>/default.png`, its geometry JSON for exact numbers, and
    the prototype component source for that screen only. Copy numbers from the geometry dump:
@@ -64,6 +72,9 @@ fixtures, before any engine code is involved.
 - Never edit engine files. The hook will block it, correctly.
 - One screen, one commit-sized change. If a shared component changes, re-diff every screen that
   uses it.
+- Never delete the old composable before its diff and geometry gate pass. Under a flag, the
+  old path is the rollback; under a slice, deleting it is the *last* step of the slice, never the
+  first.
 
 ## References
 
