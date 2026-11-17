@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -88,7 +89,17 @@ fun UiPortBottomNav(
         ) {
             items.forEach { item ->
                 val active = item.route == activeRoute
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // The prototype's NavLink is `flex min-w-[64px] flex-col items-center gap-0.5
+                // py-2`: the link is at least 64 dp wide and 8 dp of padding sits above and
+                // below the icon+label pair. Both were missing here, and the geometry gate is
+                // what found it — the labels sat 38 dp high in a box 50 dp too short while the
+                // pixel score still read 96%. Position and size come from the class list, not
+                // from what looks close.
+                Column(
+                    modifier = Modifier.defaultMinSize(minWidth = 64.dp).padding(vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
                     Box(
                         modifier =
                             Modifier
