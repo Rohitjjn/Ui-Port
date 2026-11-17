@@ -1,6 +1,7 @@
 package com.maxrave.simpmusic.ui.uiport
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -74,6 +76,7 @@ private val navBarHeight = 66.dp
 fun UiPortBottomNav(
     items: List<UiPortShell.NavItem> = UiPortShell.defaultNav,
     activeRoute: String = "/",
+    onNavigate: (String) -> Unit = {},
 ) {
     Column(
         modifier =
@@ -102,13 +105,24 @@ fun UiPortBottomNav(
                 // from what looks close.
                 // `fillMaxHeight` because the link is the full height of the bar: the reference
                 // measures the link at 65.94 dp in a 66 dp bar, not a 66 dp link floating inside
-                // a taller one. Without it the box is only as tall as its content and the
-                // comparator has nothing to match the reference's 64x65.94 against.
+                // a taller one.
+                //
+                // `selectable` is what makes the link a node at all. The DOM's labelled node for a
+                // nav item is the whole `<a>` (64x65.94), while an unmerged Compose tree only
+                // emits nodes that carry text or a testId — so without this the dump had the 11sp
+                // `Text` (34.5x16 at y=828) and no link, and the comparator had nothing to match
+                // the reference box against. It is also the correct semantics for a navigation
+                // target: selected state, and a role, instead of a bare label.
                 Column(
                     modifier =
                         Modifier
                             .defaultMinSize(minWidth = 64.dp)
                             .fillMaxHeight()
+                            .selectable(
+                                selected = active,
+                                role = Role.Tab,
+                                onClick = { onNavigate(item.route) },
+                            )
                             .padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(2.dp),
