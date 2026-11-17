@@ -271,10 +271,30 @@ export function summariseDeltas(mismatched = []) {
       : dominantSharePct >= 60
         ? "size-driven"
         : "scattered";
+  // The two nodes that came closest to passing, with both boxes. On a 0% screen this is the only
+  // output that says *how* a node differs rather than how much: a candidate box that is 3 dp
+  // narrower than the reference is text metrics; one that is 40 dp to the left is placement.
+  const maxOf = (m) => Math.max(m.dx, m.dy, m.dw, m.dh);
+  const closest = [...mismatched]
+    .sort((a, b) => maxOf(a) - maxOf(b))
+    .slice(0, 2)
+    .map((m) => ({
+      text: (m.ref?.text ?? m.ref?.role ?? "").slice(0, 24) || null,
+      ref: m.ref?.box ?? null,
+      cand: m.cand?.box ?? null,
+      d: [m.dx, m.dy, m.dw, m.dh],
+    }));
+  // How many nodes are over tolerance *per dimension*. Position-only failures and size-only
+  // failures share no fix, and a median hides the split.
+  const over = Object.fromEntries(
+    dims.map((d) => [d, mismatched.filter((m) => m[d] > (m.tolerance ?? 1)).length]),
+  );
   return {
     count: total,
     medians,
     spreads,
+    over,
+    closest,
     dominantSharePct,
     nearest,
     furthest,

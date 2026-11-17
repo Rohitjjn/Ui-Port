@@ -27,29 +27,39 @@ if (!fs.existsSync(file)) {
 const summary = JSON.parse(fs.readFileSync(file, "utf8"));
 
 /**
- * `systematic-offset — 100% of mismatched nodes sit within 0.5 dp of dx=0 dp, dy=2.1 dp` becomes
- * `systematic-offset(dx0,dy2.1)`. The sentence stays in the report; the annotation only has room
- * for the numbers that decide the next fix.
+ * One annotation has to carry the whole diagnosis, because the budget is 50 per job and the diff
+ * step has already spent most of it. So this is not a summary of the sentence — it is the numbers
+ * that decide the next fix:
+ *
+ *   scattered(near3/16, dw2 dh1, "COLLECTION" ref[16,16 82x16] cand[16,16 79x15])
+ *
+ * nearest/furthest = how close the best and worst node came to passing, in dp. `dw2 dh1` = how
+ * many nodes were over tolerance per dimension, which separates placement from sizing. The box
+ * pair names one real node with both boxes: a candidate that is 3 dp narrower is text metrics, one
+ * 40 dp to the left is placement. The full sentence stays in the report.
  */
-function shortShape(text) {
-  const signature = String(text).split("—")[0].trim().replace(/\s+/g, "-");
-  const dx = /dx=(-?[\d.]+) dp/.exec(text)?.[1];
-  const dy = /dy=(-?[\d.]+) dp/.exec(text)?.[1];
-  const dw = /dw=(-?[\d.]+) dp/.exec(text)?.[1];
-  const dh = /dh=(-?[\d.]+) dp/.exec(text)?.[1];
+function shortShape(delta) {
   const parts = [];
-  if (dx !== undefined) parts.push(`dx${dx}`);
-  if (dy !== undefined) parts.push(`dy${dy}`);
-  if (dw !== undefined) parts.push(`dw${dw}`);
-  if (dh !== undefined) parts.push(`dh${dh}`);
-  return parts.length ? `${signature}(${parts.join(",")})` : signature;
+  if (delta.nearest !== undefined) parts.push(`near${delta.nearest}/${delta.furthest}`);
+  if (delta.over) {
+    const over = Object.entries(delta.over)
+      .filter(([, n]) => n > 0)
+      .map(([d, n]) => `${d}${n}`);
+    if (over.length) parts.push(over.join(" "));
+  }
+  const first = delta.closest?.[0];
+  if (first?.ref && first?.cand) {
+    const box = (b) => `[${b[0]},${b[1]} ${b[2]}x${b[3]}]`;
+    parts.push(`"${first.text ?? "?"}" ref${box(first.ref)} cand${box(first.cand)}`);
+  }
+  return parts.length ? `${delta.signature}(${parts.join(", ")})` : delta.signature;
 }
 const rows = (summary.results ?? []).map((s) => {
   const gates = s.gates ? Object.entries(s.gates).map(([k, v]) => `${k}=${v.pass ? "pass" : "fail"}`).join(",") : "gates=?";
   const residuals = (s.residualCategories ?? []).join(",") || "none";
   // Compact on purpose: the whole table has to survive as one annotation, and a signature is
   // worth more than a sentence when the alternative is that it is not seen at all.
-  const shape = s.geometryDelta ? ` shape=${shortShape(s.geometryDelta)}` : "";
+  const shape = s.geometryShape ? ` shape=${shortShape(s.geometryShape)}` : "";
   return (
     `${s.screen} ${s.status} pixel=${s.pixelMatchPct ?? "-"} ssim=${s.ssim ?? "-"} ` +
     `geom=${s.geometryCoveragePct ?? "-"} iter=${s.iterations ?? 0} resid=${residuals} [${gates}]${shape}`
@@ -61,8 +71,8 @@ const rows = (summary.results ?? []).map((s) => {
 // Two small steps with one line each always survive.
 if (shapes) {
   const parts = (summary.results ?? [])
-    .filter((s) => s.geometryDelta)
-    .map((s) => `${s.screen}: ${s.geometryDelta}`);
+    .filter((s) => s.geometryShape || s.geometryDelta)
+    .map((s) => `${s.screen}: ${s.geometryShape ? shortShape(s.geometryShape) : s.geometryDelta}`);
   if (!parts.length) {
     process.stdout.write(`no geometry shape to report: ${(summary.results ?? []).filter((s) => s.geometryCoveragePct != null).length} screen(s) measured geometry and none has a failure signature\n`);
   } else {

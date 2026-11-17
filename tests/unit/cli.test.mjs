@@ -399,40 +399,42 @@ describe("package-zip", () => {
 });
 
 describe("ci-scores-line", () => {
-  test("the score line carries each screen's failure signature inline, and --shapes prints only those", () => {
+  test("the score line carries the failure diagnosis inline: how close, what is over, and one box", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uiport-shapes-"));
     try {
-      const write = (results) => {
-        const file = path.join(dir, "summary.json");
-        fs.writeFileSync(file, JSON.stringify({ device: "phone", results }));
-        return file;
-      };
-      const withShapes = write([
-        { screen: "home", geometryCoveragePct: 0, geometryDelta: "systematic-offset — 100% of mismatched nodes sit within 0.5 dp of dy=2.1 dp" },
-        { screen: "library", geometryCoveragePct: 0, geometryDelta: "scattered — no dominant offset" },
-      ]);
-      // Inline: the annotation budget is per job, so a separate shape notice was dropped when the
-      // diff step had already spent all 50. The signature has to ride on the one line that survives.
-      const inline = execFileSync(process.execPath, [path.join(ROOT, "scripts/ci-scores-line.mjs"), withShapes], { encoding: "utf8" }).trim();
-      assert.equal(inline.split("\n").length, 1);
-      assert.match(inline, /^phone: home .* shape=systematic-offset\(dy2\.1\) \| library .* shape=scattered$/);
-      assert.doesNotMatch(inline.split(" | ")[0], /within 0\.5 dp/, "the sentence belongs in the report, not in the annotation");
-
-      const out = execFileSync(process.execPath, [path.join(ROOT, "scripts/ci-scores-line.mjs"), withShapes, "--shapes"], { encoding: "utf8" }).trim();
-      assert.equal(out.split("\n").length, 1, "a multi-line annotation is truncated after its first line");
-      assert.match(out, /^home: systematic-offset/);
-      assert.match(out, / \| library: scattered/);
-
-      // A screen that passed the gate has no signature; the line must say that rather than be empty,
-      // because an empty notice looks like a broken step.
-      const passing = write([{ screen: "home", geometryCoveragePct: 100, geometryDelta: null }]);
-      const none = execFileSync(process.execPath, [path.join(ROOT, "scripts/ci-scores-line.mjs"), passing, "--shapes"], { encoding: "utf8" }).trim();
-      assert.match(none, /no geometry shape to report: 1 screen\(s\) measured geometry/);
+      const file = path.join(dir, "summary.json");
+      fs.writeFileSync(
+        file,
+        JSON.stringify({
+          device: "phone",
+          results: [
+            {
+              screen: "home",
+              status: "building",
+              pixelMatchPct: 96.0406,
+              geometryCoveragePct: 0,
+              gates: { pixel: { pass: true }, geometry: { pass: false } },
+              geometryShape: {
+                signature: "scattered",
+                nearest: 3.2,
+                furthest: 41.5,
+                over: { dx: 4, dy: 9, dw: 12, dh: 7 },
+                closest: [{ text: "COLLECTION", ref: [16, 16, 82, 16], cand: [16, 16, 79, 15], d: [0, 0, 3, 1] }],
+              },
+            },
+            { screen: "library", status: "building", pixelMatchPct: 87.5, geometryCoveragePct: 100, gates: { pixel: { pass: false } }, geometryShape: null },
+          ],
+        }),
+      );
+      const line = execFileSync(process.execPath, [path.join(ROOT, "scripts/ci-scores-line.mjs"), file], { encoding: "utf8" }).trim();
+      // The annotation budget is per job, so this one line is the only place these numbers can live.
+      assert.equal(line.split("\n").length, 1, "a multi-line annotation is truncated after its first line");
+      assert.match(line, /home building .* shape=scattered\(near3\.2\/41\.5, dx4 dy9 dw12 dh7, "COLLECTION" ref\[16,16 82x16\] cand\[16,16 79x15\]\)/);
+      assert.doesNotMatch(line, /library .*shape=/, "a screen that passed geometry reports no signature");
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
-
 
   test("one line, every screen, both gates, so a CI annotation cannot lose the result", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uiport-scores-"));

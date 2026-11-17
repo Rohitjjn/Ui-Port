@@ -181,6 +181,9 @@ if (calibrate) {
       geometryCoveragePct: r.geometry?.coveragePct ?? null,
       // One sentence per screen: the signature of the failure, not just its size.
       geometryDelta: r.geometry?.deltaSummary ? `${r.geometry.deltaSummary.signature} — ${r.geometry.deltaSummary.hint}` : null,
+      // And the numbers behind it, so the annotation can name how close the best node came and
+      // show one real box pair instead of only a verdict.
+      geometryShape: r.geometry?.deltaSummary ?? null,
       iterations: r.iterations ?? 0,
       residualCategories: r.residualCategories ?? [],
       gates: r.gates ?? null,
