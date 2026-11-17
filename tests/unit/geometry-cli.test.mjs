@@ -221,7 +221,7 @@ test("geometry report: worst row first, both boxes, and the deltas that decide t
     ).trim();
 
     const lines = out.split("\n");
-    assert.match(lines[0], /^::notice title=geometry library \(phone\)::ref=3 cand=2 matched=0 mismatched=2 missing=1 coverage=0%$/);
+    assert.match(lines[0], /^::notice title=geometry library \(phone\)::ref=3 cand=2 matched=0 mismatched=2 missing=1 coverage=0% canonical=3\/2 rows=3$/);
     // Worst first: the 44 dp error must be printed before the 2.41 dp near-miss, or a reader who
     // stops after two lines chases the smaller problem.
     const off = lines.filter((l) => l.includes(" off::"));

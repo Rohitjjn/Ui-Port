@@ -142,6 +142,13 @@ function main() {
 
     out.push({
       screen,
+      // A screen with rows and a screen with no rows look identical in an annotation list, and
+      // "no rows" is what "not reported" has meant twice now. Count the canonical sets too, so an
+      // empty comparison is visible as an empty comparison rather than as a clean one.
+      canonical: {
+        reference: canonicalNodes(refGeom).length,
+        candidate: canonicalNodes(candGeom).length,
+      },
       coveragePct: comparison.coveragePct,
       counts: {
         reference: comparison.refCount,
@@ -171,7 +178,7 @@ function main() {
       continue;
     }
     const c = s.counts;
-    const head = `ref=${c.reference} cand=${c.candidate} matched=${c.matched} mismatched=${c.mismatched} missing=${c.missing} coverage=${s.coveragePct}%`;
+    const head = `ref=${c.reference} cand=${c.candidate} matched=${c.matched} mismatched=${c.mismatched} missing=${c.missing} coverage=${s.coveragePct}% canonical=${s.canonical.reference}/${s.canonical.candidate} rows=${s.rowsTotal}`;
     lines.push(`::notice title=geometry ${s.screen} (${device})::${head}`);
     for (const r of s.rows) {
       if (r.kind === "missing") {
