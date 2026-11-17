@@ -273,3 +273,39 @@ test("a label is never paired with a different label: missing beats a confident 
   );
   assert.equal(anchored.matched.length, 1, "a shared testId is the same element");
 });
+
+// ---------------------------------------------------------------------------------------------
+// Artifact layout. upload-artifact roots an archive at the least common ancestor of the uploaded
+// paths, so the same upload list can arrive as `reference/...` or `.uiport/reference/...`. Fixed
+// paths broke quietly once: the detail job reported "nothing to read" and looked like a run with
+// nothing to say. Discovery has to handle both layouts, and the test says so.
+// ---------------------------------------------------------------------------------------------
+test("geometry report finds its inputs in an artifact whatever prefix the uploader chose", async () => {
+  const { resolveRoots } = await import("../../scripts/ci-geometry-report.mjs");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uiport-artifact-"));
+  try {
+    for (const [prefix, label] of [
+      ["", "flat archive rooted at .uiport/"],
+      [".uiport/", "archive that kept the .uiport prefix"],
+      ["some/nested/depth/", "archive with an unexpected extra level"],
+    ]) {
+      const base = path.join(dir, label.replace(/\W+/g, "-"));
+      fs.mkdirSync(path.join(base, prefix, "reference/phone/home"), { recursive: true });
+      fs.mkdirSync(path.join(base, prefix, "output/phone/home"), { recursive: true });
+      const roots = resolveRoots({ artifactDir: base, device: "phone" });
+      assert.equal(roots.error, undefined, `${label}: ${roots.error}`);
+      assert.ok(roots.reference.endsWith(path.join("reference")), `${label}: got ${roots.reference}`);
+      assert.ok(roots.candidate.endsWith(path.join("output")), `${label}: got ${roots.candidate}`);
+    }
+
+    // An explicit pair always wins over searching, so the script stays usable outside CI.
+    const explicit = resolveRoots({ artifactDir: dir, device: "phone", reference: "/a/reference", candidate: "/a/output" });
+    assert.deepEqual(explicit, { reference: "/a/reference", candidate: "/a/output" });
+
+    // A missing directory is an error, not an empty successful report.
+    const missing = resolveRoots({ artifactDir: path.join(dir, "nowhere"), device: "phone" });
+    assert.match(missing.error, /no reference\/phone under/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

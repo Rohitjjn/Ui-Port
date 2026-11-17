@@ -455,7 +455,13 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: uiport-port-diff-${{ github.run_id }}
+          # The reference is included on purpose: the geometry-detail job compares against it, and
+          # without it that job can only report that it has nothing to read. Uploading all four
+          # siblings under `.uiport/` also keeps the artifact's internal layout predictable — the
+          # archive is rooted at their common ancestor, so it contains `reference/`, `output/`,
+          # `output-1x/` and `diffs/` rather than the absolute-looking `.uiport/...` paths.
           path: |
+            .uiport/reference/**
             .uiport/output/**
             .uiport/output-1x/**
             .uiport/diffs/**
@@ -487,16 +493,15 @@ jobs:
         continue-on-error: true
         with:
           name: uiport-port-diff-${{ github.run_id }}
+          path: .artifact
 
+      # Discovery rather than fixed paths: upload-artifact roots an archive at the least common
+      # ancestor of what it uploaded, so the internal layout depends on which paths were listed.
+      # Searching for the two directories the report needs is immune to that.
       - name: Publish every geometry row, worst first
         run: |
-          if [ ! -d .uiport/reference ]; then
-            echo "::warning title=geometry detail::the render job produced no artifact to read; nothing to report"
-            exit 0
-          fi
           node scripts/ci-geometry-report.mjs \
-            --reference .uiport/reference \
-            --candidate .uiport/output \
+            --from-artifact .artifact \
             --device phone \
             --limit 45
 
