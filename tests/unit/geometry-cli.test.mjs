@@ -160,6 +160,10 @@ test("delta summary: scattered mismatches are not blamed on an offset that does 
   ]);
   assert.equal(d.signature, "scattered");
   assert.match(d.hint, /individual layout errors/);
+  // The decisive number on a 0% screen: how close the best node came. "0%" cannot distinguish a
+  // 1.4 dp tolerance problem from a layout that is 20 dp away, and those need opposite fixes.
+  assert.equal(d.nearest, 2, "the closest node missed by 2 dp (dw on the third)");
+  assert.equal(d.furthest, 40, "the furthest missed by 40 dp (dy on the first)");
 });
 
 test("delta summary: nothing mismatched is null, not a row of zeroes that reads as a pass", async () => {

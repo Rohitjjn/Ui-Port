@@ -258,6 +258,13 @@ export function summariseDeltas(mismatched = []) {
   const within = mismatched.filter((m) => Math.abs(m.dx - medians.dx) <= 0.5 && Math.abs(m.dy - medians.dy) <= 0.5).length;
   const total = mismatched.length;
   const dominantSharePct = round((within / total) * 100, 1);
+  // The closest any node came to passing, in the same units as the tolerance. This is the single
+  // most decisive number on a screen that scores 0%: if the nearest node missed by 1.4 dp the
+  // problem is the tolerance (see N-2) or a one-line metric; if it missed by 20 dp the layout is
+  // somewhere else entirely. Without it "0%" reads the same in both cases.
+  const maxDelta = (m) => Math.max(m.dx, m.dy, m.dw, m.dh);
+  const nearest = round(Math.min(...mismatched.map(maxDelta)), 2);
+  const furthest = round(Math.max(...mismatched.map(maxDelta)), 2);
   const signature =
     dominantSharePct >= 60 && (Math.abs(medians.dx) >= 0.5 || Math.abs(medians.dy) >= 0.5)
       ? "systematic-offset"
@@ -269,6 +276,8 @@ export function summariseDeltas(mismatched = []) {
     medians,
     spreads,
     dominantSharePct,
+    nearest,
+    furthest,
     signature,
     // The sentence a human reads first, and the one the worklog quotes.
     hint:
@@ -276,7 +285,7 @@ export function summariseDeltas(mismatched = []) {
         ? `${dominantSharePct}% of mismatched nodes sit within 0.5 dp of dx=${medians.dx} dp, dy=${medians.dy} dp — this is one offset, not many layout errors`
         : signature === "size-driven"
         ? `positions agree but sizes do not: median dw=${medians.dw} dp, dh=${medians.dh} dp across ${dominantSharePct}% of nodes — text metrics or padding, not placement`
-        : `no dominant offset (${dominantSharePct}% within 0.5 dp of the medians): the mismatches are individual layout errors`,
+        : `no dominant offset (${dominantSharePct}% within 0.5 dp of the medians): the mismatches are individual layout errors, nearest ${nearest} dp from passing, furthest ${furthest} dp`,
   };
 }
 
