@@ -498,6 +498,15 @@ jobs:
       # Discovery rather than fixed paths: upload-artifact roots an archive at the least common
       # ancestor of what it uploaded, so the internal layout depends on which paths were listed.
       # Searching for the two directories the report needs is immune to that.
+      # What the artifact actually contains, as an annotation. Logs are blob-hosted and not
+      # readable from every environment; a job that reports "nothing to read" without saying what
+      # it looked at has cost two runs already.
+      - name: Say what the artifact contains
+        run: |
+          echo "::notice title=artifact contents::$(find .artifact -maxdepth 4 -type d \( -name home -o -name library -o -name nowplaying -o -name reference -o -name output \) 2>/dev/null | sort | tr '\n' ' ')"
+          echo "::notice title=artifact geometry files::$(find .artifact -name 'default.geometry.json' 2>/dev/null | sort | tr '\n' ' ')"
+          echo "::notice title=artifact semantics files::$(find .artifact -name 'default.semantics.json' 2>/dev/null | sort | tr '\n' ' ')"
+
       - name: Publish every geometry row, worst first
         run: |
           node scripts/ci-geometry-report.mjs \
