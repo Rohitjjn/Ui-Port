@@ -479,6 +479,21 @@ describe("viewport clipping", () => {
     assert.match(source, /labelLeaf\?\.innerText \?\? el\.innerText/, "the fallback is the element's own text, so a name can only be narrowed, never invented");
   });
 
+  test("a text run is measured as text, not as the column it sits in", () => {
+    // `<span class="block text-[12px]">4 items</span>` is 83.97 dp wide because `block` fills the
+    // column; the four glyphs are 42.5. Compose's `Text` reports the glyph extent, so every
+    // block-level text run read as a 40 dp width error on a correct port — `home`'s headline showed
+    // 209 against 189 for the same sentence.
+    const source = GEOMETRY_SCRIPT.toString();
+    assert.match(source, /range\.selectNodeContents\(el\)/);
+    assert.match(source, /const textExtent = \(\(\) => \{/);
+    // Only a leaf: an element with children carrying text is a container, and its own text is not
+    // what the box is about (the tier list and the tile both went through this).
+    assert.match(source, /if \(\[\.\.\.el\.children\]\.some\(\(c\) => \(c\.innerText \?\? ""\)\.trim\(\)\)\) return null;/);
+    // The block box still governs the vertical extent: the line box is what Compose reports.
+    assert.match(source, /y: round\(r\.y\)/);
+  });
+
   test("a container is not re-emitted as a copy of its own child", () => {
     // `<button><span>Most played</span><span>10 items</span></button>` put "Most played" in the
     // reference twice — once as the 174.5x70 button, once as the 81.86x20.3 span — while the port

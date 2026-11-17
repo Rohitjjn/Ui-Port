@@ -148,6 +148,28 @@ export const GEOMETRY_SCRIPT = () => {
     // so the leaf falls back to the `<a>` and the 64x65.94 box survives.
     if (labelLeaf && labelLeaf !== el && labelLeaf.matches(SEL)) continue;
     const text = (labelLeaf?.innerText ?? el.innerText ?? "").trim().replace(/\s+/g, " ").slice(0, 120);
+    // Width of the text, not of the box it happens to sit in.
+    //
+    // `.block` makes a span take the whole column, so `<span class="block text-[12px]">4 items</span>`
+    // reports 83.97 dp while the four glyphs are 42.5 — and Compose's `Text` reports exactly the glyph
+    // extent. Every block-level text run therefore looked like a 40 dp width error on a correct port:
+    // `home`'s headline read 209 against 189 for the same sentence, and `library`'s counts read 84
+    // against 42. The reference was comparing a text run to a container.
+    //
+    // The text's own rect is clamped to the element's box, so a `truncate` with an ellipsis still
+    // measures only what is drawn. Only the horizontal extent is taken: the vertical box is the line
+    // box, which is what Compose reports and what matched all along.
+    const textExtent = (() => {
+      if ([...el.children].some((c) => (c.innerText ?? "").trim())) return null;
+      if (!(el.innerText ?? "").trim()) return null;
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const rects = [...range.getClientRects()].filter((q) => q.width > 0.5 && q.height > 0.5);
+      if (!rects.length) return null;
+      const left = Math.max(Math.min(...rects.map((q) => q.left)), r.left);
+      const right = Math.min(Math.max(...rects.map((q) => q.right)), r.right);
+      return right - left > 0.5 ? { left, right } : null;
+    })();
     const role = el.getAttribute("role") ?? el.tagName.toLowerCase();
     const key = `${role}|${text}|${Math.round(r.x)}|${Math.round(r.y)}`;
     if (seen.has(key)) continue;
@@ -156,9 +178,9 @@ export const GEOMETRY_SCRIPT = () => {
       text: text || null,
       role,
       testId: el.getAttribute("data-testid"),
-      x: round(r.x),
+      x: round(textExtent ? textExtent.left : r.x),
       y: round(r.y),
-      w: round(r.width),
+      w: round(textExtent ? textExtent.right - textExtent.left : r.width),
       // `clipped` records that the element extends past the viewport, so a reviewer can tell a
       // layout mistake from content that simply continues below the fold.
       clipped: r.bottom > vh + 0.5 || r.top < -0.5 || r.right > vw + 0.5 || r.left < -0.5,
