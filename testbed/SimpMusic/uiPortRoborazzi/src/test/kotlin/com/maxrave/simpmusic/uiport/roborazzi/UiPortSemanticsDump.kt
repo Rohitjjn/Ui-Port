@@ -24,7 +24,15 @@ import org.json.JSONObject
  * nodes are skipped because the web dump cannot represent them (a `<div>` with no text is not in
  * `default.geometry.json`) and a candidate-only node would guarantee a mismatch.
  */
-fun dumpSemantics(rule: ComposeContentTestRule, path: String, root: SemanticsNodeInteraction = rule.onRoot()) {
+fun dumpSemantics(
+    rule: ComposeContentTestRule,
+    path: String,
+    // `useUnmergedTree = true` is not a detail: the merged tree folds a row's texts into the
+    // clickable row that owns them, so a screen with 165 text runs reported 16 nodes and the
+    // geometry coverage was 0% against a DOM dump that lists every element. The DOM does not
+    // merge, so the semantics dump must not either.
+    root: SemanticsNodeInteraction = rule.onRoot(useUnmergedTree = true),
+) {
     val nodes = JSONArray()
     val density = rule.density.density
     val rootNode = root.fetchSemanticsNode()
