@@ -37,7 +37,10 @@ fun dumpSemantics(
     val density = rule.density.density
     val rootNode = root.fetchSemanticsNode()
 
-    fun walk(node: SemanticsNode) {
+    fun walk(
+        node: SemanticsNode,
+        ancestors: List<JSONObject> = emptyList(),
+    ) {
         val config = node.config
         val text =
             config.getOrNull(SemanticsProperties.Text)?.joinToString(" ") { it.text.trim() }?.takeIf { it.isNotBlank() }
@@ -72,10 +75,27 @@ fun dumpSemantics(
                     .put("x", round2(x))
                     .put("y", round2(y))
                     .put("w", round2(w))
-                    .put("h", round2(h)),
+                    .put("h", round2(h))
+                    // The boxes of the enclosing nodes, smallest first. Not decoration: in the
+                    // DOM a nav label is a bare text node inside the `<a>`, so the reference's
+                    // canonical box for "Home" is the whole 64x66 link, while Compose's is the
+                    // 16 dp `Text`. Without the ancestors the comparator reports a 38 dp "shift"
+                    // for a label that is exactly where the prototype puts it.
+                    .put("ancestors", JSONArray(ancestors.take(3))),
             )
         }
-        node.children.forEach { walk(it) }
+        // Only boxes that carry text or a click survive into the ancestor list: a pure layout
+        // Row is not something the web dump can name, so it would match anything.
+        val box =
+            JSONObject()
+                .put("x", round2(x))
+                .put("y", round2(y))
+                .put("w", round2(w))
+                .put("h", round2(h))
+        val carriesMeaning =
+            testId != null || keyNames.contains("OnClick") || (text != null && text.isNotBlank())
+        val next = if (carriesMeaning) listOf(box) + ancestors else ancestors
+        node.children.forEach { walk(it, next) }
     }
 
     walk(rootNode)

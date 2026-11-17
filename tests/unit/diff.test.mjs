@@ -469,3 +469,39 @@ describe("viewport clipping", () => {
     assert.match(source, /clipped:/, "a clipped node must say so, so it is not read as a layout error");
   });
 });
+
+describe("nested label matching", () => {
+  test("a label inside a link is not reported as shifted", () => {
+    // The DOM's canonical node for a nav label is the `<a>` (the text is a bare text node), while
+    // Compose's is the `Text`. Comparing them raw reports a 38 dp shift for a correct layout.
+    const ref = [{ text: "Home", role: "a", x: 0, y: 786, w: 64, h: 66 }];
+    const cand = [
+      {
+        text: "Home",
+        role: "node",
+        x: 24,
+        y: 800,
+        w: 16,
+        h: 16,
+        ancestors: [{ x: 0, y: 786, w: 64, h: 66 }],
+      },
+    ];
+    // Ancestor reconciliation is part of matching a box, not part of the canonical filter, so it
+    // applies on both paths — a leaf whose enclosing link is exactly where the reference's link
+    // is has not moved, and saying otherwise would send an iteration after a correct layout.
+    const direct = compareGeometry(ref, cand);
+    assert.equal(direct.coveragePct, 100);
+    assert.equal(direct.mismatched.length, 0);
+    const nested = compareGeometry(ref, cand, { canonical: true });
+    assert.equal(nested.coveragePct, 100);
+    assert.equal(nested.matched[0].matchedAgainst, "ancestor1");
+  });
+
+  test("an ancestor is not a free pass: a genuinely misplaced label still fails", () => {
+    const ref = [{ text: "Home", role: "a", x: 0, y: 786, w: 64, h: 66 }];
+    const cand = [
+      { text: "Home", role: "node", x: 24, y: 800, w: 16, h: 16, ancestors: [{ x: 0, y: 700, w: 64, h: 66 }] },
+    ];
+    assert.equal(compareGeometry(ref, cand, { canonical: true }).coveragePct, 0);
+  });
+});

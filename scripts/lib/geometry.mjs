@@ -119,11 +119,22 @@ export function compareGeometry(refNodes = [], candNodes = [], opts = {}) {
       continue;
     }
     usedCand.add(best);
-    const dx = Math.abs((ref.x ?? 0) - (best.x ?? 0));
-    const dy = Math.abs((ref.y ?? 0) - (best.y ?? 0));
-    const dw = Math.abs((ref.w ?? 0) - (best.w ?? 0));
-    const dh = Math.abs((ref.h ?? 0) - (best.h ?? 0));
-    const entry = { ref: describe(ref), cand: describe(best), dx: round(dx, 2), dy: round(dy, 2), dw: round(dw, 2), dh: round(dh, 2) };
+    const bestBox = bestBoxFor(ref, best, tolerance);
+    const dx = Math.abs((ref.x ?? 0) - bestBox.x);
+    const dy = Math.abs((ref.y ?? 0) - bestBox.y);
+    const dw = Math.abs((ref.w ?? 0) - bestBox.w);
+    const dh = Math.abs((ref.h ?? 0) - bestBox.h);
+    const entry = {
+      ref: describe(ref),
+      cand: describe(best),
+      dx: round(dx, 2),
+      dy: round(dy, 2),
+      dw: round(dw, 2),
+      dh: round(dh, 2),
+      // Which candidate box was compared, when it was not the candidate's own: the reader of a
+      // report has to be able to see that a label was matched against its link, not its glyphs.
+      matchedAgainst: bestBox.source,
+    };
     if (dx <= tolerance && dy <= tolerance && dw <= tolerance && dh <= tolerance) matched.push(entry);
     else mismatched.push({ ...entry, tolerance });
   }
@@ -139,6 +150,35 @@ export function compareGeometry(refNodes = [], candNodes = [], opts = {}) {
     rawRefCount: rawRef,
     rawCandCount: rawCand,
   };
+}
+
+/**
+ * The candidate box that should represent this node.
+ *
+ * A DOM label is often a bare text node inside a link (`<a><span/><span>Home</span></a>`): the
+ * reference's canonical node for "Home" is therefore the whole 64x66 link, while Compose's is the
+ * 16 dp `Text` inside it. Comparing those two boxes reports a 38 dp "shift" for a label that is
+ * exactly where the prototype puts it — a false failure of the geometry gate, which is worse than
+ * a missed one because it sends the next iteration after a layout that is already correct.
+ *
+ * So: if the reference box *contains* the candidate leaf (within tolerance) and one of the
+ * candidate's ancestors matches the reference box, that ancestor is the honest comparison.
+ */
+function bestBoxFor(ref, cand, tolerance) {
+  const own = { x: cand.x ?? 0, y: cand.y ?? 0, w: cand.w ?? 0, h: cand.h ?? 0, source: "self" };
+  const refBox = { x: ref.x ?? 0, y: ref.y ?? 0, w: ref.w ?? 0, h: ref.h ?? 0 };
+  const counts = (box) =>
+    Math.abs(box.x - refBox.x) <= tolerance &&
+    Math.abs(box.y - refBox.y) <= tolerance &&
+    Math.abs(box.w - refBox.w) <= tolerance &&
+    Math.abs(box.h - refBox.h) <= tolerance;
+  if (counts(own)) return own;
+  for (const [i, box] of (cand.ancestors ?? []).entries()) {
+    if (!box) continue;
+    const candidate = { x: box.x ?? 0, y: box.y ?? 0, w: box.w ?? 0, h: box.h ?? 0, source: `ancestor${i + 1}` };
+    if (counts(candidate)) return candidate;
+  }
+  return own;
 }
 
 function pickBestMatch(ref, candidates) {

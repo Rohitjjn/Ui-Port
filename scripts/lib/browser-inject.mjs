@@ -88,6 +88,19 @@ export const GEOMETRY_SCRIPT = () => {
       // `clipped` records that the element extends past the viewport, so a reviewer can tell a
       // layout mistake from content that simply continues below the fold.
       clipped: r.bottom > vh + 0.5 || r.top < -0.5 || r.right > vw + 0.5 || r.left < -0.5,
+      // Enclosing boxes, smallest first — the same field the Compose dump writes. The comparator
+      // uses it to accept "the label is inside the link, and the link is where the prototype puts
+      // it" instead of reporting a 38 dp shift for a nav item that is correct.
+      ancestors: (() => {
+        const out = [];
+        let parent = el.parentElement;
+        while (parent && out.length < 3) {
+          const pr = parent.getBoundingClientRect();
+          if (pr.width > 0 && pr.height > 0) out.push({ x: round(pr.x), y: round(pr.y), w: round(pr.width), h: round(pr.height) });
+          parent = parent.parentElement;
+        }
+        return out;
+      })(),
       h: round(r.height),
       fontSize: style.fontSize,
       fontWeight: style.fontWeight,
