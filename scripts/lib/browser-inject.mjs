@@ -51,9 +51,24 @@ export const GEOMETRY_SCRIPT = () => {
   const SEL = "h1,h2,h3,h4,h5,h6,p,span,a,button,input,textarea,label,li,img,svg,[role],[data-testid]";
   const seen = new Set();
   const round = (n) => Math.round(n * 100) / 100;
+  // The viewport, not the document. Compose only composes what is inside its scroll container and
+  // clips the rest, while `getBoundingClientRect` happily reports elements that are scrolled out of
+  // sight — so without this the DOM side lists ~400 nodes for a screen whose Compose side can only
+  // ever produce the ~16 that are visible, and the geometry gate scores a correct screen at 0%.
+  // Clipping here makes both dumps describe the same thing: the pixels in the screenshot.
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const visible = (r) => {
+    if (r.bottom <= 0 || r.right <= 0 || r.top >= vh || r.left >= vw) return false;
+    // Partially visible counts as visible: the screenshot shows part of it, and Compose emits it.
+    const shown = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0)) *
+      Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0));
+    return shown >= (r.width * r.height) * 0.5;
+  };
   for (const el of document.querySelectorAll(SEL)) {
     const r = el.getBoundingClientRect();
     if (r.width === 0 || r.height === 0) continue;
+    if (!visible(r)) continue;
     const style = getComputedStyle(el);
     if (style.visibility === "hidden" || style.display === "none" || Number(style.opacity) === 0) continue;
     const text = (el.innerText ?? "").trim().replace(/\s+/g, " ").slice(0, 120);
@@ -68,6 +83,9 @@ export const GEOMETRY_SCRIPT = () => {
       x: round(r.x),
       y: round(r.y),
       w: round(r.width),
+      // `clipped` records that the element extends past the viewport, so a reviewer can tell a
+      // layout mistake from content that simply continues below the fold.
+      clipped: r.bottom > vh + 0.5 || r.top < -0.5 || r.right > vw + 0.5 || r.left < -0.5,
       h: round(r.height),
       fontSize: style.fontSize,
       fontWeight: style.fontWeight,

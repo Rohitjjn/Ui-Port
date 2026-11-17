@@ -19,6 +19,7 @@ import {
   thresholdFloorFromNoise,
 } from "../../scripts/lib/diff.mjs";
 import { canonicalNodes } from "../../scripts/lib/geometry.mjs";
+import { GEOMETRY_SCRIPT } from "../../scripts/lib/browser-inject.mjs";
 
 describe("pixel diff", () => {
   test("identical images score exactly 100%", () => {
@@ -452,5 +453,19 @@ describe("dump granularity", () => {
     assert.equal(canonicalNodes(dom).length, 0);
     assert.equal(canonicalNodes([{ text: null, testId: "play", x: 0, y: 0, w: 10, h: 10 }]).length, 1);
     assert.equal(canonicalNodes([{ text: "  Hello   world ", role: "p" }])[0].text, "Hello world");
+  });
+});
+
+describe("viewport clipping", () => {
+  test("the DOM dump only lists what the screenshot can contain", () => {
+    // Compose composes only what is inside the scroll container and clips the rest, while
+    // getBoundingClientRect reports elements scrolled out of sight. Without clipping, the DOM
+    // side lists ~400 nodes against a Compose side that can produce ~16: a correct screen scores
+    // 0% and looks unported.
+    const source = GEOMETRY_SCRIPT.toString();
+    assert.match(source, /window\.innerWidth/);
+    assert.match(source, /window\.innerHeight/);
+    assert.match(source, /if \(!visible\(r\)\) continue;/);
+    assert.match(source, /clipped:/, "a clipped node must say so, so it is not read as a layout error");
   });
 });
