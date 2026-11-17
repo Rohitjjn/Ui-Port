@@ -259,6 +259,9 @@ export function compareScreens({
           matched: geometry.matched.length,
           mismatched: geometry.mismatched.length,
           missing: geometry.missing.length,
+          // The pattern, not just the count: "0% of nodes within 1 dp" is only diagnosable when the
+          // report says whether they moved together or landed in the wrong places.
+          deltaSummary: geometry.deltaSummary,
           worstOffenders: geometry.mismatched.slice(0, 10),
         }
       : null,
@@ -378,6 +381,20 @@ export function renderReport(r) {
     L.push(`| Geometry coverage | ${r.geometry.coveragePct}% | >= 90% |`);
   }
   L.push(`| Iterations | ${r.iterations} | cap 5 |`, "");
+  // Read this before the per-node table. Ten rows of dx/dy can look like ten mistakes when they
+  // are one offset, and chasing them individually is how a correct layout gets "fixed" into a
+  // wrong one.
+  if (r.geometry?.deltaSummary) {
+    const d = r.geometry.deltaSummary;
+    L.push(`## Why geometry failed: ${d.signature}`, "");
+    L.push(`${d.hint}.`, "");
+    L.push("| | dx | dy | dw | dh |", "| --- | --- | --- | --- | --- |");
+    L.push(`| median | ${d.medians.dx} | ${d.medians.dy} | ${d.medians.dw} | ${d.medians.dh} |`);
+    L.push(
+      `| range | ${d.spreads.dx.min}..${d.spreads.dx.max} | ${d.spreads.dy.min}..${d.spreads.dy.max} | ${d.spreads.dw.min}..${d.spreads.dw.max} | ${d.spreads.dh.min}..${d.spreads.dh.max} |`,
+    );
+    L.push("");
+  }
   if (r.geometry?.worstOffenders?.length) {
     L.push("## Geometry mismatches (largest first)", "", "| Element | dx | dy | dw | dh |", "| --- | --- | --- | --- | --- |");
     for (const m of r.geometry.worstOffenders) {

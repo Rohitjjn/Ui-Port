@@ -389,6 +389,10 @@ jobs:
               // the reason. Emitting the reason as a separate ::error used to double the count
               // and, because errors outrank notices, push the scores themselves off the page.
               console.log(\`::notice title=\${s.screen} (\${r.device})::\${s.status} accepted=\${s.accepted} pixel \${s.pixelMatchPct ?? '-'}% ssim \${s.ssim ?? '-'} geometry \${s.geometryCoveragePct ?? '-'}% iter \${s.iterations} residuals \${resid} | \${gates} | \${s.reason ?? ''}\`);
+              // Which direction the screen is off, in one line. Without it a 0% geometry score
+              // is only diagnosable by downloading an artifact, and "everything is 2 dp low"
+              // is indistinguishable from "the layout is wrong".
+              if (s.geometryDelta) console.log(`::notice title=geometry shape ${s.screen}::${s.geometryDelta}`);
             }
             console.log(\`::notice title=port summary::counts \${JSON.stringify(r.counts)}\`);
           "

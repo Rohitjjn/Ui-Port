@@ -143,6 +143,18 @@ export function compareGeometry(refNodes = [], candNodes = [], opts = {}) {
     matched,
     mismatched,
     missing,
+    // Why a screen failed, in the form a porter can act on.
+    //
+    // A 0% coverage number says "nothing is within tolerance" and nothing else: the per-node list
+    // names the nodes but not the *pattern*, and three sample annotations cannot tell a systematic
+    // 2 dp text-rendering gap from a layout that is 40 dp low. Those two need opposite fixes, so
+    // the summary has to distinguish them:
+    //   - `constantOffset` (median dx/dy across mismatched nodes, with the share of nodes within
+    //     0.5 dp of it) is the signature of an engine-level offset — every box shifts together.
+    //   - a wide spread with no dominant offset is a real layout difference.
+    // The dimension split matters too: text boxes differ systematically in height between
+    // Chromium and Skia while containers do not, so `byDimension` says which to chase first.
+    deltaSummary: summariseDeltas(mismatched),
     coveragePct: round(coverage, 2),
     toleranceDp: tolerance,
     refCount: refNodes.length,
@@ -219,6 +231,53 @@ function pickBestMatch(ref, candidates) {
     }
   }
   return best;
+}
+
+/**
+ * Median and spread of the per-node deltas: the difference between "everything moved together"
+ * and "things are in the wrong places". Returns null when nothing mismatched, so a report can
+ * print "no mismatches" instead of a row of zeroes that looks like a pass.
+ */
+export function summariseDeltas(mismatched = []) {
+  if (!mismatched.length) return null;
+  const median = (values) => {
+    const v = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(v.length / 2);
+    return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+  };
+  const dims = ["dx", "dy", "dw", "dh"];
+  const medians = Object.fromEntries(dims.map((d) => [d, round(median(mismatched.map((m) => m[d])), 2)]));
+  const spreads = Object.fromEntries(
+    dims.map((d) => {
+      const vals = mismatched.map((m) => m[d]);
+      return [d, { min: round(Math.min(...vals), 2), max: round(Math.max(...vals), 2) }];
+    }),
+  );
+  // A node counts as "explained by the common offset" when it sits within 0.5 dp of the median on
+  // both offsets. A high share means one number would fix most of the screen.
+  const within = mismatched.filter((m) => Math.abs(m.dx - medians.dx) <= 0.5 && Math.abs(m.dy - medians.dy) <= 0.5).length;
+  const total = mismatched.length;
+  const dominantSharePct = round((within / total) * 100, 1);
+  const signature =
+    dominantSharePct >= 60 && (Math.abs(medians.dx) >= 0.5 || Math.abs(medians.dy) >= 0.5)
+      ? "systematic-offset"
+      : dominantSharePct >= 60
+        ? "size-driven"
+        : "scattered";
+  return {
+    count: total,
+    medians,
+    spreads,
+    dominantSharePct,
+    signature,
+    // The sentence a human reads first, and the one the worklog quotes.
+    hint:
+      signature === "systematic-offset"
+        ? `${dominantSharePct}% of mismatched nodes sit within 0.5 dp of dx=${medians.dx} dp, dy=${medians.dy} dp — this is one offset, not many layout errors`
+        : signature === "size-driven"
+        ? `positions agree but sizes do not: median dw=${medians.dw} dp, dh=${medians.dh} dp across ${dominantSharePct}% of nodes — text metrics or padding, not placement`
+        : `no dominant offset (${dominantSharePct}% within 0.5 dp of the medians): the mismatches are individual layout errors`,
+  };
 }
 
 function describe(n) {

@@ -127,3 +127,54 @@ test("a real move is still caught among duplicate texts", () => {
   assert.match(r.stdout, /dy=\s*8/);
   fs.rmSync(f.dir, { recursive: true, force: true });
 });
+
+// ---------------------------------------------------------------------------------------------
+// The failure signature: a 0% coverage number says nothing was within tolerance, which is true of
+// two completely different situations — every node shifted together, or the layout is wrong.
+// Those need opposite fixes, so the summary has to tell them apart, and the tests say so.
+// ---------------------------------------------------------------------------------------------
+test("delta summary: a common offset is named as one offset, not as many errors", async () => {
+  const { summariseDeltas } = await import("../../scripts/lib/geometry.mjs");
+  const nodes = [...Array(9)].map(() => ({ dx: 0, dy: 2.1, dw: 0.2, dh: 0.3 })).concat([{ dx: 0.1, dy: 1.9, dw: 0.1, dh: 0.2 }]);
+  const d = summariseDeltas(nodes);
+  assert.equal(d.signature, "systematic-offset");
+  assert.equal(d.medians.dy, 2.1);
+  assert.equal(d.dominantSharePct, 100);
+  assert.match(d.hint, /one offset, not many layout errors/);
+});
+
+test("delta summary: agreeing positions with disagreeing sizes is its own signature", async () => {
+  const { summariseDeltas } = await import("../../scripts/lib/geometry.mjs");
+  const d = summariseDeltas([...Array(8)].map(() => ({ dx: 0.1, dy: 0.1, dw: 3.2, dh: -2.4 })));
+  assert.equal(d.signature, "size-driven");
+  assert.match(d.hint, /positions agree but sizes do not/);
+});
+
+test("delta summary: scattered mismatches are not blamed on an offset that does not exist", async () => {
+  const { summariseDeltas } = await import("../../scripts/lib/geometry.mjs");
+  const d = summariseDeltas([
+    { dx: 0, dy: 40, dw: 0, dh: 0 },
+    { dx: 30, dy: 0, dw: 5, dh: 5 },
+    { dx: 0, dy: -20, dw: 2, dh: 1 },
+    { dx: -12, dy: 8, dw: 0, dh: 0 },
+  ]);
+  assert.equal(d.signature, "scattered");
+  assert.match(d.hint, /individual layout errors/);
+});
+
+test("delta summary: nothing mismatched is null, not a row of zeroes that reads as a pass", async () => {
+  const { summariseDeltas } = await import("../../scripts/lib/geometry.mjs");
+  assert.equal(summariseDeltas([]), null);
+});
+
+test("compareGeometry carries the summary only when something actually mismatched", async () => {
+  const { compareGeometry } = await import("../../scripts/lib/geometry.mjs");
+  const n = { text: "Hello", role: "text", x: 16, y: 40, w: 100, h: 20 };
+  const same = compareGeometry([n], [{ ...n }], { canonical: false, toleranceDp: 1 });
+  assert.equal(same.coveragePct, 100);
+  assert.equal(same.deltaSummary, null, "a passing screen has no failure signature to explain");
+  const moved = compareGeometry([n], [{ ...n, y: 42.1 }], { canonical: false, toleranceDp: 1 });
+  assert.equal(moved.coveragePct, 0);
+  assert.equal(moved.deltaSummary.signature, "systematic-offset");
+  assert.equal(moved.deltaSummary.medians.dy, 2.1);
+});

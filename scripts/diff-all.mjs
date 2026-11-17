@@ -179,6 +179,8 @@ if (calibrate) {
       pixelMatchPct: r.pixel?.matchPct ?? null,
       ssim: r.ssim?.value ?? null,
       geometryCoveragePct: r.geometry?.coveragePct ?? null,
+      // One sentence per screen: the signature of the failure, not just its size.
+      geometryDelta: r.geometry?.deltaSummary ? `${r.geometry.deltaSummary.signature} — ${r.geometry.deltaSummary.hint}` : null,
       iterations: r.iterations ?? 0,
       residualCategories: r.residualCategories ?? [],
       gates: r.gates ?? null,
