@@ -1,0 +1,516 @@
+# Port loop: render the ported Compose screens on the JVM, then diff them against the web
+# reference captured by ci-capture-reference.
+#
+# This is the measurement step of the plugin's workflow. It produces real numbers (pixel
+# match, SSIM, geometry) per screen and fails when a screen is below the acceptance floor,
+# so "it looks right" is never the answer.
+name: ci-port-diff
+
+on:
+  workflow_dispatch:
+    inputs:
+      screens:
+        description: "Comma-separated screens to diff (empty = every rendered screen)"
+        default: "home,library"
+        type: string
+  pull_request:
+    paths:
+      - "testbed/SimpMusic/composeApp/src/jvmMain/kotlin/com/maxrave/simpmusic/ui/uiport/**"
+      - "testbed/SimpMusic/composeApp/src/jvmTest/kotlin/com/maxrave/simpmusic/ui/uiport/**"
+      - ".github/workflows/ci-port-diff.yml"
+      - "scripts/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-port-diff-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render-and-diff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SCREENS: ${{ inputs.screens || 'home,library' }}
+      UIPORT_DEVICE: phone
+    steps:
+      - uses: actions/checkout@v5
+
+      # Two toolchains in one job: Node for the diff, JDK 21 for the Compose render.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            testbed/prototype/package-lock.json
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      # Resolve the screenshot-tool version from the repository instead of pinning a guess
+      # in the build file: the version has to exist, and this reports what is actually
+      # published before Gradle is asked to use it.
+      - name: Probe available screenshot-tool versions
+        run: |
+          for coord in app/cash/paparazzi/paparazzi-gradle-plugin app/cash/paparazzi/paparazzi-leakcanary io/github/takahirom/roborazzi/roborazzi io/github/takahirom/roborazzi/roborazzi-compose org/robolectric/robolectric; do
+            url="https://repo1.maven.org/maven2/${coord}/maven-metadata.xml"
+            code=$(curl -sS -o /tmp/meta.xml -w "%{http_code}" "$url" || echo "000")
+            if [ "$code" = "200" ]; then
+              latest=$(grep -o "<latest>[^<]*</latest>" /tmp/meta.xml | sed 's/<[^>]*>//g')
+              recent=$(grep -o "<version>[^<]*</version>" /tmp/meta.xml | sed 's/<[^>]*>//g' | tail -5 | tr '\n' ' ')
+              echo "::notice title=maven ${coord}::latest=${latest} recent: ${recent}"
+            else
+              echo "::warning title=maven ${coord}::metadata not reachable (HTTP ${code})"
+            fi
+          done
+
+      - name: Install plugin dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Build and serve the prototype
+        working-directory: testbed/prototype
+        run: |
+          npm ci --no-audit --no-fund
+          npx vite build
+          nohup npx vite preview --port 4173 --host 127.0.0.1 > /tmp/preview.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:4173/ > /dev/null; then echo "preview up after ${i}s"; exit 0; fi
+            sleep 1
+          done
+          cat /tmp/preview.log; exit 1
+
+      # The reference is regenerated in the same job on purpose: a diff against a stored
+      # image from an older commit measures the fixture, not the port.
+      - name: Capture the reference
+        run: |
+          # The reference is captured at the configured DPR (phone = 2), because the renderer
+          # that produces the verdict can now match it: Roborazzi draws through Robolectric's
+          # own canvas, so the 1000 px long-edge clamp that forced every earlier comparison down
+          # to 1x (a Paparazzi/layoutlib limit) no longer applies. A 2x comparison sees the
+          # antialiasing at the size users actually get, instead of at half of it.
+          node scripts/plan-capture.mjs testbed/prototype \
+            --devices "$UIPORT_DEVICE" --states default,player --screens "$SCREENS" \
+            --base-url http://127.0.0.1:4173 --out .uiport/capture-spec.json
+          node scripts/capture-reference.mjs --base-url http://127.0.0.1:4173 \
+            --spec .uiport/capture-spec.json --out .uiport/reference
+          # Now playing is not a route: it is the full-player overlay, reached by clicking
+          # the mini player, so the capture script records it as a *state* of the home
+          # route. The port renders it as its own screen, so the reference is relabelled
+          # rather than recaptured — the pixels are the same file, only the expected path
+          # differs. Nothing is invented: if the state could not be reached, the copy fails
+          # loudly below instead of producing an empty reference.
+          for dev in .uiport/reference/*/; do
+            [ -d "$dev/home" ] || continue
+            # The player overlay is a state of the home route, but a capture restricted to the
+            # screens the port renders may not include home at all. Any screen's player state
+            # shows the same overlay, so take whichever one actually exists.
+            found=""
+            for candidate in "$dev"*/player.png; do
+              if [ -f "$candidate" ]; then found="$candidate"; break; fi
+            done
+            if [ -n "$found" ]; then
+              mkdir -p "$dev/nowplaying"
+              cp "$found" "$dev/nowplaying/default.png"
+              geo="${found%.png}.geometry.json"
+              if [ -f "$geo" ]; then cp "$geo" "$dev/nowplaying/default.geometry.json"; fi
+              echo "::notice title=nowplaying reference::nowplaying/default.png made from $found"
+            else
+              echo "::warning title=nowplaying reference::no player-state capture was produced; nowplaying stays unscored"
+            fi
+          done
+          # A GitHub annotation keeps only its first line, so multi-line JSON has to be
+          # flattened or the reader sees a single "{" and nothing else.
+          node -e "
+            const fs = require('fs');
+            const p = '.uiport/reference/capture-report.json';
+            if (!fs.existsSync(p)) { console.log('::error title=capture report::missing'); process.exit(0); }
+            const report = JSON.parse(fs.readFileSync(p, 'utf8'));
+            const list = Array.isArray(report) ? report : (report.results || report.captures || []);
+            for (const r of list) {
+              const line = (r.screen || r.id) + '/' + (r.state || 'default') + (r.playing ? ' playing=' + r.playing : '') + ' -> ' + (r.status || 'unknown');
+              if (r.status === 'captured') console.log('::notice title=capture ' + (r.screen || r.id) + '::' + line + ' nodes=' + (r.nodeCount ?? '?'));
+              else console.log('::warning title=capture failed::' + line + ' ' + JSON.stringify(r).slice(0, 200));
+            }
+            console.log('::notice title=capture total::' + list.length + ' capture(s)');
+          "
+
+      # A drifted mirror means the reference and the app are drawing different outlines, so the
+      # whole run would measure the fonts. Fail here, before a render or a diff is computed.
+      - name: Check the font mirrors before anything is believed
+        run: node scripts/vendor-fonts.mjs --check
+
+      - name: Accept Android SDK licences and write local.properties
+        working-directory: testbed/SimpMusic
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      # The AGP KMP plugin names its configurations differently from the classic Android
+      # plugin, so ask Gradle instead of assuming. This has already caught two wrong guesses.
+      # Paparazzi's rendering scale is version-specific; read the actual API from the jar
+      # instead of iterating on guesses.
+      - name: Inspect the Paparazzi API surface
+        run: |
+          JAR=$(find ~/.gradle/caches -name "paparazzi-2.0.0-alpha05.1.jar" | head -1)
+          echo "jar: $JAR"
+          if [ -n "$JAR" ]; then
+            unzip -p "$JAR" app/cash/paparazzi/DeviceConfig.class > /tmp/dc.class 2>/dev/null &&               javap -p /tmp/dc.class 2>/dev/null | grep -E "public app.cash.paparazzi.DeviceConfig\(|getDensity|Density" | head -40 | while IFS= read -r l; do echo "::notice title=DeviceConfig::${l}"; done
+            unzip -o -q "$JAR" 'app/cash/paparazzi/Paparazzi*.class' -d /tmp/ppz 2>/dev/null || true
+            javap -p /tmp/ppz/app/cash/paparazzi/Paparazzi.class 2>/dev/null | grep -iE "snapshot|density|width|height|deviceConfig" | head -20 | while IFS= read -r l; do echo "::notice title=Paparazzi::${l}"; done
+          fi
+
+      - name: List test configurations and screenshot tasks
+        working-directory: testbed/SimpMusic
+        run: |
+          set +e
+          ./gradlew :composeApp:tasks --all > /tmp/tasks.txt 2>&1
+          grep -iE "paparazzi|unittest|androidtest|testDebug" /tmp/tasks.txt | head -25 | while IFS= read -r l; do echo "::notice title=gradle task::${l}"; done
+          ./gradlew :composeApp:resolvableConfigurations > /tmp/configs.txt 2>&1
+          grep -iE "unitTest|androidTest|TestImplementation|TestRuntime" /tmp/configs.txt | head -25 | while IFS= read -r l; do echo "::notice title=gradle config::${l}"; done
+          echo "--- tasks ---"; head -40 /tmp/tasks.txt
+          echo "--- configs ---"; head -40 /tmp/configs.txt
+          set -e
+
+      # Two renderers, on purpose. Roborazzi (Robolectric) is the one that produces the
+      # verdict: it renders at the reference's real size and density, and it is driven by the
+      # Compose test rule, which is the only supported way to read the semantics tree the
+      # geometry gate needs. Paparazzi is kept as evidence that the fallback still works — it
+      # clamps a snapshot to 1000 px, so its image is 1x and is compared as a separate device
+      # (`phone-1x`), never mixed into the real numbers.
+      - name: Render the ported screens (Roborazzi, Robolectric on the JVM)
+        working-directory: testbed/SimpMusic
+        continue-on-error: true
+        run: |
+          set +e
+          ./gradlew :uiPortRoborazzi:testDebugUnitTest --stacktrace 2>&1 | tee /tmp/gradle-roborazzi.log
+          code=${PIPESTATUS[0]}
+          set -e
+          if [ "$code" != "0" ]; then
+            sed -n '/What went wrong/,/^Try:/p' /tmp/gradle-roborazzi.log | head -30 | while IFS= read -r line; do
+              echo "::error title=gradle (roborazzi)::${line}"
+            done
+            grep -nE "^e: |error:|Caused by:|Unresolved reference|Could not (find|resolve)|^Execution failed" /tmp/gradle-roborazzi.log | head -30 | while IFS= read -r line; do
+              echo "::error title=gradle (roborazzi)::${line}"
+            done
+            grep -nE "FAILED$|java\.lang\.|org\.json\.|AssertionError|IllegalState|Exception in" /tmp/gradle-roborazzi.log | head -12 | while IFS= read -r line; do
+              echo "::error title=roborazzi test::${line}"
+            done
+            echo "::warning title=renderer::Roborazzi did not run; the diff falls back to the Paparazzi 1x render, so the geometry gate reports not measured instead of passing"
+            exit "$code"
+          fi
+          find uiPortRoborazzi/build/ui-port-output -type f | sort
+          # Size of every render, next to the reference's: a density mismatch is the single most
+          # common reason two images cannot be compared, and it should be visible from the run page.
+          for png in uiPortRoborazzi/build/ui-port-output/*/*/default.png; do
+            [ -e "$png" ] || continue
+            node -e "
+              const fs = require('fs');
+              const b = fs.readFileSync(process.argv[1]);
+              console.log('::notice title=render size::' + process.argv[1].split('/').slice(-3).join('/') + ' ' + b.readUInt32BE(16) + 'x' + b.readUInt32BE(20) + ' px');
+            " "$png"
+          done
+          for png in .uiport/reference/*/*/default.png; do
+            [ -e "$png" ] || continue
+            node -e "
+              const fs = require('fs');
+              const b = fs.readFileSync(process.argv[1]);
+              console.log('::notice title=reference size::' + process.argv[1].split('/').slice(-3).join('/') + ' ' + b.readUInt32BE(16) + 'x' + b.readUInt32BE(20) + ' px');
+            " "$png"
+          done
+
+      - name: Render the fallback (Paparazzi, layoutlib) as a separate 1x device
+        working-directory: testbed/SimpMusic
+        continue-on-error: true
+        run: |
+          set +e
+          ./gradlew :uiPortScreenshots:recordPaparazzi --stacktrace 2>&1 | tee /tmp/gradle.log
+          code=${PIPESTATUS[0]}
+          set -e
+          if [ "$code" != "0" ]; then
+            # A failing fallback is reported, never hidden: it means the documented escape hatch
+            # for Android-only engines is broken for this project.
+            sed -n '/What went wrong/,/^Try:/p' /tmp/gradle.log | head -20 | while IFS= read -r line; do
+              echo "::error title=gradle (paparazzi fallback)::${line}"
+            done
+            exit "$code"
+          fi
+          find uiPortScreenshots/build/ui-port-output uiPortScreenshots/src/test/snapshots -name "*.png" 2>/dev/null | sort
+
+      - name: Collect renders
+        run: |
+          # Roborazzi writes its PNGs into the paths the test asks for, but Gradle buffers a
+          # test's stdout, so the workflow raises logging for this one task: otherwise the
+          # `[ui-port]` lines that say what was rendered (and how many semantics nodes) are
+          # invisible exactly when a render is missing or empty.
+          true
+          rm -rf .uiport/output .uiport/output-1x
+          mkdir -p .uiport/output
+          if [ -d testbed/SimpMusic/uiPortRoborazzi/build/ui-port-output ]; then
+            cp -r testbed/SimpMusic/uiPortRoborazzi/build/ui-port-output/* .uiport/output/
+          fi
+          # The Paparazzi fallback renders at 1x; it gets its own device directory so a 1x image
+          # is never compared against a 2x reference as if the difference were layout.
+          if [ -d testbed/SimpMusic/uiPortScreenshots/build/ui-port-output ]; then
+            mkdir -p .uiport/output-1x
+            cp -r testbed/SimpMusic/uiPortScreenshots/build/ui-port-output/* .uiport/output-1x/
+          fi
+          echo "--- rendered ---"
+          find .uiport/output -type f | sort
+          echo "--- roborazzi task result ---"
+          # Paparazzi's task now succeeds even when there is nothing to copy — `continue-on-error`
+          # turns a failure into a green step, so the reason has to come from the log itself.
+          grep -E "\[ui-port\]|No tests found|Test events were not received|tests completed" /tmp/gradle-roborazzi.log | tail -25 | while IFS= read -r line; do
+            echo "::notice title=roborazzi run::${line}"
+          done || echo "::warning title=roborazzi run::no roborazzi log"
+          echo "--- paparazzi fallback ---"
+          find .uiport/output-1x -type f 2>/dev/null | sort
+          echo "--- reference ---"
+          find .uiport/reference -type f | sort
+          echo "--- whatever paparazzi wrote ---"
+          grep -h "\[ui-port\] rendered" /tmp/gradle.log | while IFS= read -r line; do echo "::notice title=render size::${line}"; done
+          # The candidate's own layout boxes next to the reference's, so a shift is named.
+          for f in .uiport/output/*/*/layout.txt; do
+            [ -e "$f" ] || continue
+            node -e "
+              const fs = require('fs');
+              const p = process.argv[1];
+              const lines = fs.readFileSync(p, 'utf8').trim().split('\n').filter(Boolean);
+              const screen = p.split('/').slice(-2)[0];
+              // One annotation per screen: a second chunk was being dropped by the
+              // annotation limit, which made a partially-reported layout look complete.
+              console.log('::notice title=candidate box ' + screen + '::' + lines.join(' | '));
+            " "$f" || true
+          done
+          echo "--- paparazzi files ---"
+          find testbed/SimpMusic/uiPortScreenshots -name "*.png" | head -20
+
+      - name: Diff every rendered screen
+        run: |
+          set +e
+          # --state is what makes the gates enforceable here: iteration counts and declared
+          # residual categories live in .uiport/state.json, so a screen cannot be accepted by
+          # a run that forgot how many times it was tried or what its differences were.
+          node scripts/diff-all.mjs \
+            --reference .uiport/reference \
+            --candidate .uiport/output \
+            --device "$UIPORT_DEVICE" \
+            --state .uiport/state.json \
+            --out .uiport/diffs
+          code=$?
+          set -e
+          echo "diff-all exit: $code"
+          cat .uiport/diffs/summary.md || true
+          echo "--- reference geometry head ---"
+          head -c 1500 .uiport/reference/phone/home/default.geometry.json || true
+          echo
+          echo "--- per-screen detail ---"
+          for f in .uiport/diffs/*.report.json; do
+            [ -e "$f" ] || continue
+            echo "== $f"
+            head -c 1200 "$f"
+            echo
+          done
+          echo "--- geometry gate (candidate semantics vs reference DOM) ---"
+          for f in .uiport/output/"$UIPORT_DEVICE"/*/default.semantics.json; do
+            [ -e "$f" ] || continue
+            screen=$(basename "$(dirname "$f")")
+            ref=.uiport/reference/"$UIPORT_DEVICE"/"$screen"/default.geometry.json
+            [ -e "$ref" ] || continue
+            set +e
+            node scripts/geometry-compare.mjs --ref "$ref" --cand "$f" --tolerance 1.0 > /tmp/geo-$screen.txt 2>&1
+            set -e
+            # One line per screen. The full report is in the artifact; a step only keeps 50
+            # annotations, and detail here cost the score table its place in earlier runs.
+            tail -1 /tmp/geo-$screen.txt | while IFS= read -r line; do
+              echo "::notice title=geometry $screen::${line}"
+            done
+            # The node counts are the first thing to read when coverage is 0%: a zero on one
+            # side means the dump is empty, not that the layout is wrong.
+            node -e "
+              const fs = require('fs');
+              const c = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+              const r = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+              const n = (x) => Array.isArray(x) ? x.length : (x && Array.isArray(x.nodes) ? x.nodes.length : -1);
+              console.log('::notice title=geometry nodes ' + process.argv[3] + '::reference=' + n(r) + ' candidate=' + n(c));
+              const sample = (Array.isArray(c) ? c : c.nodes || []).slice(0, 3);
+              for (const s of sample) console.log('::notice title=geometry sample ' + process.argv[3] + '::' + JSON.stringify(s).slice(0, 220));
+            " "$f" "$ref" "$screen"
+          done
+
+          echo "--- textual diff map (every screen) ---"
+          : > /tmp/diffmap.txt
+          for refpng in .uiport/reference/"$UIPORT_DEVICE"/*/default.png; do
+            [ -e "$refpng" ] || continue
+            screen=$(basename "$(dirname "$refpng")")
+            candpng=.uiport/output/"$UIPORT_DEVICE"/"$screen"/default.png
+            [ -e "$candpng" ] || continue
+            echo "=== $screen ===" >> /tmp/diffmap.txt
+            node scripts/diff-map.mjs --reference "$refpng" --candidate "$candpng" --rows 40 --cols 36 --compact >> /tmp/diffmap.txt 2>&1 || true
+          done
+          cat /tmp/diffmap.txt || true
+          # The map stays in the log and the artifact rather than in annotations: a step keeps 50
+          # of them, ranked by severity, and the map is bytes rather than findings. It used to
+          # consume most of that budget and push the score table off the page entirely.
+          echo "--- reference geometry digest (per screen) ---"
+          : > /tmp/geodigest.txt
+          for g in .uiport/reference/"$UIPORT_DEVICE"/*/default.geometry.json; do
+            [ -e "$g" ] || continue
+            node scripts/annotate-geometry.mjs --file "$g" >> /tmp/geodigest.txt 2>&1 || true
+            echo >> /tmp/geodigest.txt
+          done
+          cat /tmp/geodigest.txt || true
+          # Published last, on purpose: GitHub keeps only the first 50 annotations per step, and
+          # when these lines ran early the geometry detail pushed library/nowplaying off the end
+          # and the run page showed one screen out of three. The scores are the headline, so they
+          # go last where nothing can crowd them out.
+          # Publish the numbers as annotations: artifacts and logs are blob-hosted and not
+          # readable from every environment.
+          node -e "
+            const fs = require('fs');
+            if (!fs.existsSync('.uiport/diffs/summary.json')) {
+              console.log('::error title=diff::diff-all produced no summary.json');
+              process.exit(0);
+            }
+            const r = require('./.uiport/diffs/summary.json');
+            for (const s of r.results || []) {
+              var gates = s.gates ? Object.keys(s.gates).map(function (k) { return k + '=' + (s.gates[k].pass ? 'pass' : 'fail'); }).join(' ') : 'gates=?';
+              var resid = (s.residualCategories && s.residualCategories.length) ? s.residualCategories.join(',') : 'none';
+              // One notice per screen carries everything: status, both gates, iterations and
+              // the reason. Emitting the reason as a separate ::error used to double the count
+              // and, because errors outrank notices, push the scores themselves off the page.
+              console.log(\`::notice title=\${s.screen} (\${r.device})::\${s.status} accepted=\${s.accepted} pixel \${s.pixelMatchPct ?? '-'}% ssim \${s.ssim ?? '-'} geometry \${s.geometryCoveragePct ?? '-'}% iter \${s.iterations} residuals \${resid} | \${gates} | \${s.reason ?? ''}\`);
+              // Which direction the screen is off, in one line. Without it a 0% geometry score
+              // is only diagnosable by downloading an artifact, and a screen that is uniformly
+              // 2 dp low is indistinguishable from one whose layout is wrong. No double quotes in
+              // this block: it lives inside a double-quoted shell string.
+              if (s.geometryDelta) console.log(\`::notice title=geometry shape \${s.screen}::\${s.geometryDelta}\`);
+            }
+            console.log(\`::notice title=port summary::counts \${JSON.stringify(r.counts)}\`);
+          "
+          exit $code
+
+      # One annotation, always last, always alone: the whole score table as a single line. The
+      # per-screen notices above are useful but they compete with the rest of the step's output
+      # for a 50-annotation budget, and losing the table is losing the result.
+      - name: Publish the score table
+        if: always()
+        env:
+          SUMMARY: .uiport/diffs/summary.json
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ ! -f .uiport/diffs/summary.json ]; then
+            echo "::error title=scores::diff-all produced no summary.json (no render, or the diff crashed)"
+            exit 0
+          fi
+          # One annotation carrying every screen, in a step of its own: the per-screen notices in
+          # the diff step compete for a 50-annotation budget with the geometry detail and the
+          # Gradle output, and when they lost, the run page showed no scores at all.
+          node scripts/ci-scores-line.mjs "$SUMMARY" > /tmp/scores-line.txt
+          cat /tmp/scores-line.txt
+          while IFS= read -r line; do
+            echo "::notice title=scores ${UIPORT_DEVICE}::${line}"
+          done < /tmp/scores-line.txt
+          echo "--- score table ---"
+          cat .uiport/diffs/summary.md || true
+          # The render's own fingerprint. Without it, two runs from different commits that report
+          # byte-identical scores are indistinguishable from two runs that re-used a cached jar,
+          # and "the fix changed nothing" is indistinguishable from "the fix was not measured".
+          echo "--- provenance ---"
+          node -e "
+            const fs = require('fs'), cp = require('child_process');
+            // On a pull_request run actions/checkout lands on GitHub's synthetic merge commit
+            // (refs/pull/N/merge), which is not a commit on the branch and disappears when the PR
+            // closes. Reporting it alone made a precise-looking, untraceable claim, so both are
+            // named and the synthetic one is labelled as such.
+            const checkedOut = cp.execSync('git rev-parse --short HEAD').toString().trim();
+            const head = (process.env.PR_HEAD_SHA || process.env.GITHUB_SHA || checkedOut).slice(0, 7);
+            const where = head === checkedOut
+              ? 'commit ' + head
+              : 'commit ' + head + ' (PR head; checked out ' + checkedOut + ' = github synthetic merge, not a branch commit)';
+            const files = ['UiPortShell.kt', 'HomeScreen.kt', 'LibraryScreen.kt', 'NowPlayingScreen.kt', 'UiPortFonts.kt']
+              .map((f) => 'composeApp/src/commonMain/kotlin/com/maxrave/simpmusic/ui/uiport/' + f)
+              .filter((f) => fs.existsSync('testbed/SimpMusic/' + f));
+            let hash = require('crypto').createHash('sha256');
+            for (const f of files) hash.update(fs.readFileSync('testbed/SimpMusic/' + f));
+            const pngs = [];
+            const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = d + '/' + e.name; if (e.isDirectory()) walk(p); else if (e.name.endsWith('.png')) pngs.push(p); } };
+            if (fs.existsSync('.uiport/output')) walk('.uiport/output');
+            const imgHash = require('crypto').createHash('sha256');
+            for (const p of pngs.sort()) imgHash.update(fs.readFileSync(p));
+            console.log('::notice title=provenance::' + where + ' | screen sources ' + hash.digest('hex').slice(0, 16) + ' | renders ' + pngs.length + ' ' + imgHash.digest('hex').slice(0, 16));
+          "
+
+      - name: Upload renders, diffs and report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: uiport-port-diff-${{ github.run_id }}
+          # The reference is included on purpose: the geometry-detail job compares against it, and
+          # without it that job can only report that it has nothing to read. Uploading all four
+          # siblings under `.uiport/` also keeps the artifact's internal layout predictable — the
+          # archive is rooted at their common ancestor, so it contains `reference/`, `output/`,
+          # `output-1x/` and `diffs/` rather than the absolute-looking `.uiport/...` paths.
+          path: |
+            .uiport/reference/**
+            .uiport/output/**
+            .uiport/output-1x/**
+            .uiport/diffs/**
+          retention-days: 30
+          if-no-files-found: warn
+
+  # The per-node table needs more than three lines per screen, and the job above has already spent
+  # its annotation budget. Two separate limits are at work, and both were measured the hard way:
+  #   - 50 annotations per job  -> a second job, not a second step;
+  #   - 10 notices per step     -> a screen's rows (header + 8 + a truncation note) fill a step,
+  #                                so three screens need three steps. A matrix gives each screen its
+  #                                own job, which also means one screen failing to render does not
+  #                                hide the other two.
+  # It re-renders nothing: it downloads the first job's artifact, which doubles as the check that
+  # the artifact contains what the report needs.
+  geometry-detail:
+    if: always()
+    needs: [render-and-diff]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        screen: [home, library, nowplaying]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Install plugin dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Download the renders and reference geometry
+        uses: actions/download-artifact@v5
+        continue-on-error: true
+        with:
+          name: uiport-port-diff-${{ github.run_id }}
+          path: .artifact
+
+      - name: Publish every geometry row for ${{ matrix.screen }}, worst first
+        run: |
+          if [ ! -d .artifact ]; then
+            echo "::warning title=geometry ${{ matrix.screen }}::the render job produced no artifact to read"
+            exit 0
+          fi
+          node scripts/ci-geometry-report.mjs \
+            --from-artifact .artifact \
+            --device phone \
+            --screen "${{ matrix.screen }}" \
+            --limit 8

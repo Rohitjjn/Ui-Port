@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "why": "The same font files must be served to the reference capture and shipped in the Compose app, or the diff measures a font difference instead of a port difference. `res/font` is the single source; every other copy is derived from it by `scripts/vendor-fonts.mjs --check`.",
+  "families": [
+    {
+      "cssFamily": "Inter",
+      "composeObject": "UiPortFonts.sans",
+      "files": [
+        { "file": "uiport_inter_regular.ttf", "weight": 400, "style": "normal" },
+        { "file": "uiport_inter_medium.ttf", "weight": 500, "style": "normal" },
+        { "file": "uiport_inter_semibold.ttf", "weight": 600, "style": "normal" }
+      ]
+    },
+    {
+      "cssFamily": "Instrument Serif",
+      "composeObject": "UiPortFonts.serif",
+      "files": [{ "file": "uiport_instrument_serif.ttf", "weight": 400, "style": "normal" }]
+    }
+  ],
+  "licenses": [
+    { "file": "OFL-Inter.txt", "covers": "uiport_inter_regular.ttf, uiport_inter_medium.ttf, uiport_inter_semibold.ttf", "spdx": "OFL-1.1" },
+    { "file": "OFL-InstrumentSerif.txt", "covers": "uiport_instrument_serif.ttf", "spdx": "OFL-1.1" }
+  ],
+  "sources": {
+    "directory": "res/font",
+    "mirrors": [
+      "testbed/prototype/public/fonts",
+      "testbed/SimpMusic/composeApp/src/commonMain/composeResources/font"
+    ]
+  },
+  "urlBase": "/fonts",
+  "notes": [
+    "Measurements are against `sans` (Inter). `serif` (Instrument Serif) only affects display text, and it is compared too, so a missing serif file is still a failure.",
+    "A weight without a file falls back through the browser's own synthesis, which is exactly the kind of invisible difference this manifest exists to prevent: if the prototype asks for weight 700, either vendor a 700 file or stop asking for it."
+  ]
+}

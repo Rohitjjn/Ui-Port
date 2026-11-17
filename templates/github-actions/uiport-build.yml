@@ -1,0 +1,52 @@
+# Build + unit tests for a ported Android project.
+#
+# Copy to the target repository as .github/workflows/uiport-build.yml.
+# Everything is pinned; no secrets are required for a debug build.
+name: ui-port build
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**/*.md", ".uiport/reference/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: uiport-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Assemble debug
+        run: ./gradlew :androidApp:assembleDebug --stacktrace
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Upload build reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: |
+            **/build/reports/**
+          retention-days: 7
+          if-no-files-found: ignore

@@ -1,0 +1,77 @@
+# Compose screenshot capture + diff against the web reference.
+#
+# Copy to the target repository as .github/workflows/uiport-screenshots.yml.
+# Requires the .uiport/reference/** captures to be committed (or downloaded from the
+# capture workflow) and the ui-port scripts available (add the plugin as a submodule,
+# or copy scripts/ into tools/uiport/).
+name: ui-port screenshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      device:
+        description: "Device target to render"
+        default: phone
+        type: choice
+        options: [phone, tablet, desktop]
+      update_baseline:
+        description: "Write new scores into .uiport/baseline.json"
+        default: false
+        type: boolean
+  pull_request:
+    paths:
+      - "**/src/**/*.kt"
+      - ".uiport/**"
+
+concurrency:
+  group: uiport-shots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install ui-port diff dependencies
+        run: npm ci --prefix tools/uiport || npm install --prefix tools/uiport --no-save
+
+      - name: Record Compose screenshots
+        run: |
+          ./gradlew :app:recordRoborazziDebug \
+            -Puiport.output.dir="$GITHUB_WORKSPACE/.uiport/output/${{ inputs.device || 'phone' }}"
+
+      - name: Diff every captured screen
+        run: |
+          node tools/uiport/scripts/diff-all.mjs \
+            --device "${{ inputs.device || 'phone' }}" \
+            --reference .uiport/reference \
+            --candidate ".uiport/output/${{ inputs.device || 'phone' }}" \
+            --out ".uiport/output/${{ inputs.device || 'phone' }}" \
+            --tolerance 0.15
+
+      - name: Upload diffs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uiport-diffs-${{ inputs.device || 'phone' }}
+          path: .uiport/output/**
+          retention-days: 14
+          if-no-files-found: warn
