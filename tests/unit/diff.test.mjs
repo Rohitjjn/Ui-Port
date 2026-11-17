@@ -469,6 +469,19 @@ describe("viewport clipping", () => {
     assert.match(source, /clipped:/, "a clipped node must say so, so it is not read as a layout error");
   });
 
+  test("a decorative wrapper is not a node, but a semantic one is", () => {
+    // `<span><span>Most played</span><span>10 items</span></span>` makes a reference node reading
+    // "Most played 10 items" that nothing in Compose can produce, because the port has two nodes
+    // for the two labels. 22 of library's 44 reference nodes were that shape.
+    const source = GEOMETRY_SCRIPT.toString();
+    assert.match(source, /const SEMANTIC = "a,button,input,textarea,select,label,summary,\[role\],\[data-testid\],\[aria-label\]"/);
+    assert.match(source, /if \(isDecorativeWrapper\(el\)\) continue;/);
+    // The rule must be keyed on semantics, not on having children: the nav `<a>` composes its text
+    // from the pill and the label and is a legitimate 64x65.94 node — dropping it would undo the
+    // fix that took `home` from 0% to 33%.
+    assert.match(source, /!el\.matches\(SEMANTIC\) && composesItsText\(el\)/);
+  });
+
   test("a node hidden under an overlay is not in the reference either", () => {
     // The now-playing player is a full-frame overlay: the library rows beneath it are still in the
     // DOM and still have boxes, but the port renders an overlay, not those rows. Counting them made

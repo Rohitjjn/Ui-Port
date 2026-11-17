@@ -86,9 +86,29 @@ export const GEOMETRY_SCRIPT = () => {
     if (!top) return false;
     return top !== el && !el.contains(top) && !top.contains(el);
   };
+  // A *decorative* wrapper whose text is only its children's text is not a node.
+  //
+  // `<span class="min-w-0"><span>Most played</span><span>10 items</span></span>` yields a reference
+  // node reading "Most played 10 items" — `innerText` joins the two lines with a newline — while the
+  // port has two nodes for the same two labels, and nothing can ever produce that combined string.
+  // Counting it made 22 of `library`'s 44 reference nodes unsatisfiable.
+  //
+  // The distinction that matters is semantic, not structural. A `<button>` or `<a>` composing its
+  // text from children is one interactive target and an honest node: the nav link's 64x65.94 box is
+  // exactly that, and dropping it would undo the fix that got `home` from 0% to 33%. A plain
+  // `<span>` doing the same is a layout artefact with no semantics to match against.
+  const SEMANTIC = "a,button,input,textarea,select,label,summary,[role],[data-testid],[aria-label]";
+  const composesItsText = (el) => {
+    const directText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+    if (directText) return false;
+    return [...el.children].some((c) => (c.innerText ?? "").trim());
+  };
+  const isDecorativeWrapper = (el) => !el.matches(SEMANTIC) && composesItsText(el);
+
   for (const el of document.querySelectorAll(SEL)) {
     const r = el.getBoundingClientRect();
     if (r.width === 0 || r.height === 0) continue;
+    if (isDecorativeWrapper(el)) continue;
     if (!visible(r)) continue;
     if (covered(el, r)) continue;
     const style = getComputedStyle(el);
