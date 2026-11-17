@@ -160,3 +160,30 @@ remove `font-bold` from the prototype's badge. The capture's `usedButNotVendored
 in one run — it lists every family the page rendered that is not in the manifest.
 
 **Status:** open, small. The badge is 9 px and does not affect any current score materially.
+
+---
+
+## N-5. `nowplaying`'s reference was the create-playlist sheet, behind 43 occluded nodes
+
+**Asked** 2026-11-17, after the occlusion fix in `065737e`.
+
+`nowplaying` compared 55 reference nodes against 14 and sat at 0% since the gate started reporting.
+The cause was upstream of the port: the screen has no route (the player is an overlay), so its
+reference is relabelled from whichever `*/player.png` state the capture produced, and that dump
+included the entire page underneath the overlay — "Liked songs", "Your playlists", "New playlist",
+"Followed artists", all hidden by the player. 43 of the 55 nodes were things the screenshot does not
+show, so that reference could not have been satisfied by any amount of porting effort.
+
+After dropping covered nodes, the reference is **12 nodes** and the candidate 14 — a fair
+comparison for the first time. It is also not the player: the reference's own labels are
+"Create", "Create playlist"-style sheet content at y≈483-594, i.e. the capture labelled a
+create-playlist sheet as the now-playing screen.
+
+**How to settle it:** decide what `nowplaying` is supposed to be. The port renders the full player
+(`UiPortNowPlayingScreen`), so the reference must be a capture of the full player. Either the
+capture spec gains an explicit `player` state with a stable selector to assert it opened, or the
+screen is renamed to what the capture actually produces. Both are honest; relabelling a sheet as a
+player is not.
+
+**Status:** open. `nowplaying` cannot be scored meaningfully until this is decided — its 0% is
+currently a measurement of the wrong screen, not a port defect.
