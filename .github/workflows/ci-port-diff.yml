@@ -406,6 +406,7 @@ jobs:
         if: always()
         env:
           SUMMARY: .uiport/diffs/summary.json
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           if [ ! -f .uiport/diffs/summary.json ]; then
             echo "::error title=scores::diff-all produced no summary.json (no render, or the diff crashed)"
@@ -456,8 +457,6 @@ jobs:
             for (const p of pngs.sort()) imgHash.update(fs.readFileSync(p));
             console.log('::notice title=provenance::' + where + ' | screen sources ' + hash.digest('hex').slice(0, 16) + ' | renders ' + pngs.length + ' ' + imgHash.digest('hex').slice(0, 16));
           "
-        env:
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Upload renders, diffs and report
         if: always()
