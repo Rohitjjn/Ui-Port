@@ -206,6 +206,24 @@ jobs:
             exit "$code"
           fi
           find uiPortRoborazzi/build/ui-port-output -type f | sort
+          # Size of every render, next to the reference's: a density mismatch is the single most
+          # common reason two images cannot be compared, and it should be visible from the run page.
+          for png in uiPortRoborazzi/build/ui-port-output/*/*/default.png; do
+            [ -e "$png" ] || continue
+            node -e "
+              const fs = require('fs');
+              const b = fs.readFileSync(process.argv[1]);
+              console.log('::notice title=render size::' + process.argv[1].split('/').slice(-3).join('/') + ' ' + b.readUInt32BE(16) + 'x' + b.readUInt32BE(20) + ' px');
+            " "$png"
+          done
+          for png in .uiport/reference/*/*/default.png; do
+            [ -e "$png" ] || continue
+            node -e "
+              const fs = require('fs');
+              const b = fs.readFileSync(process.argv[1]);
+              console.log('::notice title=reference size::' + process.argv[1].split('/').slice(-3).join('/') + ' ' + b.readUInt32BE(16) + 'x' + b.readUInt32BE(20) + ' px');
+            " "$png"
+          done
 
       - name: Render the fallback (Paparazzi, layoutlib) as a separate 1x device
         working-directory: testbed/SimpMusic

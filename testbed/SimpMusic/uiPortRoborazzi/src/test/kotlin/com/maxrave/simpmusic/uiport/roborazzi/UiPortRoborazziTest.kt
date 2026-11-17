@@ -34,10 +34,14 @@ import org.robolectric.annotation.GraphicsMode
  * `GraphicsMode.NATIVE` is required for text: Robolectric's legacy graphics stub draws glyphs as
  * boxes, which would make every text measurement meaningless while still producing a plausible
  * looking PNG.
+ *
+ * `resolution` is the part that is easy to miss: without it Robolectric renders at its default
+ * 320x470 at xhdpi, and the qualifiers then only decide *how* the layout computes, not how large
+ * the image is — the earlier run produced a 1179x2556 png for a 393x852 dp screen.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], qualifiers = "w393dp-h852dp-xhdpi")
+@Config(sdk = [34], qualifiers = "w393dp-h852dp-xhdpi", resolution = "786x1704")
 class UiPortRoborazziTest {
     @get:Rule
     val compose = createComposeRule()
