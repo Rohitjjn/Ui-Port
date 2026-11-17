@@ -8,10 +8,10 @@ it. Anything that could not be measured is listed as a gap, not as a pass.
 
 | Deliverable | State | Proof |
 | --- | --- | --- |
-| Plugin: 11 skills, 4 commands, 4 agents, 4 hooks | done | `node scripts/validate-plugin.mjs` → `OK — manifest, 11 skills, 4 agents, 4 commands, hooks, config and 20 referenced scripts` |
-| Scripts (22) + tests | done | `npm ci && npm test` → **211 tests, 211 pass, 0 fail** |
+| Plugin: 11 skills, 4 commands, 4 agents, 4 hooks | done | `node scripts/validate-plugin.mjs` → `OK — manifest, 11 skills, 4 agents, 4 commands, hooks, config and 23 referenced scripts` |
+| Scripts (23) + tests | done | `npm test` → **231 tests, 231 pass, 0 fail** |
 | `config/` (pinned tools, viewports, thresholds) | done | enforced by `resolve-versions.mjs` |
-| Docs (28 files incl. 7 phase reports and the build log) | done | `node scripts/lint-markdown.mjs` → `OK — 67 file(s)` |
+| Docs (incl. 8 phase reports and the build log) | done | `node scripts/lint-markdown.mjs` → `OK — 70 file(s)` |
 | Static checks in CI | **green** | `ci-static` run [43809265679](https://github.com/Rohitjjn/Ui-Port/actions/runs/43809265679) |
 | Unit tests in CI | **green** | `ci-unit` run [43809265653](https://github.com/Rohitjjn/Ui-Port/actions/runs/43809265653) |
 | Hook matrix ubuntu/windows/macos in CI | **green** | `ci-hooks-matrix` run [43809265785](https://github.com/Rohitjjn/Ui-Port/actions/runs/43809265785) |
@@ -19,6 +19,7 @@ it. Anything that could not be measured is listed as a gap, not as a pass.
 | Reference capture (Playwright, phone, **vendored fonts**) + noise floor | **done** | `ci-capture-reference` run [44031611265](https://github.com/Rohitjjn/Ui-Port/actions/runs/44031611265); 100% same-side, 0% noise, floor 95%; every screen reports `vendored faces loaded — Inter,Instrument Serif` |
 | Compose render at the reference's DPR (Roborazzi) **with semantics dump** | **done** | `ci-port-diff` run [44031611265](https://github.com/Rohitjjn/Ui-Port/actions/runs/44031611265); renders 786x1704, 3 PNG + 3 `default.semantics.json` |
 | Diff + three acceptance gates (pixel / geometry / residuals) | **wired, 1 screen above the pixel floor, geometry gate failing on real findings** | same run; see §2 |
+| Size assessment (C): measured tier + per-tier strategy | **done** | `node scripts/uiport.mjs size assess testbed/prototype --app testbed/SimpMusic` → `LARGE` (strangler), tested against the real beds; see `docs/phase-reports/phase-c-size-assessment.md` |
 | Tablet and desktop layouts (B.5) | **not started** | — |
 | Engine wiring (B.6) | **not started** | — |
 | Debug APK as a downloadable artifact for the *ported* UI (B.7) | **not built** | — |
