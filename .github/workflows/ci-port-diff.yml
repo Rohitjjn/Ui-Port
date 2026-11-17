@@ -394,6 +394,27 @@ jobs:
           "
           exit $code
 
+      # One annotation, always last, always alone: the whole score table as a single line. The
+      # per-screen notices above are useful but they compete with the rest of the step's output
+      # for a 50-annotation budget, and losing the table is losing the result.
+      - name: Publish the score table
+        if: always()
+        run: |
+          if [ ! -f .uiport/diffs/summary.json ]; then
+            echo "::error title=scores::diff-all produced no summary.json (no render, or the diff crashed)"
+            exit 0
+          fi
+          # One annotation carrying every screen, in a step of its own: the per-screen notices in
+          # the diff step compete for a 50-annotation budget with the geometry detail and the
+          # Gradle output, and when they lost, the run page showed no scores at all.
+          node scripts/ci-scores-line.mjs .uiport/diffs/summary.json > /tmp/scores-line.txt
+          cat /tmp/scores-line.txt
+          while IFS= read -r line; do
+            echo "::notice title=scores ${UIPORT_DEVICE}::${line}"
+          done < /tmp/scores-line.txt
+          echo "--- score table ---"
+          cat .uiport/diffs/summary.md || true
+
       - name: Upload renders, diffs and report
         if: always()
         uses: actions/upload-artifact@v5

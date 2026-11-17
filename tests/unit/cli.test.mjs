@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import test, { describe } from "node:test";
@@ -393,6 +394,33 @@ describe("package-zip", () => {
       assert.ok(!fs.existsSync(out));
     } finally {
       p.cleanup();
+    }
+  });
+});
+
+describe("ci-scores-line", () => {
+  test("one line, every screen, both gates, so a CI annotation cannot lose the result", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uiport-scores-"));
+    try {
+      const file = path.join(dir, "summary.json");
+      fs.writeFileSync(
+        file,
+        JSON.stringify({
+          device: "phone",
+          results: [
+            { screen: "home", status: "matched", pixelMatchPct: 99.2, ssim: 0.98, geometryCoveragePct: 97.4, iterations: 2, residualCategories: ["font-rasterization"], gates: { pixel: { pass: true }, geometry: { pass: true } } },
+            { screen: "library", status: "building", pixelMatchPct: 87.5, ssim: 0.57, geometryCoveragePct: 0, iterations: 1, gates: { pixel: { pass: false }, geometry: { pass: false } } },
+          ],
+        }),
+      );
+      const out = execFileSync(process.execPath, [path.join(ROOT, "scripts/ci-scores-line.mjs"), file], { encoding: "utf8" }).trim();
+      assert.equal(out.split("\n").length, 1, "a multi-line annotation is truncated after its first line");
+      assert.match(out, /^phone: home matched pixel=99\.2/);
+      assert.match(out, /library building pixel=87\.5/);
+      assert.match(out, /geom=0 iter=1 resid=none \[pixel=fail,geometry=fail\]/);
+      assert.match(out, /resid=font-rasterization/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 });
