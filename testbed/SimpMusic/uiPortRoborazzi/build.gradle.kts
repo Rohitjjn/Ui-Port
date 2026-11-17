@@ -35,6 +35,14 @@ android {
             all { it.systemProperty("roborazzi.test.record", "true") }
         }
     }
+    testOptions.unitTests.all {
+        // Gradle swallows a test's stdout by default, which hides the one line that says how many
+        // semantics nodes were dumped — the first fact needed when the geometry gate reads 0%.
+        it.testLogging {
+            showStandardStreams = true
+            events("passed", "failed", "skipped")
+        }
+    }
 }
 
 dependencies {
