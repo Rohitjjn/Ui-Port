@@ -211,6 +211,48 @@ describe("diff-all", () => {
     return p;
   }
 
+  test("a score that moves down 0.09 pp is reported, even though it is inside the noise band", () => {
+    // The regression line is 0.15 points so that renderer noise does not fail a run. That is not
+    // the same as declaring a 0.09 pp loss invisible: the nav fix that cost 0.09 pp on `home` was
+    // unmentioned by every report this project produced, and "the fix worked" and "the fix cost
+    // something" have to be distinguishable.
+    const p = project();
+    try {
+      p.json(".uiport/baseline.json", { schemaVersion: 1, scores: { "home::phone": 96.0406 } });
+      const run = execFileSync(
+        NODE,
+        [path.join(ROOT, "scripts/diff-all.mjs"), "--device", "phone", "--reference", ".uiport/reference", "--candidate", ".uiport/output", "--out", ".uiport/output"],
+        { cwd: p.dir, encoding: "utf8", stdio: "pipe" },
+      );
+      // The identical fixture renders at 100, so the drop here is a compare-to-baseline exercise,
+      // not a pixel loss; assert on the mechanism (drift seen, regression not triggered).
+      const summary = JSON.parse(p.read(".uiport/output/summary.json"));
+      assert.equal(summary.regressions.length, 0, "an improvement is not a regression");
+      assert.ok(summary.drifts !== undefined, "drifts must be in the summary even when empty");
+      assert.match(run, /matched 1/);
+
+      // Now the losing direction, with a baseline the fixture cannot reach.
+      p.json(".uiport/baseline.json", { schemaVersion: 1, scores: { "home::phone": 100.09 } });
+      try {
+        execFileSync(
+          NODE,
+          [path.join(ROOT, "scripts/diff-all.mjs"), "--device", "phone", "--reference", ".uiport/reference", "--candidate", ".uiport/output", "--out", ".uiport/output"],
+          { cwd: p.dir, encoding: "utf8", stdio: "pipe" },
+        );
+      } catch {
+        // exit 6 path is covered elsewhere
+      }
+      const after = JSON.parse(p.read(".uiport/output/summary.json"));
+      assert.equal(after.drifts.length, 1);
+      assert.equal(after.drifts[0].drop, 0.09);
+      assert.equal(after.regressions.length, 0, "0.09 is inside the 0.15 regression line");
+      assert.match(p.read(".uiport/output/summary.md"), /## Score movement \(below the regression line, still reported\)/);
+      assert.match(p.read(".uiport/output/summary.md"), /\| home \| 100\.09 \| 100 \| -0\.09 \|/);
+    } finally {
+      p.cleanup();
+    }
+  });
+
   test("identical renders produce a matched summary", () => {
     const p = project();
     try {

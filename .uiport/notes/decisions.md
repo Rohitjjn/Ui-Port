@@ -71,7 +71,31 @@ points at the Compose layout, not the dump — the first thing to check is wheth
 inside a parent that constrains its height (72 dp bar, 56 dp pill), because a 6 dp box is what a
 `Text` looks like when its parent has no room for the line.
 
-**Status:** open. Blocks `home`, and blocks the other two screens' nav rows for the same reason.
+**Answered 2026-11-17 by `79bfedd`, with the mechanism identified and half the box fixed.**
+
+The Row had `height(72.dp)` *and* `padding(vertical = 8.dp)` *and* the Column had
+`padding(vertical = 8.dp)` — the NavLink's own `py-2` applied twice — leaving 56 dp for a Column
+that needs 66 (8 + 32 pill + 2 gap + 16 label + 8). Compose clipped the label to exactly the 6 dp
+the report measured, on all three items, which is why it looked like a rendering artefact.
+
+The arithmetic also showed the bar is 66 dp, not 72: the reference's link measures 64x65.94 with
+its bottom edge at y=851.94 in an 852 frame.
+
+After the fix, measured on the next run: the label boxes went from **6 dp to 16 dp** tall — the full
+line height, no longer clipped — and the missing paragraph now reports its box
+(`ref[37,762.14 319x68.25]`).
+
+What remains is a different bug, not this one: the label is still `34.5` wide against a reference
+`64`, and the enclosing link box is not in the dump at all, so there is no 64x65.94 ancestor for
+`bestBoxFor()` to match. A `Column` with `fillMaxHeight()` and `padding(vertical = 8)` measures
+66x66, so the 34.5-wide leader must come from the `Text` inside it — that is the next thing to look
+at, and it is now a specific question rather than "the nav is wrong".
+
+**Cost, stated plainly:** the corrected bar height cost `home` 0.0906 pp (96.0406 -> 95.95) and
+gained `library` 0.0454 pp (87.5961 -> 87.6415). Both are under the 0.15 regression line, which is
+why the score did not fail the run and why this went unnoticed until the numbers were read side by
+side — `diff-all` now reports every downward move separately from regressions, so the next such
+trade is visible when it happens.
 
 ---
 

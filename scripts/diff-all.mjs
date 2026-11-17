@@ -31,6 +31,11 @@ const referenceRoot = path.resolve(String(flag("reference", ".uiport/reference")
 const candidateRoot = path.resolve(String(flag("candidate", ".uiport/output")));
 const outRoot = flag("out") ? path.resolve(String(flag("out"))) : candidateRoot;
 const tolerance = Number(flag("tolerance", 0.15));
+// Drift is reported separately from regression. A change under the regression tolerance used to
+// pass in silence, which is how a nav fix could cost 0.09 pp and read as a success: the tolerance
+// exists to stop CI failing over renderer noise of ~0.01 pp, not to declare a 0.09 pp loss
+// invisible. Any drop is printed; `drift` decides only whether it fails the run.
+const drift = Number(flag("drift", 0.0));
 const calibrate = Boolean(flag("calibrate", false));
 const baselineFile = path.resolve(String(flag("baseline", ".uiport/baseline.json")));
 const updateBaseline = Boolean(flag("update-baseline", false));
@@ -94,6 +99,7 @@ const baseline = baselineRes.ok ? baselineRes.value : { schemaVersion: 1, scores
 
 const results = [];
 const regressions = [];
+const drifts = [];
 
 for (const screen of screens) {
   const refPng = path.join(refDir, screen, "default.png");
@@ -126,6 +132,9 @@ for (const screen of screens) {
 
     const key = `${screen}::${device}`;
     const previous = baseline.scores?.[key];
+    if (!calibrate && typeof previous === "number" && result.pixel.matchPct < previous - drift) {
+      drifts.push({ screen, device, previous, current: result.pixel.matchPct, drop: Number((previous - result.pixel.matchPct).toFixed(4)) });
+    }
     if (!calibrate && typeof previous === "number" && result.pixel.matchPct < previous - tolerance) {
       regressions.push({ screen, device, previous, current: result.pixel.matchPct, drop: Number((previous - result.pixel.matchPct).toFixed(4)) });
     }
@@ -172,6 +181,9 @@ if (calibrate) {
       error: results.filter((r) => r.status === "error").length,
     },
     regressions,
+    // Every move, printed in the report so a 0.09 pp loss is visible and attributable rather than
+    // being inside the noise band and nobody's problem.
+    drifts,
     results: results.map((r) => ({
       screen: r.screen,
       status: r.status,
@@ -195,6 +207,12 @@ if (calibrate) {
   fs.writeFileSync(path.join(outRoot, "summary.md"), renderSummary(summary));
 
   process.stdout.write(`${renderSummary(summary)}\n`);
+  if (drifts.length) {
+    process.stderr.write(
+      `diff-all: ${drifts.length} score(s) moved down against the baseline (below the ${tolerance} regression line, still reported):\n` +
+        drifts.map((d) => `  ${d.screen}: ${d.previous} -> ${d.current} (${d.drop > 0 ? "-" : "+"}${Math.abs(d.drop)})\n`).join(""),
+    );
+  }
 
   if (regressions.length) {
     process.stderr.write(`diff-all: ${regressions.length} regression(s) against the baseline (tolerance ${tolerance})\n`);
@@ -226,9 +244,15 @@ function renderSummary(s) {
   L.push(
     `matched ${s.counts.matched} · accepted-with-notes ${s.counts.acceptedWithNotes} · building ${s.counts.building} · blocked ${s.counts.blocked} · missing ${s.counts.missing} · errors ${s.counts.error}`,
   );
-  if (s.regressions.length) {
+  if (s.regressions?.length) {
     L.push("", "## Regressions", "", "| Screen | Was | Now | Drop |", "| --- | --- | --- | --- |");
     for (const r of s.regressions) L.push(`| ${r.screen} | ${r.previous} | ${r.current} | -${r.drop} |`);
+  }
+  // Every downward move, including those inside the noise band. A fix that costs 0.09 pp and a
+  // fix that gains 0.09 pp must not read the same in the report.
+  if (s.drifts?.length) {
+    L.push("", "## Score movement (below the regression line, still reported)", "", "| Screen | Was | Now | Change |", "| --- | --- | --- | --- |");
+    for (const r of s.drifts) L.push(`| ${r.screen} | ${r.previous} | ${r.current} | ${r.drop > 0 ? "-" : "+"}${Math.abs(r.drop)} |`);
   }
   return L.join("\n");
 }
