@@ -153,3 +153,24 @@ is read by humans at the gate and by no parser, so nothing but a test would ever
 - Section D (the port of the three phone screens under the strangler strategy) is next. The
   run-plan template is written for exactly this subject, so D starts by filling it in against the
   maps, flag table first.
+
+## 10. A provenance bug found while writing this report
+
+Run `44038847626` reported `provenance :: commit 1fff22b`, which is not a commit on the branch and
+does not exist in the local clone. `git ls-remote` explains it: on a `pull_request` run
+`actions/checkout` checks out **`refs/pull/1/merge`** — GitHub's synthetic merge of the branch into
+`main` (`1fff22b4d6…`) — not the branch head (`29163b6`). The annotation was therefore accurate and
+useless: the SHA it named is ephemeral, disappears when the PR closes, and cannot be checked out by
+anyone reading the report later.
+
+The step now names both and labels the synthetic one, so a score can be traced to the tree that
+produced it:
+
+```
+commit <branch head> (PR head; checked out <merge sha> = github synthetic merge, not a branch commit)
+```
+
+This matters more than it looks. Every number in this document is supposed to be traceable to a
+commit, and a provenance line that looks precise while pointing at a merge commit nobody can
+re-fetch is exactly the kind of claim this project's rules forbid — precise-looking and
+unverifiable.
