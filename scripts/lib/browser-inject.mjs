@@ -113,7 +113,30 @@ export const GEOMETRY_SCRIPT = () => {
     if (covered(el, r)) continue;
     const style = getComputedStyle(el);
     if (style.visibility === "hidden" || style.display === "none" || Number(style.opacity) === 0) continue;
-    const text = (el.innerText ?? "").trim().replace(/\s+/g, " ").slice(0, 120);
+    // The label, not the concatenation.
+    //
+    // A tile is `<button><span>[icon]</span><span><span>Most played</span><span>10 items</span>
+    // </span></button>`. `innerText` on the button yields "Most played 10 items" — one string no
+    // Compose node can ever produce, because the port draws the two labels as two nodes. All eight
+    // `library` tiles were therefore "missing" while every one of them was rendered.
+    //
+    // So a semantic container (button, link, role-bearing element) takes its text from its first
+    // text-bearing leaf, which is its label: the thing a reader sees first, the thing the port
+    // draws as a node, and the thing the box belongs to. Everything else keeps `innerText`, and the
+    // fallback is the element's own text, so this can only ever narrow a name, never invent one.
+    const firstTextLeaf = (node) => {
+      if (node.children.length === 0) return node;
+      for (const child of node.children) {
+        if ((child.innerText ?? "").trim()) {
+          const leaf = firstTextLeaf(child);
+          if (leaf) return leaf;
+        }
+      }
+      return null;
+    };
+    const semanticContainer = el.matches("a,button,[role],[aria-label]");
+    const labelLeaf = semanticContainer ? firstTextLeaf(el) : null;
+    const text = (labelLeaf?.innerText ?? el.innerText ?? "").trim().replace(/\s+/g, " ").slice(0, 120);
     const role = el.getAttribute("role") ?? el.tagName.toLowerCase();
     const key = `${role}|${text}|${Math.round(r.x)}|${Math.round(r.y)}`;
     if (seen.has(key)) continue;

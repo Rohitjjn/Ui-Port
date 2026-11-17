@@ -469,6 +469,16 @@ describe("viewport clipping", () => {
     assert.match(source, /clipped:/, "a clipped node must say so, so it is not read as a layout error");
   });
 
+  test("a semantic container is named by its label, not by its concatenated text", () => {
+    // `<button>[icon][most played][10 items]</button>` — innerText joins the two labels into a
+    // string no Compose node can produce, so all eight `library` tiles read as missing while all
+    // eight were rendered. The container takes its name from its first text-bearing leaf.
+    const source = GEOMETRY_SCRIPT.toString();
+    assert.match(source, /const semanticContainer = el\.matches\("a,button,\[role\],\[aria-label\]"\)/);
+    assert.match(source, /const firstTextLeaf = \(node\) =>/);
+    assert.match(source, /labelLeaf\?\.innerText \?\? el\.innerText/, "the fallback is the element's own text, so a name can only be narrowed, never invented");
+  });
+
   test("a decorative wrapper is not a node, but a semantic one is", () => {
     // `<span><span>Most played</span><span>10 items</span></span>` makes a reference node reading
     // "Most played 10 items" that nothing in Compose can produce, because the port has two nodes
