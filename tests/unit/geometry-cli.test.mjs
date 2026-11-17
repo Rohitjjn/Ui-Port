@@ -317,11 +317,16 @@ test("the same label at the same box is one node, however many elements carry it
   // report list the same text as "missing" twice, which reads like two dropped labels when the
   // port can only ever produce one node.
   const nodes = canonicalNodes([
-    { text: "Downloaded 4 items", role: "p", x: 16, y: 100, w: 120, h: 16 },
-    { text: "Downloaded 4 items", role: "span", x: 16, y: 100, w: 120, h: 16 },
+    // Real boxes differ in the second decimal: the DOM gives one count a <p> and a <span> that are
+    // separate line boxes. An exact key matched nothing, which is what the first fix did.
+    { text: "Downloaded 4 items", role: "p", x: 16, y: 100.02, w: 120.5, h: 16.2 },
+    { text: "Downloaded 4 items", role: "span", x: 16, y: 100.4, w: 120.9, h: 16.8 },
     { text: "Downloaded 4 items", role: "p", x: 16, y: 400, w: 120, h: 16 },
+    // Two buttons with the same label in different rows are two buttons, not one.
+    { text: "Play", role: "button", x: 16, y: 500, w: 80, h: 16 },
+    { text: "Play", role: "button", x: 16, y: 600, w: 80, h: 16 },
   ]);
-  assert.equal(nodes.length, 2, "same text at the same box collapses; a different row does not");
+  assert.equal(nodes.length, 4, "same text within 1 dp collapses; a different row does not");
   // The survivor carries the ancestors: for the same box and text it is the more informative node.
   const withAncestors = canonicalNodes([
     { text: "Play", role: "span", x: 0, y: 0, w: 10, h: 10 },

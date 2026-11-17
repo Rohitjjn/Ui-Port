@@ -133,7 +133,10 @@ function main() {
       ...comparison.missing.map((m) => ({
         kind: "missing",
         text: m.node.text ?? m.node.role ?? "(unnamed)",
-        ref: m.node.box ?? null,
+        // The dump carries x/y/w/h, not `box`; printing `ref—` for every missing row hid the one
+        // coordinate that says whether the label is absent from the whole screen or merely
+        // scrolled past the frame.
+        ref: [m.node.x, m.node.y, m.node.w, m.node.h].every((v) => typeof v === "number") ? [m.node.x, m.node.y, m.node.w, m.node.h] : null,
         cand: null,
         d: null,
         worst: Infinity,

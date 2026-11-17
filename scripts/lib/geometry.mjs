@@ -91,15 +91,30 @@ export function canonicalNodes(nodes = []) {
   // next to a `<span>4 items</span>` for the same count, at the same coordinates — and counting
   // both inflates the reference set with a node the port can only ever produce once. The report
   // then shows the same text "missing" twice, which reads like two dropped labels.
-  const seen = new Map();
+  // Same text within 1 dp of the same box is the same label. The tolerance matters: the DOM's
+  // `<p>` and `<span>` for one count are laid out as separate line boxes and differ in the second
+  // decimal, so an exact key merges nothing — which is what the first version of this did.
+  const out = [];
   for (const n of kept) {
-    const key = `${n.text ?? ""}|${n.x ?? ""}|${n.y ?? ""}|${n.w ?? ""}|${n.h ?? ""}`;
-    const existing = seen.get(key);
-    // Prefer the node with ancestors: it carries more information for the comparator, and for the
-    // same box and text they describe the same element.
-    if (!existing || (n.ancestors?.length ?? 0) > (existing.ancestors?.length ?? 0)) seen.set(key, n);
+    if (n.text != null) {
+      const near = out.find(
+        (o) =>
+          o.text === n.text &&
+          Math.abs((o.x ?? 0) - (n.x ?? 0)) <= 1 &&
+          Math.abs((o.y ?? 0) - (n.y ?? 0)) <= 1 &&
+          Math.abs((o.w ?? 0) - (n.w ?? 0)) <= 1 &&
+          Math.abs((o.h ?? 0) - (n.h ?? 0)) <= 1,
+      );
+      if (near) {
+        // Keep the node that carries ancestors: for the same label it is the same element with
+        // more information for the comparator.
+        if ((n.ancestors?.length ?? 0) > (near.ancestors?.length ?? 0)) Object.assign(near, n);
+        continue;
+      }
+    }
+    out.push(n);
   }
-  return [...seen.values()];
+  return out;
 }
 
 export function compareGeometry(refNodes = [], candNodes = [], opts = {}) {
