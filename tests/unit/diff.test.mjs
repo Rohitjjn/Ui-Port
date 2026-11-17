@@ -479,6 +479,15 @@ describe("viewport clipping", () => {
     assert.match(source, /labelLeaf\?\.innerText \?\? el\.innerText/, "the fallback is the element's own text, so a name can only be narrowed, never invented");
   });
 
+  test("a container is not re-emitted as a copy of its own child", () => {
+    // `<button><span>Most played</span><span>10 items</span></button>` put "Most played" in the
+    // reference twice — once as the 174.5x70 button, once as the 81.86x20.3 span — while the port
+    // has it once, so one copy was reported missing for ever. 11 of library's 33 reference nodes
+    // were duplicates of their own children, which caps coverage at 67% regardless of the port.
+    const source = GEOMETRY_SCRIPT.toString();
+    assert.match(source, /if \(labelLeaf && labelLeaf !== el && labelLeaf\.matches\(SEL\)\) continue;/);
+  });
+
   test("a decorative wrapper is not a node, but a semantic one is", () => {
     // `<span><span>Most played</span><span>10 items</span></span>` makes a reference node reading
     // "Most played 10 items" that nothing in Compose can produce, because the port has two nodes

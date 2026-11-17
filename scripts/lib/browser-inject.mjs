@@ -136,6 +136,17 @@ export const GEOMETRY_SCRIPT = () => {
     };
     const semanticContainer = el.matches("a,button,[role],[aria-label]");
     const labelLeaf = semanticContainer ? firstTextLeaf(el) : null;
+    // ...unless that leaf is itself a node we will emit.
+    //
+    // Then the container is not carrying its own text, it is re-announcing a child: the tile
+    // `<button>` and the `<span>Most played</span>` inside it would both enter the reference as
+    // "Most played", the port has that text once, and the second copy is reported missing for ever.
+    // Six `library` tiles plus five playlist cards were doing this — 11 of 33 reference nodes were
+    // duplicates of their own children, which caps coverage at 67% no matter how good the port is.
+    //
+    // The nav `<a>` is unaffected because its label is a bare text node with no element of its own,
+    // so the leaf falls back to the `<a>` and the 64x65.94 box survives.
+    if (labelLeaf && labelLeaf !== el && labelLeaf.matches(SEL)) continue;
     const text = (labelLeaf?.innerText ?? el.innerText ?? "").trim().replace(/\s+/g, " ").slice(0, 120);
     const role = el.getAttribute("role") ?? el.tagName.toLowerCase();
     const key = `${role}|${text}|${Math.round(r.x)}|${Math.round(r.y)}`;
