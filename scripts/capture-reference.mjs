@@ -304,6 +304,10 @@ try {
             status: "captured",
             screenshot: path.relative(process.cwd(), png),
             nodeCount: geometry.length,
+            // Canonical count too: the raw number includes wrappers, and the geometry gate
+            // compares leaves. Printing both stops "26 nodes vs 16 nodes" from reading like a
+            // missing section when the difference is two wrappers per text run.
+            canonicalNodeCount: geometry.filter((n) => (n.text && n.text.trim()) || n.testId).length,
             fonts: {
               ok: fontCheck.ok,
               loaded: fontCheck.loaded.map((l) => `${l.family} ${l.weight} ${l.status}`),
@@ -335,7 +339,8 @@ for (const r of results) {
   if (r.status === "captured") {
     const families = [...new Set((r.fonts?.used ?? []).map((u) => u.split("|")[0]))].join(",");
     process.stdout.write(
-      `::notice title=fonts ${r.screen}/${r.state}::${r.fonts?.ok ? "vendored faces loaded" : "FONT CHECK NOT RUN"} | rendered families: ${families}` +
+      `::notice title=capture ${r.screen}/${r.state}::${r.nodeCount} nodes (${r.canonicalNodeCount} canonical) | ` +
+        `${r.fonts?.ok ? "vendored faces loaded" : "FONT CHECK NOT RUN"} | rendered families: ${families}` +
         `${r.fonts?.notVendored?.length ? ` | not vendored: ${r.fonts.notVendored.join(",")}` : ""}\n`,
     );
   } else if (r.status === "font-check-failed") {

@@ -58,12 +58,14 @@ export const GEOMETRY_SCRIPT = () => {
   // Clipping here makes both dumps describe the same thing: the pixels in the screenshot.
   const vw = window.innerWidth;
   const vh = window.innerHeight;
+  // Vertical extent against the viewport, not area. A wide banner below the fold can still have
+  // half of its area inside the viewport horizontally, so an area test keeps it in the reference
+  // while Compose — which clips the scroll container — cannot emit it. That asymmetry is what made
+  // the geometry gate compare "reference 80 nodes" against "candidate 28 nodes".
   const visible = (r) => {
-    if (r.bottom <= 0 || r.right <= 0 || r.top >= vh || r.left >= vw) return false;
-    // Partially visible counts as visible: the screenshot shows part of it, and Compose emits it.
-    const shown = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0)) *
-      Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0));
-    return shown >= (r.width * r.height) * 0.5;
+    if (r.bottom <= 0.5 || r.right <= 0.5 || r.top >= vh - 0.5 || r.left >= vw - 0.5) return false;
+    const shownH = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+    return shownH >= Math.min(r.height, vh) * 0.5;
   };
   for (const el of document.querySelectorAll(SEL)) {
     const r = el.getBoundingClientRect();
