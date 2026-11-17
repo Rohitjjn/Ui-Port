@@ -9,6 +9,8 @@
 import path from "node:path";
 import { exists, readJsonSafe } from "./fs-utils.mjs";
 
+export const SIZE_TIERS = ["SIMPLE", "MEDIUM", "LARGE"];
+
 export const REQUIRED_GATE_KEYS = ["deviceTargets", "executionMode", "extraFeatures", "allowEngineEdits", "delivery"];
 
 export const ANSWERS_SCHEMA = {
@@ -20,6 +22,8 @@ export const ANSWERS_SCHEMA = {
   allowEngineEdits: "boolean",
   delivery: "array of \"zip\" | \"branch\" | \"pr\"",
   screens: "optional array of screen ids to limit the run",
+  sizeOverride:
+    'optional { tier: "SIMPLE" | "MEDIUM" | "LARGE", reason: string } — overrides the computed size verdict at the decision gate. The assessment\'s own numbers are kept in .uiport/size-assessment.json and are never rewritten by an override.', 
   notes: "optional free text",
 };
 
@@ -75,6 +79,20 @@ export function validateAnswers(raw) {
     errors.push("screens must be an array of strings");
   }
 
+  // An override without a reason is not a decision, it is a shrug. The reason is what the worklog
+  // and the final report quote when the tier that ran differs from the tier that was computed.
+  if (a.sizeOverride !== undefined) {
+    const o = a.sizeOverride;
+    if (!o || typeof o !== "object" || Array.isArray(o)) {
+      errors.push("sizeOverride must be an object { tier, reason }");
+    } else {
+      if (!SIZE_TIERS.includes(o.tier)) errors.push(`sizeOverride.tier must be one of ${SIZE_TIERS.join(", ")} (got ${JSON.stringify(o.tier)})`);
+      if (typeof o.reason !== "string" || o.reason.trim().length < 8) {
+        errors.push("sizeOverride.reason is required (a sentence: why the computed tier is wrong)");
+      }
+    }
+  }
+
   for (const key of REQUIRED_GATE_KEYS) {
     if (a[key] === undefined) errors.push(`missing required key "${key}"`);
   }
@@ -91,7 +109,32 @@ export function normalizeAnswers(a) {
     allowEngineEdits: Boolean(a.allowEngineEdits),
     delivery: [...a.delivery],
     screens: a.screens ? [...a.screens] : null,
+    sizeOverride: a.sizeOverride ? { tier: a.sizeOverride.tier, reason: a.sizeOverride.reason.trim() } : null,
     notes: typeof a.notes === "string" ? a.notes : null,
+  };
+}
+
+/**
+ * Which tier actually governs the run.
+ *
+ * Never a silent merge: the assessment is what was measured, the override is what the user
+ * decided, and both survive into the worklog. A run that says "MEDIUM" while the numbers say
+ * "LARGE" is only honest if the reason travels with it.
+ */
+export function resolveTier(assessment, answers) {
+  const computed = assessment?.tier ?? null;
+  const override = answers?.sizeOverride ?? null;
+  if (!override) {
+    return { tier: computed, computed, overridden: false, reason: assessment?.why ?? null, strategy: assessment?.strategy ?? null };
+  }
+  const strategy = assessment?.strategies?.[override.tier]?.strategy ?? { SIMPLE: "batch", MEDIUM: "slices", LARGE: "strangler" }[override.tier];
+  return {
+    tier: override.tier,
+    computed,
+    overridden: computed !== null && computed !== override.tier,
+    reason: override.reason,
+    computedReason: assessment?.why ?? null,
+    strategy,
   };
 }
 

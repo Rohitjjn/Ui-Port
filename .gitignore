@@ -10,6 +10,9 @@ coverage/
 # Local runtime folders produced by the plugin inside a user project
 .uiport/output/
 .uiport/reference/
+# Written by `uiport size assess --save`; the committed numbers live in config/tiers.json's
+# calibration block and in the phase report, so the file itself is per-run state.
+.uiport/size-assessment.json
 
 # Testbed dependencies (testbed/ sources are committed on purpose, its
 # node_modules / gradle caches are not)

@@ -13,6 +13,7 @@
  *   node scripts/uiport.mjs worklog append <step> --heading "Commands run" --body "npm run dev"
  *   node scripts/uiport.mjs changelog --step step-1-maps --file src/Foo.kt --note "created"
  *   node scripts/uiport.mjs answers check
+ *   node scripts/uiport.mjs size assess <prototype> --app <app> [--json]
  *   node scripts/uiport.mjs status
  */
 import fs from "node:fs";
@@ -41,9 +42,10 @@ import {
   toolPlan,
 } from "./lib/preflight.mjs";
 import { UIPORT_DIR, ensureDir, exists, readJson, readJsonSafe, writeJsonAtomic } from "./lib/fs-utils.mjs";
-import { loadAnswers, validateAnswers, REQUIRED_GATE_KEYS } from "./lib/answers.mjs";
+import { loadAnswers, resolveTier, validateAnswers, REQUIRED_GATE_KEYS } from "./lib/answers.mjs";
 import { spawnSync } from "node:child_process";
 import { loadThresholds } from "./lib/geometry.mjs";
+import { assessRun, measureSubject, renderAssessment, TIERS } from "./size-assessment.mjs";
 
 // Repository root: the plugin itself, which is where config/thresholds.json lives.
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -289,6 +291,65 @@ function cmdAnswers() {
   }
 }
 
+/**
+ * `size assess` — the measurement that the decision gate shows the human.
+ *
+ * Measures what is on disk, applies config/tiers.json, and (with --save) writes
+ * .uiport/size-assessment.json so the answer, the worklog and the final report all quote the same
+ * numbers. It does not decide the tier: it reports the computed one and, if the user has recorded
+ * a sizeOverride, what actually governs the run and why.
+ */
+function cmdSize() {
+  const sub = args[1];
+  if (sub !== "assess") fail(`unknown size command "${sub ?? ""}" (expected: assess)`, 2);
+
+  const appIdx = args.indexOf("--app");
+  const appRoot = appIdx === -1 ? null : args[appIdx + 1];
+  const positional = args.slice(2).filter((a, i, arr) => !a.startsWith("--") && arr[i - 1] !== "--app");
+  const prototypeRoot = positional[0] ?? null;
+  if (!prototypeRoot && !appRoot) fail("size assess needs a prototype root and/or --app <android app root>", 2);
+
+  const subjects = [];
+  for (const root of [prototypeRoot, appRoot].filter(Boolean)) {
+    try {
+      subjects.push(measureSubject(path.resolve(projectRoot, root)));
+    } catch (err) {
+      fail(err.message, 4);
+    }
+  }
+
+  const assessment = assessRun(subjects);
+  const answers = loadAnswers(projectRoot);
+  const governing = resolveTier(assessment, answers.answers ?? null);
+  const payload = { assessment, subjects, governing };
+
+  // Always written: this file is what the decision gate, the worklog and the final report quote,
+  // so the numbers a human was shown and the numbers a later step reads can never diverge.
+  const file = path.join(projectRoot, UIPORT_DIR, "size-assessment.json");
+  ensureDir(path.dirname(file));
+  writeJsonAtomic(file, { ...payload, savedAt: new Date().toISOString() });
+  payload.file = file;
+
+  if (flag("json", false)) {
+    out(payload);
+    return;
+  }
+
+  const lines = [renderAssessment(assessment, subjects).trimEnd(), ""];
+  if (governing.overridden) {
+    lines.push(
+      `**Override applies:** the run is \`${governing.tier}\` (strategy \`${governing.strategy}\`), not the computed \`${governing.computed}\`.`,
+      `Reason given: ${governing.reason}`,
+      `Computed reason: ${governing.computedReason}`,
+      "",
+    );
+  } else {
+    lines.push(`Governing tier: \`${governing.tier}\` (strategy \`${governing.strategy}\`)${governing.computed ? "" : " — no assessment saved yet"}.`, "");
+  }
+  if (payload.file) lines.push(`Saved to ${path.relative(projectRoot, payload.file)}.`, "");
+  process.stdout.write(`${lines.join("\n")}\n`);
+}
+
 function cmdStatus() {
   const { state, warning } = loadState(projectRoot);
   const s = summarize(state);
@@ -343,6 +404,9 @@ switch (group) {
   case "answers":
     cmdAnswers();
     break;
+  case "size":
+    cmdSize();
+    break;
   case "status":
     cmdStatus();
     break;
@@ -350,7 +414,7 @@ switch (group) {
   case "-h":
   case undefined:
     process.stdout.write(
-      "ui-port CLI\n\n  preflight [--json] [--save]\n  state show|init|set-step|set-screen|bump|summary\n  worklog ensure|append|check <step>\n  changelog --step step-N --file path\n  answers [--file .uiport/answers.json] [--apply]\n  verify [--project dir] [--devices phone]\n  status\n",
+      "ui-port CLI\n\n  preflight [--json] [--save]\n  state show|init|set-step|set-screen|bump|summary\n  worklog ensure|append|check <step>\n  changelog --step step-N --file path\n  answers [--file .uiport/answers.json] [--apply]\n  verify [--project dir] [--devices phone]\n  size assess <prototype> [--app dir] [--json]\n  status\n",
     );
     break;
   default:

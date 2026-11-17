@@ -7,12 +7,31 @@
       {
         "id": "prototype-testbed",
         "kind": "prototype",
-        "metrics": { "screens": 23, "sourceFiles": 35, "sourceLines": 4952, "components": 58, "stores": 4, "libs": 14, "handlers": 50, "motionItems": 43 }
+        "metrics": {
+          "screens": 23,
+          "sourceFiles": 35,
+          "sourceLines": 4952,
+          "components": 58,
+          "stores": 4,
+          "libs": 14,
+          "handlers": 50,
+          "motionItems": 43
+        }
       },
       {
         "id": "simpmusic-testbed",
         "kind": "app",
-        "metrics": { "files": 1567, "kotlin": 1175, "uiFiles": 360, "engineFiles": 666, "screens": 37, "viewModels": 35, "navDestinations": 64, "diModules": 11, "modules": 30 }
+        "metrics": {
+          "files": 1567,
+          "kotlin": 1175,
+          "uiFiles": 360,
+          "engineFiles": 666,
+          "screens": 37,
+          "viewModels": 35,
+          "navDestinations": 64,
+          "diModules": 11,
+          "modules": 30
+        }
       }
     ],
     "howToReMeasure": "node scripts/size-assessment.mjs testbed/prototype testbed/SimpMusic --json"
@@ -20,14 +39,28 @@
   "tiers": {
     "SIMPLE": {
       "label": "One batch, one pass",
-      "budget": { "screens": 6, "files": 120, "sourceLines": 2500, "components": 15, "navDestinations": 10, "engineFiles": 40 },
+      "budget": {
+        "screens": 6,
+        "files": 120,
+        "sourceLines": 2500,
+        "components": 15,
+        "navDestinations": 10,
+        "engineFiles": 40
+      },
       "meaning": "Everything fits in one context: every screen can be inspected, ported and diffed in a single batch without re-reading the prototype.",
       "strategy": "batch",
       "iterationsPerScreen": 5
     },
     "MEDIUM": {
       "label": "Slices, each verified",
-      "budget": { "screens": 20, "files": 400, "sourceLines": 12000, "components": 60, "navDestinations": 25, "engineFiles": 200 },
+      "budget": {
+        "screens": 20,
+        "files": 400,
+        "sourceLines": 12000,
+        "components": 60,
+        "navDestinations": 25,
+        "engineFiles": 200
+      },
       "meaning": "Too many screens for one context, but the app's navigation and DI can absorb new screens without a migration. Port in slices of 3-8 related screens; each slice builds, tests and diffs on its own.",
       "strategy": "slices",
       "iterationsPerScreen": 5
@@ -41,17 +74,17 @@
     }
   },
   "rules": {
-    "classifyBy": "The highest tier whose budget the subject fits in every dimension. Exceeding any single budget promotes the subject; a LARGE verdict otherwise needs at least two dimensions over MEDIUM (see `escalation`).",
+    "classifyBy": "Fit the subject against the SIMPLE budget, then the MEDIUM budget, in every dimension. The first budget it fits wins. If it fits neither, it is LARGE only when at least two dimensions are over MEDIUM (`escalation`); a single over-budget dimension stays MEDIUM with a recorded note, because one metric over is usually the heuristic misreading a fixture. A dimension the subject does not report is skipped, never counted as zero.",
     "escalation": {
       "threshold": 2,
       "why": "One metric over budget is usually noise in the heuristic (a prototype with a big data fixture has many files but few screens). Two is a pattern."
     },
     "override": {
       "allowed": true,
-      "where": "the decision gate (`.uiport/answers.json` → `sizeOverride`)",
+      "where": "the decision gate (`.uiport/answers.json` \u2192 `sizeOverride`)",
       "requirements": [
         "the override records the tier chosen and a one-line reason",
-        "the assessment's own numbers stay in `.uiport/size-assessment.json` — the override does not rewrite them",
+        "the assessment's own numbers stay in `.uiport/size-assessment.json` \u2014 the override does not rewrite them",
         "the worklog states both the computed verdict and the override, so a later reader can see the disagreement"
       ],
       "why": "The heuristic cannot see that a 12-screen prototype is twelve variants of one list. A human can. What it must never do is silently change the numbers."
@@ -61,20 +94,52 @@
   "strategies": {
     "batch": {
       "slices": "one",
-      "order": ["map", "capture", "port all screens", "diff all screens", "verify", "package"],
-      "checksPerBatch": ["npm test", "screenshot render", "diff-all"],
+      "order": [
+        "map",
+        "capture",
+        "port all screens",
+        "diff all screens",
+        "verify",
+        "package"
+      ],
+      "checksPerBatch": [
+        "npm test",
+        "screenshot render",
+        "diff-all"
+      ],
       "subagents": false,
       "rollback": "revert the single batch commit",
-      "why": "With under six screens the overhead of slicing (state, worklogs, per-slice diffs) exceeds the risk it reduces."
+      "why": "With under six screens the overhead of slicing (state, worklogs, per-slice diffs) exceeds the risk it reduces. No flag: a single batch that fails is reverted, not toggled.",
+      "flag": null
     },
     "slices": {
-      "sliceSize": { "min": 3, "max": 8 },
+      "sliceSize": {
+        "min": 3,
+        "max": 8
+      },
       "sliceBy": "user journey, not file adjacency: home -> album -> now playing is one slice; all settings screens are another",
-      "order": ["map", "capture", "choose slice 1", "port", "diff", "verify", "wiring for the slice", "next slice"],
-      "checksPerBatch": ["build", "unit tests", "screenshot render", "diff-all", "geometry gate"],
+      "order": [
+        "map",
+        "capture",
+        "choose slice 1",
+        "port",
+        "diff",
+        "verify",
+        "wiring for the slice",
+        "next slice"
+      ],
+      "checksPerBatch": [
+        "build",
+        "unit tests",
+        "screenshot render",
+        "diff-all",
+        "geometry gate"
+      ],
       "subagents": "one per slice, after the slice's screens are mapped",
       "rollback": "revert the slice's commits; slices are dependency-ordered so a later slice never has to be reverted to undo an earlier one",
-      "why": "Each slice has to be independently shippable, or 'sliced' only means 'split into commits'."
+      "why": "Each slice has to be independently shippable, or 'sliced' only means 'split into commits'.",
+      "flag": null,
+      "flagNote": "No flag by default \u2014 slices land in dependency order and the old screen is deleted in the same slice. Add one only if the slice cannot ship behind a build."
     },
     "strangler": {
       "flag": {
@@ -83,24 +148,68 @@
         "state": "each route records which side renders it, so a half-ported app is never ambiguous",
         "why": "The old UI has to keep working while slices land; a global build-time flag cannot express 'home is new, settings is old'."
       },
-      "sliceSize": { "min": 2, "max": 5 },
+      "sliceSize": {
+        "min": 2,
+        "max": 5
+      },
       "sliceBy": "dependency order: a route can only switch after everything it navigates into is switchable, or the user falls out of the new UI mid-journey",
-      "order": ["map", "capture", "engine boundary review", "flag plumbing", "slice 1", "diff", "flip flag for the slice", "verify old paths still work", "next slice"],
-      "checksPerBatch": ["build", "unit tests", "screenshot render", "diff-all", "geometry gate", "flag-off smoke test"],
+      "order": [
+        "map",
+        "capture",
+        "engine boundary review",
+        "flag plumbing",
+        "slice 1",
+        "diff",
+        "flip flag for the slice",
+        "verify old paths still work",
+        "next slice"
+      ],
+      "checksPerBatch": [
+        "build",
+        "unit tests",
+        "screenshot render",
+        "diff-all",
+        "geometry gate",
+        "flag-off smoke test"
+      ],
       "subagents": "one per slice, plus one reviewer per engine touch",
       "rollback": "flip the route's flag back; the old composable is never deleted until the slice is accepted",
       "why": "Strangler means the app is always shippable. If a slice cannot be rolled back by a flag flip, it is not a strangler, it is a rewrite with extra steps."
     }
   },
-  "signals": {
-    "shadowing": [
-      { "metric": "navDestinations", "weight": 2, "why": "a deep navigation graph is where a port breaks behaviour, not pixels" },
-      { "metric": "engineFiles", "weight": 2, "why": "engine files are the protected boundary; more of them means more decisions at the gate" },
-      { "metric": "diModules", "weight": 1, "why": "every wired screen has to reach the container somehow" },
-      { "metric": "screens", "weight": 3, "why": "the unit of work and of acceptance" }
+  "advisory": {
+    "why": "Shown to the human at the gate as context for the verdict. Not part of the computation \u2014 the budgets decide the tier, these explain what the budgets cannot see.",
+    "weights": [
+      {
+        "metric": "screens",
+        "weight": 3,
+        "why": "the unit of work and of acceptance"
+      },
+      {
+        "metric": "navDestinations",
+        "weight": 2,
+        "why": "a deep navigation graph is where a port breaks behaviour, not pixels"
+      },
+      {
+        "metric": "engineFiles",
+        "weight": 2,
+        "why": "engine files are the protected boundary; more of them means more decisions at the gate"
+      },
+      {
+        "metric": "diModules",
+        "weight": 1,
+        "why": "every wired screen has to reach the container somehow"
+      }
     ],
-    "ignored": [
-      { "metric": "sourceLines", "why": "a 20k-line prototype of generated data is not harder to port than a 2k-line one; it is harder to read" }
+    "cannotSee": [
+      {
+        "metric": "sourceLines",
+        "why": "counted in the budgets for context fit but blind to difficulty: 20k lines of generated data is not harder to port than 2k, only harder to read"
+      },
+      {
+        "metric": "screens",
+        "why": "twenty variants of one list are one screen of work; only a human can see that, and only an override can record it"
+      }
     ]
   }
 }

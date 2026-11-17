@@ -424,3 +424,55 @@ describe("ci-scores-line", () => {
     }
   });
 });
+
+describe("size assess", () => {
+  test("measures the real test bed, writes the numbers, and reports the tier that governs", () => {
+    const p = tmpProject();
+    try {
+      const res = cli(p.dir, "size", "assess", path.join(ROOT, "testbed/prototype"), "--app", path.join(ROOT, "testbed/SimpMusic"));
+      assert.equal(res.code, 0);
+      assert.match(res.stdout, /Verdict: `LARGE`/);
+      assert.match(res.stdout, /Governing tier: `LARGE`/);
+      const saved = JSON.parse(p.read(".uiport/size-assessment.json"));
+      assert.equal(saved.assessment.tier, "LARGE");
+      assert.equal(saved.governing.tier, "LARGE");
+      assert.equal(saved.governing.overridden, false);
+      assert.equal(saved.subjects[0].metrics.screens, 23);
+    } finally {
+      p.cleanup();
+    }
+  });
+
+  test("a recorded override changes the strategy and shows the disagreement, not just the verdict", () => {
+    const p = tmpProject();
+    try {
+      p.json(".uiport/answers.json", {
+        deviceTargets: ["phone"],
+        executionMode: "HYBRID",
+        extraFeatures: {},
+        allowEngineEdits: false,
+        delivery: ["zip"],
+        sizeOverride: { tier: "MEDIUM", reason: "every route already has a runtime flag" },
+      });
+      const res = cli(p.dir, "size", "assess", path.join(ROOT, "testbed/prototype"), "--app", path.join(ROOT, "testbed/SimpMusic"));
+      assert.equal(res.code, 0);
+      assert.match(res.stdout, /Override applies:\*\* the run is `MEDIUM` \(strategy `slices`\), not the computed `LARGE`/);
+      assert.match(res.stdout, /Reason given: every route already has a runtime flag/);
+      assert.match(res.stdout, /Computed reason: exceeds the MEDIUM budget in 4 dimensions/);
+    } finally {
+      p.cleanup();
+    }
+  });
+
+  test("no path is a usage error, and an unclassifiable path exits 4", () => {
+    const p = tmpProject();
+    try {
+      assert.equal(cli(p.dir, "size", "assess").code, 2);
+      const bad = cli(p.dir, "size", "assess", p.dir);
+      assert.equal(bad.code, 4);
+      assert.match(bad.stderr, /neither a prototype/);
+    } finally {
+      p.cleanup();
+    }
+  });
+});

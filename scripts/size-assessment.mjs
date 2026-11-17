@@ -22,19 +22,8 @@ import { scanPrototype } from "./lib/scan-prototype.mjs";
 import { scanApp } from "./lib/scan-app.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const args = process.argv.slice(2);
-const asJson = args.includes("--json");
-const outIdx = args.indexOf("--out");
-const outFile = outIdx === -1 ? null : args[outIdx + 1];
-const subjects = args.filter((a, i) => !a.startsWith("--") && (outIdx === -1 || i !== outIdx + 1));
-
-if (!subjects.length) {
-  process.stderr.write("size-assessment: give at least one path (a prototype root or an Android app root)\n");
-  process.exit(2);
-}
-
 const config = readJson(path.join(ROOT, "config", "tiers.json"));
-const TIERS = config.tiers;
+export const TIERS = config.tiers;
 const ORDER = ["SIMPLE", "MEDIUM", "LARGE"];
 
 /**
@@ -215,20 +204,40 @@ export function renderAssessment(assessment, subjects) {
 }
 
 // ---------- CLI ----------
-const measured = [];
-for (const subject of subjects) {
-  try {
-    measured.push(measureSubject(subject));
-  } catch (err) {
-    process.stderr.write(`size-assessment: ${err.message}\n`);
-    process.exit(4);
-  }
-}
-const assessment = assessRun(measured);
+// Guarded, because the classifiers above are imported by the tests and by the gate: running the
+// CLI body on import would exit on a test runner's argv.
+function main(argv) {
+  const asJson = argv.includes("--json");
+  const outIdx = argv.indexOf("--out");
+  const outFile = outIdx === -1 ? null : argv[outIdx + 1];
+  const subjects = argv.filter((a, i) => !a.startsWith("--") && (outIdx === -1 || i !== outIdx + 1));
 
-if (outFile) {
-  fs.mkdirSync(path.dirname(path.resolve(outFile)), { recursive: true });
-  fs.writeFileSync(path.resolve(outFile), `${JSON.stringify({ assessment, subjects: measured }, null, 2)}\n`);
+  if (!subjects.length) {
+    process.stderr.write("size-assessment: give at least one path (a prototype root or an Android app root)\n");
+    return 2;
+  }
+
+  const measured = [];
+  for (const subject of subjects) {
+    try {
+      measured.push(measureSubject(subject));
+    } catch (err) {
+      process.stderr.write(`size-assessment: ${err.message}\n`);
+      return 4;
+    }
+  }
+  const assessment = assessRun(measured);
+  const payload = { assessment, subjects: measured };
+
+  if (outFile) {
+    const abs = path.resolve(outFile);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, `${JSON.stringify(payload, null, 2)}\n`);
+  }
+  process.stdout.write(asJson ? `${JSON.stringify(payload, null, 2)}\n` : `${renderAssessment(assessment, measured)}\n`);
+  return 0;
 }
-if (asJson) process.stdout.write(`${JSON.stringify({ assessment, subjects: measured }, null, 2)}\n`);
-else process.stdout.write(`${renderAssessment(assessment, measured)}\n`);
+
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
+  process.exitCode = main(process.argv.slice(2));
+}
