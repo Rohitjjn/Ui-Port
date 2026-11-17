@@ -182,3 +182,94 @@ test("compareGeometry carries the summary only when something actually mismatche
   assert.equal(moved.deltaSummary.signature, "systematic-offset");
   assert.equal(moved.deltaSummary.medians.dy, 2.1);
 });
+
+// ---------------------------------------------------------------------------------------------
+// The per-node table. Three samples per screen say a screen fails; they cannot say why, and the
+// fix lives in the rows that were not sampled. This runs in its own CI job only because the
+// annotation limit is per job — the test covers the rows and the ordering, the workflow covers the
+// budget.
+// ---------------------------------------------------------------------------------------------
+test("geometry report: worst row first, both boxes, and the deltas that decide the fix", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uiport-georeport-"));
+  try {
+    const refDir = path.join(dir, "reference/phone/library");
+    const candDir = path.join(dir, "candidate/phone/library");
+    fs.mkdirSync(refDir, { recursive: true });
+    fs.mkdirSync(candDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(refDir, "default.geometry.json"),
+      JSON.stringify([
+        { text: "Liked songs", role: "node", x: 85, y: 192.09, w: 80.2, h: 20.3, ancestors: [] },
+        { text: "Most played", role: "node", x: 16, y: 56, w: 100, h: 24, ancestors: [] },
+        { text: "COLLECTION", role: "node", x: 16, y: 16, w: 82, h: 16, ancestors: [] },
+      ]),
+    );
+    fs.writeFileSync(
+      path.join(candDir, "default.semantics.json"),
+      JSON.stringify([
+        // 2.41 dp low: the near-miss that N-2 is about.
+        { text: "Liked songs", role: "node", x: 85, y: 194.5, w: 80, h: 20, ancestors: [] },
+        // 44 dp low: a real layout error, and it must sort above the near-miss.
+        { text: "COLLECTION", role: "node", x: 16, y: 60, w: 82, h: 16, ancestors: [] },
+      ]),
+    );
+    const out = execFileSync(
+      process.execPath,
+      [path.join(ROOT, "scripts/ci-geometry-report.mjs"), "--reference", path.join(dir, "reference"), "--candidate", path.join(dir, "candidate"), "--device", "phone"],
+      { encoding: "utf8" },
+    ).trim();
+
+    const lines = out.split("\n");
+    assert.match(lines[0], /^::notice title=geometry library \(phone\)::ref=3 cand=2 matched=0 mismatched=2 missing=1 coverage=0%$/);
+    // Worst first: the 44 dp error must be printed before the 2.41 dp near-miss, or a reader who
+    // stops after two lines chases the smaller problem.
+    const off = lines.filter((l) => l.includes(" off::"));
+    assert.equal(off.length, 2);
+    assert.match(off[0], /COLLECTION.*d=\(0,44,0,0\)/);
+    assert.match(off[1], /Liked songs.*ref\[85,192\.09 80\.2x20\.3\] cand\[85,194\.5 80x20\] d=\(0,2\.41,0\.2,0\.3\)/);
+    // A node the candidate never produced is its own line: "missing" is not "0 dp off".
+    assert.ok(lines.some((l) => l.includes(" missing::\"Most played\"") && l.includes("has no candidate node")));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("geometry report: a missing semantics dump is an error, not a pass", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uiport-georeport2-"));
+  try {
+    const refDir = path.join(dir, "reference/phone/home");
+    fs.mkdirSync(refDir, { recursive: true });
+    fs.writeFileSync(path.join(refDir, "default.geometry.json"), JSON.stringify([{ text: "Hi", role: "node", x: 1, y: 2, w: 3, h: 4 }]));
+    const out = execFileSync(
+      process.execPath,
+      [path.join(ROOT, "scripts/ci-geometry-report.mjs"), "--reference", path.join(dir, "reference"), "--candidate", path.join(dir, "candidate"), "--device", "phone"],
+      { encoding: "utf8" },
+    );
+    assert.match(out, /::error title=geometry home::no candidate semantics — not measured is not a pass/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a label is never paired with a different label: missing beats a confident wrong row", async () => {
+  const { compareGeometry } = await import("../../scripts/lib/geometry.mjs");
+  const reference = [{ text: "Most played", role: "node", x: 16, y: 56, w: 100, h: 24 }];
+  // Same role, different text, adjacent box. Before the fix this scored 1 on role alone and was
+  // reported as "off by (0,4,18,8)" — a confident row about the wrong element, which sends the
+  // next iteration after an innocent node and hides the fact that the label never rendered.
+  const candidate = [{ text: "COLLECTION", role: "node", x: 16, y: 60, w: 82, h: 16 }];
+  const g = compareGeometry(reference, candidate, { canonical: true, toleranceDp: 1 });
+  assert.equal(g.mismatched.length, 0, "no mismatched row may be invented from a role match");
+  assert.equal(g.missing.length, 1);
+  assert.match(g.missing[0].reason, /no candidate node with the same text\/role/);
+
+  // An exact testId is identity even when the text differs, so that pairing still happens.
+  const anchored = compareGeometry(
+    [{ text: "Play", role: "button", testId: "play-1", x: 0, y: 0, w: 10, h: 10 }],
+    [{ text: "Pause", role: "button", testId: "play-1", x: 0, y: 0, w: 10, h: 10 }],
+    { canonical: true, toleranceDp: 1 },
+  );
+  assert.equal(anchored.matched.length, 1, "a shared testId is the same element");
+});

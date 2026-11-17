@@ -1,0 +1,141 @@
+#!/usr/bin/env node
+/**
+ * Per-node geometry table, for a job that has annotation budget to spare.
+ *
+ * The diff step spends a job's 50 annotations on three samples per screen, which is enough to see
+ * that a screen fails and not enough to see why: a 0% coverage screen has 25-80 nodes, and the fix
+ * lives in the rows the samples did not print. Artifacts hold the full data but are not readable
+ * from every environment — they were not readable from mine.
+ *
+ * So this prints one annotation per node: both boxes, the four deltas, and which side owns the
+ * text. It runs in a *separate job*, which is what gets it a fresh 50 — the limit is per job, not
+ * per workflow, and that is the only reason this is affordable.
+ *
+ *   node scripts/ci-geometry-report.mjs --reference <dir> --candidate <dir> --device phone
+ *        [--screen home] [--limit 40] [--json]
+ */
+import fs from "node:fs";
+import path from "node:path";
+import process from "node:process";
+import { canonicalNodes, compareGeometry, loadThresholds } from "./lib/geometry.mjs";
+
+const args = process.argv.slice(2);
+const flag = (name, fallback = null) => {
+  const i = args.indexOf(`--${name}`);
+  if (i === -1) return fallback;
+  const v = args[i + 1];
+  return v === undefined || v.startsWith("--") ? true : v;
+};
+
+const referenceDir = String(flag("reference", ".uiport/reference"));
+const candidateDir = String(flag("candidate", ".uiport/output"));
+const device = String(flag("device", "phone"));
+const onlyScreen = flag("screen", null);
+const limit = Number(flag("limit", 40));
+const asJson = Boolean(flag("json", false));
+
+const thresholds = loadThresholds(path.resolve(import.meta.dirname, "..", "config", "thresholds.json"));
+const tolerance = thresholds.geometry?.toleranceDp ?? 1;
+
+const readJsonMaybe = (file) => {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return null;
+  }
+};
+
+const refRoot = path.join(referenceDir, device);
+if (!fs.existsSync(refRoot)) {
+  process.stderr.write(`ci-geometry-report: no reference at ${refRoot}\n`);
+  process.exit(2);
+}
+
+const screens = fs
+  .readdirSync(refRoot, { withFileTypes: true })
+  .filter((e) => e.isDirectory())
+  .map((e) => e.name)
+  .filter((name) => !onlyScreen || name === onlyScreen)
+  .sort();
+
+// Shared by the row builder and the printer: the same box in both places, so a reader cannot
+// mistake one for a different measurement.
+const box = (b) => (b ? `[${b[0]},${b[1]} ${b[2]}x${b[3]}]` : "—");
+
+const out = [];
+for (const screen of screens) {
+  const refGeom = readJsonMaybe(path.join(refRoot, screen, "default.geometry.json"));
+  const candGeom = readJsonMaybe(path.join(candidateDir, device, screen, "default.semantics.json"));
+  if (!refGeom || !candGeom) {
+    out.push({ screen, error: !refGeom ? "no reference geometry" : "no candidate semantics — not measured is not a pass" });
+    continue;
+  }
+  const comparison = compareGeometry(refGeom, candGeom, { ...thresholds.geometry, canonical: true });
+  const rows = [
+    ...comparison.mismatched.map((m) => ({
+      kind: "mismatch",
+      text: m.ref.text ?? m.ref.role ?? "(unnamed)",
+      ref: m.ref.box,
+      cand: m.cand.box,
+      d: [m.dx, m.dy, m.dw, m.dh],
+      against: m.matchedAgainst ?? "self",
+      worst: Math.max(m.dx, m.dy, m.dw, m.dh),
+    })),
+    ...comparison.missing.map((m) => ({
+      kind: "missing",
+      text: m.node.text ?? m.node.role ?? "(unnamed)",
+      ref: m.node.box ?? null,
+      cand: null,
+      d: null,
+      worst: Infinity,
+    })),
+  ].sort((a, b) => b.worst - a.worst);
+
+  out.push({
+    screen,
+    coveragePct: comparison.coveragePct,
+    counts: {
+      reference: comparison.refCount,
+      candidate: comparison.candCount,
+      matched: comparison.matched.length,
+      mismatched: comparison.mismatched.length,
+      missing: comparison.missing.length,
+    },
+    deltaSummary: comparison.deltaSummary,
+    // Mismatches first, worst first: a reader who stops after three lines should have seen the
+    // three rows that matter most.
+    rows: rows.slice(0, limit),
+    rowsTotal: rows.length,
+  });
+}
+
+if (asJson) {
+  process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
+  process.exit(0);
+}
+
+// Annotation-friendly output: one line per row, prefixed with the GitHub command.
+const lines = [];
+for (const s of out) {
+  if (s.error) {
+    lines.push(`::error title=geometry ${s.screen}::${s.error}`);
+    continue;
+  }
+  const c = s.counts;
+  const head = `ref=${c.reference} cand=${c.candidate} matched=${c.matched} mismatched=${c.mismatched} missing=${c.missing} coverage=${s.coveragePct}%`;
+  lines.push(`::notice title=geometry ${s.screen} (${device})::${head}`);
+  for (const r of s.rows) {
+    if (r.kind === "missing") {
+      lines.push(`::notice title=${s.screen} missing::"${String(r.text).slice(0, 34)}" ref${box(r.ref)} has no candidate node with the same text`);
+      continue;
+    }
+    // `slowest` notes when the comparison used an ancestor box, because a label matched against
+    // its enclosing row is a different claim than the label itself being off.
+    const via = r.against && r.against !== "self" ? ` via ${r.against}` : "";
+    lines.push(
+      `::notice title=${s.screen} off::"${String(r.text).slice(0, 34)}" ref${box(r.ref)} cand${box(r.cand)} d=(${r.d.join(",")})${via}`,
+    );
+  }
+  if (s.rowsTotal > s.rows.length) lines.push(`::notice title=${s.screen} truncated::${s.rowsTotal - s.rows.length} more row(s), raise --limit`);
+}
+process.stdout.write(`${lines.join("\n")}\n`);

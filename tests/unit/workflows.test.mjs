@@ -55,6 +55,16 @@ describe("GitHub workflows", () => {
     }
   });
 
+  test("the per-node geometry table is a separate job, which is the only way it gets annotation budget", () => {
+    const doc = yaml.parse(fs.readFileSync(path.join(WORKFLOW_DIR, "ci-port-diff.yml"), "utf8"));
+    const detail = doc.jobs["geometry-detail"];
+    assert.ok(detail, "a job of its own: the annotation limit is per job, so a second job gets a second 50");
+    assert.deepEqual(detail.needs, ["render-and-diff"]);
+    const step = detail.steps.find((s) => s.run?.includes("ci-geometry-report.mjs"));
+    assert.ok(step, "the detail job runs the per-node report");
+    assert.match(step.run, /--limit 45/, "45 rows plus the per-screen headers stays inside 50");
+  });
+
   test("the scores survive the annotation budget: one line, one dedicated step, shape inline", () => {
     // A job keeps only its first 50 annotations — not a step. The diff step emits 40+ of them for
     // geometry detail, so the scores need their own step *and* the failure signature has to ride

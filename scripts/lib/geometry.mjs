@@ -210,6 +210,15 @@ function pickBestMatch(ref, candidates) {
     }
   }
   if (bestScore <= 0) return null;
+  // A node that carries text may only be matched to a node that carries the *same* text.
+  //
+  // Role alone scores 1 (the DOM's `node` role and Compose's absence of a role both normalise to
+  // something the role check can award), so a reference label with no counterpart in the candidate
+  // used to be paired with whatever candidate happened to be first, and reported as a confident
+  // "off by (0, 4, 18, 8)" against an unrelated element. That is worse than reporting it missing:
+  // a wrong row sends the next iteration after an innocent node, and the real gap — a label that
+  // never rendered — stays invisible. Anchored nodes (testId) are exempt: that is exact identity.
+  if (refText && !(ref.testId && best.testId === ref.testId) && norm(best.text) !== refText) return null;
   // Several elements can carry the same text ("Play" appears many times on one screen).
   // Among equally good candidates prefer the nearest box: otherwise the first "Play" in
   // the candidate list is paired with every "Play" in the reference, and two *identical*

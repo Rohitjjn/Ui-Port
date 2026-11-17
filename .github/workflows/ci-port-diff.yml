@@ -461,3 +461,42 @@ jobs:
             .uiport/diffs/**
           retention-days: 30
           if-no-files-found: warn
+
+  # The per-node table needs more than three lines per screen, and the job above has already spent
+  # its 50 annotations. The limit is per job, so this job gets its own 50 — which is the only
+  # reason a second job is worth its several minutes of setup. It re-renders nothing: it downloads
+  # the first job's artifact, which is also the check that the artifact contains what the report
+  # needs.
+  geometry-detail:
+    if: always()
+    needs: [render-and-diff]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Install plugin dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Download the renders and reference geometry
+        uses: actions/download-artifact@v5
+        continue-on-error: true
+        with:
+          name: uiport-port-diff-${{ github.run_id }}
+
+      - name: Publish every geometry row, worst first
+        run: |
+          if [ ! -d .uiport/reference ]; then
+            echo "::warning title=geometry detail::the render job produced no artifact to read; nothing to report"
+            exit 0
+          fi
+          node scripts/ci-geometry-report.mjs \
+            --reference .uiport/reference \
+            --candidate .uiport/output \
+            --device phone \
+            --limit 45
+
