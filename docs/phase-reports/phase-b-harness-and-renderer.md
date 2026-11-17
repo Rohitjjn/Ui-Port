@@ -125,20 +125,49 @@ configured DPR. They are **not directly comparable as a delta** — three things
 (fonts, density, dump granularity) — which is why the delta is not claimed. What the pair does show
 is which screens clear the 95% floor now.
 
-| Screen | Device | Before (1x, fallback fonts) | After (2x, vendored fonts) | Geometry | Status | Run |
-| --- | --- | --- | --- | --- | --- | --- |
-| home | phone | 94.8575% | **95.9995%** | 0% (10 ref / 16 cand nodes) | building | [44016202554](https://github.com/Rohitjjn/Ui-Port/actions/runs/44016202554) |
-| library | phone | 86.9157% | **87.5511%** | 0% | building | [44016202554](https://github.com/Rohitjjn/Ui-Port/actions/runs/44016202554) |
-| nowplaying | phone | 79.3033% | **79.8252%** | 0% | building | [44016202554](https://github.com/Rohitjjn/Ui-Port/actions/runs/44016202554) |
+Latest measurement, run [44026400996](https://github.com/Rohitjjn/Ui-Port/actions/runs/44026400996)
+on commit `ccd184b`, copied verbatim from the run's `scores phone` annotation:
 
-SSIM is reported and not gated (`0.791629`, `0.573181`, `0.531409` respectively).
+| Screen | Device | Before (1x, fallback fonts) | After (2x, vendored fonts) | SSIM | Geometry | Status | Node counts (ref / cand) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| home | phone | 94.8575% | **96.0406%** | 0.792695 | 0% | building | 26 / 16 |
+| library | phone | 86.9157% | **87.5961%** | 0.574267 | 0% | building | 82 / 28 |
+| nowplaying | phone | 79.3033% | **79.8252%** | 0.531409 | 0% | building | — |
 
-Honest reading of the table: `home` now clears the pixel floor at full density with the real
-typefaces, and the other two do not (87.6% / 79.8%). None of the three is accepted, because the
-geometry gate is failing on all three — `home` on the nav offsets above, `library` and
-`nowplaying` because the visible viewport contains most of their content and the canonical node
-counts still differ, which is the next fix to make and drive from the geometry report rather than
-from the image.
+The "before" column is from run 43837311942 (the last run before this phase). SSIM is reported and
+not gated.
+
+Honest reading of the table: `home` clears the pixel floor at full density with the real
+typefaces; the other two do not (87.6% / 79.8%). **None of the three is accepted**, because the
+geometry gate is failing on all three — and that is the correct verdict, not a harness problem any
+more:
+
+- `home`: the gate found the missing `min-w-[64px]` and `py-2` on the nav items (below), and now
+  reports one structural gap: the reference has a canonical node for the featured hero's
+  description ("Recorded over one winter in a deconsecrated chap…") that the port does not emit.
+- `library`: reference 82 canonical nodes against candidate 28. The missing nodes are the sections
+  below the fold in the Compose viewport; the web side lists them because its scroll container is
+  taller than the framing viewport. Reconciling this needs a decision — compare at the same scroll
+  extent, or accept a viewport-limited comparison and record it — and it is section B's open item
+  rather than something to paper over.
+- `nowplaying`: pixel score is dominated by the player's artwork and controls, and it has the same
+  visible-viewport question as `library`.
+
+## 5b. The gate's first real port fix
+
+The first run with a sound comparison reported, for the bottom navigation:
+
+```
+Library  dx=15 dy=37.94 dw=29.5 dh=49.94
+Search   dx=15 dy=37.94 dw=29.5 dh=49.94
+Home     dx=17 dy=37.94 dw=34   dh=49.94
+```
+
+That was true, and the port was wrong: the prototype's `NavLink` is
+`flex min-w-[64px] flex-col items-center gap-0.5 py-2` and the port had neither the 64 dp minimum
+width nor the 8 dp vertical padding, so each item was 34.5 dp wide instead of 64 and 50 dp tall
+instead of 66. The pixel score could not see it — `home` was 96.0% throughout — which is precisely
+the argument for the geometry gate in section A. Fixed in `UiPortShell.kt`.
 
 ## 6. What changed in the plugin, not just the testbed
 
