@@ -144,7 +144,23 @@ export function compareGeometry(refNodes = [], candNodes = [], opts = {}) {
     const candidates = candNodes.filter((c) => !usedCand.has(c));
     const best = pickBestMatch(ref, candidates);
     if (!best) {
-      missing.push({ node: ref, reason: "no candidate node with the same text/role" });
+      // Say *how* it is missing. "no node with the same text" and "a node with that text exists but
+      // is not pairable" are different defects — the first is content that never rendered, the
+      // second is a label whose text or role differs — and a reader with ten notice slots and
+      // thirty missing rows cannot spend a CI run on each to find out which.
+      const sameText = candNodes.find((c) => (c.text ?? "") === (ref.text ?? ""));
+      const nearName =
+        sameText ??
+        candNodes.find((c) => {
+          const a = (c.text ?? "").toLowerCase();
+          const b = (ref.text ?? "").toLowerCase();
+          return a && b && (a.startsWith(b.slice(0, 6)) || b.startsWith(a.slice(0, 6)));
+        });
+      missing.push({
+        node: ref,
+        reason: sameText ? "same text present but not pairable" : nearName ? "similarly named candidate exists" : "no candidate node with the same text/role",
+        nearest: nearName ? describe(nearName) : null,
+      });
       continue;
     }
     usedCand.add(best);

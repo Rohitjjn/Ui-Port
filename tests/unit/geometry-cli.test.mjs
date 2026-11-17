@@ -229,7 +229,7 @@ test("geometry report: worst row first, both boxes, and the deltas that decide t
     assert.match(off[0], /COLLECTION.*d=\(0,44,0,0\)/);
     assert.match(off[1], /Liked songs.*ref\[85,192\.09 80\.2x20\.3\] cand\[85,194\.5 80x20\] d=\(0,2\.41,0\.2,0\.3\)/);
     // A node the candidate never produced is its own line: "missing" is not "0 dp off".
-    assert.ok(lines.some((l) => l.includes(" missing::\"Most played\"") && l.includes("has no candidate node")));
+    assert.ok(lines.some((l) => l.includes(" missing::\"Most played\"") && l.includes("no candidate node with the same text/role")));
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -434,6 +434,39 @@ test("the candidate extent is the whole set, not the first few nodes", async () 
       { encoding: "utf8" },
     );
     assert.match(out, /candidate nodes at y 16\.\.640/, "the extent is over every candidate node");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a missing row says whether the label is absent or merely named differently", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uiport-near-"));
+  try {
+    const refDir = path.join(dir, "reference/phone/library");
+    const candDir = path.join(dir, "candidate/phone/library");
+    fs.mkdirSync(refDir, { recursive: true });
+    fs.mkdirSync(candDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(refDir, "default.geometry.json"),
+      JSON.stringify([
+        { text: "Recently added", role: "button", x: 268.03, y: 356.09, w: 95.97, h: 20.3 },
+        { text: "Nonexistent", role: "button", x: 16, y: 600, w: 80, h: 20 },
+      ]),
+    );
+    fs.writeFileSync(
+      path.join(candDir, "default.semantics.json"),
+      JSON.stringify([{ text: "Recently played", role: "node", x: 268, y: 356, w: 96, h: 20 }]),
+    );
+    const out = execFileSync(
+      process.execPath,
+      [path.join(ROOT, "scripts/ci-geometry-report.mjs"), "--reference", path.join(dir, "reference"), "--candidate", path.join(dir, "candidate"), "--device", "phone"],
+      { encoding: "utf8" },
+    );
+    // Two different defects: a label under another name is a copy or naming bug, a label with no
+    // relative anywhere is content that never rendered. The reader cannot afford one CI run each.
+    assert.match(out, /similarly named candidate exists \(nearest: "Recently played" \[268,356 96x20\]\)/);
+    assert.match(out, /no candidate node with the same text\/role/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

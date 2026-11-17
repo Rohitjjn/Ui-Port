@@ -137,6 +137,8 @@ function main() {
         // coordinate that says whether the label is absent from the whole screen or merely
         // scrolled past the frame.
         ref: [m.node.x, m.node.y, m.node.w, m.node.h].every((v) => typeof v === "number") ? [m.node.x, m.node.y, m.node.w, m.node.h] : null,
+        reason: m.reason,
+        nearest: m.nearest ?? null,
         cand: null,
         d: null,
         worst: Infinity,
@@ -194,7 +196,10 @@ function main() {
     lines.push(`::notice title=geometry ${s.screen} (${device})::${head}`);
     for (const r of s.rows) {
       if (r.kind === "missing") {
-        lines.push(`::notice title=${s.screen} missing::"${String(r.text).slice(0, 34)}" ref${box(r.ref)} has no candidate node with the same text`);
+        // Naming the nearest candidate turns "absent" into "present under another name", which is
+        // a different file to open.
+        const near = r.nearest ? ` (nearest: "${String(r.nearest.text).slice(0, 24)}" ${box(r.nearest.box)})` : "";
+        lines.push(`::notice title=${s.screen} missing::"${String(r.text).slice(0, 34)}" ref${box(r.ref)} ${r.reason}${near}`);
         continue;
       }
       // `slowest` notes when the comparison used an ancestor box, because a label matched against
