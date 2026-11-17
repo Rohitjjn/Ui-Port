@@ -35,13 +35,14 @@ import org.robolectric.annotation.GraphicsMode
  * boxes, which would make every text measurement meaningless while still producing a plausible
  * looking PNG.
  *
- * `resolution` is the part that is easy to miss: without it Robolectric renders at its default
- * 320x470 at xhdpi, and the qualifiers then only decide *how* the layout computes, not how large
- * the image is — the earlier run produced a 1179x2556 png for a 393x852 dp screen.
+ * The pixel size is the part that is easy to miss: qualifiers decide how the layout is *computed*,
+ * but Robolectric's display still has a physical size of its own, and an unset one produced a
+ * 1179x2556 png for a 393x852 dp screen. `@Config` has no `resolution` parameter in this version,
+ * so the display metrics live in `src/test/resources/robolectric.properties`.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], qualifiers = "w393dp-h852dp-xhdpi", resolution = "786x1704")
+@Config(sdk = [34], qualifiers = "w393dp-h852dp-xhdpi")
 class UiPortRoborazziTest {
     @get:Rule
     val compose = createComposeRule()
