@@ -326,7 +326,9 @@ jobs:
             set +e
             node scripts/geometry-compare.mjs --ref "$ref" --cand "$f" --tolerance 1.0 > /tmp/geo-$screen.txt 2>&1
             set -e
-            head -12 /tmp/geo-$screen.txt | while IFS= read -r line; do
+            # One line per screen. The full report is in the artifact; a step only keeps 50
+            # annotations, and detail here cost the score table its place in earlier runs.
+            tail -1 /tmp/geo-$screen.txt | while IFS= read -r line; do
               echo "::notice title=geometry $screen::${line}"
             done
             # The node counts are the first thing to read when coverage is 0%: a zero on one
@@ -353,20 +355,9 @@ jobs:
             node scripts/diff-map.mjs --reference "$refpng" --candidate "$candpng" --rows 40 --cols 36 --compact >> /tmp/diffmap.txt 2>&1 || true
           done
           cat /tmp/diffmap.txt || true
-          # The log is not readable from every environment; annotations are. Emit the map
-          # in chunks so a reviewer sees where the layout diverges without downloading PNGs.
-          if [ -s /tmp/diffmap.txt ]; then
-            awk 'NR<=0' /tmp/diffmap.txt | sed 's/%/%25/g; s/\r/%0D/g' | awk '{printf "%s\n", $0}' > /tmp/map-head.txt
-            node -e "
-              const fs = require('fs');
-              const lines = fs.readFileSync('/tmp/diffmap.txt', 'utf8').split('\n');
-              const chunks = [];
-              for (let i = 0; i < lines.length; i += 26) chunks.push(lines.slice(i, i + 26).join(' | '));
-              // Three chunks: enough to see where the layout diverges, small enough that the
-              // score table at the end of the step still fits under the 50-annotation limit.
-              chunks.slice(0, 3).forEach((c, i) => console.log('::notice title=diff map ' + (i + 1) + '::' + c.replace(/%/g, '%25')));
-            " || true
-          fi
+          # The map stays in the log and the artifact rather than in annotations: a step keeps 50
+          # of them, ranked by severity, and the map is bytes rather than findings. It used to
+          # consume most of that budget and push the score table off the page entirely.
           echo "--- reference geometry digest (per screen) ---"
           : > /tmp/geodigest.txt
           for g in .uiport/reference/"$UIPORT_DEVICE"/*/default.geometry.json; do
@@ -375,17 +366,6 @@ jobs:
             echo >> /tmp/geodigest.txt
           done
           cat /tmp/geodigest.txt || true
-          if [ -s /tmp/geodigest.txt ]; then
-            node -e "
-              const fs = require('fs');
-              const lines = fs.readFileSync('/tmp/geodigest.txt', 'utf8').split('\n');
-              const chunks = [];
-              for (let i = 0; i < lines.length; i += 24) chunks.push(lines.slice(i, i + 24).join(' | '));
-              // Two chunks, not ten: the full digest is in the artifact, and every annotation
-              // spent here is one the score table loses at the 50-per-step limit.
-              chunks.slice(0, 2).forEach((c, i) => console.log('::notice title=reference layout ' + (i + 1) + '::' + c.replace(/%/g, '%25')));
-            " || true
-          fi
           # Published last, on purpose: GitHub keeps only the first 50 annotations per step, and
           # when these lines ran early the geometry detail pushed library/nowplaying off the end
           # and the run page showed one screen out of three. The scores are the headline, so they
@@ -402,8 +382,10 @@ jobs:
             for (const s of r.results || []) {
               var gates = s.gates ? Object.keys(s.gates).map(function (k) { return k + '=' + (s.gates[k].pass ? 'pass' : 'fail'); }).join(' ') : 'gates=?';
               var resid = (s.residualCategories && s.residualCategories.length) ? s.residualCategories.join(',') : 'none';
-              console.log(\`::notice title=\${s.screen} (\${r.device})::\${s.status} accepted=\${s.accepted} pixel \${s.pixelMatchPct ?? '-'}% ssim \${s.ssim ?? '-'} geometry \${s.geometryCoveragePct ?? '-'}% iter \${s.iterations} residuals \${resid} | \${gates}\`);
-              if (s.reason) console.log(\`::error title=\${s.screen} reason::\${s.reason}\`);
+              // One notice per screen carries everything: status, both gates, iterations and
+              // the reason. Emitting the reason as a separate ::error used to double the count
+              // and, because errors outrank notices, push the scores themselves off the page.
+              console.log(\`::notice title=\${s.screen} (\${r.device})::\${s.status} accepted=\${s.accepted} pixel \${s.pixelMatchPct ?? '-'}% ssim \${s.ssim ?? '-'} geometry \${s.geometryCoveragePct ?? '-'}% iter \${s.iterations} residuals \${resid} | \${gates} | \${s.reason ?? ''}\`);
             }
             console.log(\`::notice title=port summary::counts \${JSON.stringify(r.counts)}\`);
           "

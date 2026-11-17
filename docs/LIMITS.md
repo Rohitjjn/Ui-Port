@@ -130,11 +130,19 @@ line counts changed with them: the banner broke into 3 lines where the capture h
 different width, the hero title into 1 line where the capture has 2 and the hero description
 into 3 where the capture has 4.
 
-Two ways out, both cheap, and the choice is the capture owner's rather than the port's:
-(a) allow same-origin font resources in the capture so the reference uses the webfonts, then
-switch `UiPortFonts` to the bundled families; or (b) declare the fallback metrics the
-specification and delete the bundled files. Until then `UiPortFonts` uses the platform
-families and this file records why.
+**Resolved in phase B (2026-11-17).** Option (a) was taken, and it did not require allowing
+off-origin requests: the capture now *serves* the vendored files from `res/font` itself (the page
+still cannot reach a CDN), injects `@font-face` rules plus a stack override that removes every
+fallback family behind `--font-sans`/`--font-serif`, waits for `document.fonts.ready`, forces each
+declared face to load, and asserts family + weight + `status === "loaded"` before it screenshots.
+`UiPortFonts` loads the same bytes from `composeResources/font`, with weights 400/500/600 and serif
+400 declared rather than synthesised. `scripts/vendor-fonts.mjs --check` fails CI if any mirror
+drifts by one byte.
+
+The earlier conclusion in this section — that bundling made the score worse — remains true and is
+the reason the fix had to touch both sides at once: changing one side's typeface changes the
+comparison, not the port. See `docs/phase-reports/phase-b-harness-and-renderer.md` for the measured
+before/after and the capture's proof that the vendored faces are the ones that rendered.
 
 ## 6. Sub-pixel layout — `subpixel-layout`
 
