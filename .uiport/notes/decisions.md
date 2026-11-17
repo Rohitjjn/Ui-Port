@@ -33,8 +33,45 @@ ever passing the gate at this viewport.
 is the only option that measures the same thing on both sides. B should be refused: a gate that
 cannot see below the fold is the pixel-metric problem again, one dimension over.
 
-**Status:** open. `home` is unaffected (its content fits without scrolling), so the fix can land
-without blocking the rest of the run.
+**Status:** open, and now quantified. The per-node tables show how much of each screen's reference
+set the candidate cannot reach inside the viewport:
+
+| Screen | Reference nodes | Candidate nodes | Missing | Reading |
+| --- | --- | --- | --- | --- |
+| `home` | 10 | 16 | 1 | the one missing node ("Recorded over one winter…") is a paragraph inside a card that is laid out |
+| `library` | 44 | 28 | 22 | half the reference's labels have no counterpart in the frame |
+| `nowplaying` | 55 | 14 | 51 | the candidate has a seventh of the reference's labels |
+
+Some of that is below-fold content (option A's subject). All of it cannot be: `nowplaying` has 14
+candidate nodes against 55 reference nodes, and the screen is 852 dp tall, so its top frame should
+hold far more than that. N-4 records what else is going on there. Until both are resolved, this
+note's recommendation (compare at a shared scroll extent) remains the right fix for the part that
+is genuinely below the fold, and it is not sufficient on its own.
+
+---
+
+## N-4. The nav bar reports 6 dp tall, and it is not a rendering artefact
+
+**Asked** 2026-11-17, from the first per-node geometry table for `home`.
+
+The three bottom-nav items come back as `cand[310.5,830 34.5x6]` against a reference
+`ref[295.5,786.06 64x65.94]`. A 6 dp height on a nav label is not a rounding difference: it is the
+height of a text box whose parent has clipped it, and the same 6 dp appears on all three items
+(`Home`, `Search`, `Library`), each offset by ~15 dp horizontally.
+
+This is the same nav item that `d51a113` fixed a month of CI ago (the `min-w-[64px] py-2` port), and
+the pixel score rose when it landed. So either the Compose tree changed after that fix, or the
+semantics dump records the `Text` inside a fixed-height clipping parent and the box is real but the
+*measured* node is the wrong one for comparison.
+
+**How to settle it:** the candidate dump carries `ancestors` for exactly this reason. If an ancestor
+box matches `ref[295.5,786.06 64x65.94]` within tolerance, the comparator's `bestBoxFor()` will use
+it and the row disappears from the mismatches; it did not, so no ancestor matches either. That
+points at the Compose layout, not the dump — the first thing to check is whether the nav row is
+inside a parent that constrains its height (72 dp bar, 56 dp pill), because a 6 dp box is what a
+`Text` looks like when its parent has no room for the line.
+
+**Status:** open. Blocks `home`, and blocks the other two screens' nav rows for the same reason.
 
 ---
 
@@ -53,7 +90,27 @@ only for images (`--calibrate`). Until it exists, any repeated ~2 dp text offset
 tolerance, not as a defect, and the gate's `worst` report will show it as a cluster rather than an
 outlier.
 
-**Status:** open, informational. No action unless the report shows a repeated ±2 dp pattern.
+**Status: answered by measurement, 2026-11-17 — and the answer is "not this".** The geometry
+summary now classifies every failing screen by signature, and all three came back `scattered`, i.e.
+no dominant offset: the nodes are not moving together, so a systematic text-metrics shift is not
+what this is. The per-node tables (job `geometry-detail`, one job per screen) then gave the numbers:
+
+| Screen | Nearest node | Furthest | Representative rows |
+| --- | --- | --- | --- |
+| `home` | 0.06 dp | 139 dp | nav items `34.5x6` vs `64x65.94`; heading 20 dp narrow; a paragraph missing |
+| `library` | 2.41 dp | 59.94 dp | 22 of 44 reference nodes have no counterpart at all |
+| `nowplaying` | 125.06 dp | 125.06 dp | only 14 of 55 reference nodes exist |
+
+The 2.41 dp and 0.06 dp rows are the near-misses this note was worried about, and they are a
+minority. The bulk of the 0% is content that is not there. So the tolerance question stays open in
+principle but is not what is failing the gate, and it must not be loosened to make it pass: a
+tolerance that accepts a 2.41 dp text offset would also accept a missing section, which is exactly
+the trade this note exists to refuse.
+
+The real finding is that coverage is 0% even where boxes are within a pixel, because the gate's
+coverage counts *matched* nodes and every screen has at least one missing node plus many
+near-misses. That is the gate working as specified (all three must pass) and the port being far
+from done — not a measurement problem.
 
 ---
 
