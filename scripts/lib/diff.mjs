@@ -232,7 +232,10 @@ export function compareScreens({
       ? compareGeometry(
           readJson(referenceGeometryFile, []),
           readJson(candidateGeometryFile, []),
-          thresholds.geometry,
+          // The DOM dump and the semantics dump differ in granularity by construction (one records
+          // every wrapper, the other records text leaves), so the gate compares canonical leaf
+          // sets. Without this each wrapper counts as a missing node and a correct screen scores 0%.
+          { ...thresholds.geometry, canonical: true },
         )
       : null;
   const outcome = decideOutcome({

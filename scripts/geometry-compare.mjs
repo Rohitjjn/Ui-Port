@@ -57,7 +57,10 @@ const candNodes = readNodes(candFile, "candidate");
 
 const thresholds = loadThresholds(flag("thresholds", null));
 const tolerance = Number(flag("tolerance", thresholds.geometry.toleranceDp));
-const opts = { ...thresholds.geometry, toleranceDp: tolerance };
+// The two dumps are produced by different systems at different granularities (the DOM records
+// every wrapper, Compose records text leaves), so the real path canonicalises both sides to nodes
+// that carry their own text. `--raw` keeps the un-filtered behaviour for diagnosing a discrepancy.
+const opts = { ...thresholds.geometry, toleranceDp: tolerance, canonical: !args.includes("--raw") };
 
 const result = compareGeometry(refNodes, candNodes, opts);
 const onlyMismatched = Boolean(flag("only-mismatched", false));
@@ -66,8 +69,12 @@ const summary = {
   reference: path.resolve(String(refFile)),
   candidate: path.resolve(String(candFile)),
   toleranceDp: tolerance,
-  referenceNodes: refNodes.length,
-  candidateNodes: candNodes.length,
+  referenceNodes: result.refCount,
+  candidateNodes: result.candCount,
+  // Both counts: "reference 402 / candidate 380" and "reference 300 / candidate 380" mean very
+  // different things, and only the raw pair shows which of them happened.
+  rawReferenceNodes: result.rawRefCount,
+  rawCandidateNodes: result.rawCandCount,
   matched: result.matched.length,
   mismatched: result.mismatched.length,
   missing: result.missing.length,
@@ -93,8 +100,8 @@ if (mdOut) {
   const lines = [
     "# Geometry comparison",
     "",
-    `- reference nodes: ${summary.referenceNodes}`,
-    `- candidate nodes: ${summary.candidateNodes}`,
+    `- reference nodes: ${summary.referenceNodes} (raw ${summary.rawReferenceNodes})`,
+    `- candidate nodes: ${summary.candidateNodes} (raw ${summary.rawCandidateNodes})`,
     `- matched: ${summary.matched}, mismatched: ${summary.mismatched}, missing: ${summary.missing}`,
     `- coverage: ${summary.coveragePct}% (floor ${thresholds.geometry.minNodeCoveragePct}%)`,
     `- tolerance: ${tolerance} dp`,
@@ -118,7 +125,8 @@ if (mdOut) {
 
 process.stdout.write(
   `geometry-compare: ${summary.matched} matched, ${summary.mismatched} mismatched, ${summary.missing} missing, ` +
-    `coverage ${summary.coveragePct}% (tolerance ${tolerance} dp)\n`,
+    `coverage ${summary.coveragePct}% (tolerance ${tolerance} dp; reference ${summary.referenceNodes} of ` +
+    `${summary.rawReferenceNodes} raw, candidate ${summary.candidateNodes} of ${summary.rawCandidateNodes} raw)\n`,
 );
 
 if (!onlyMismatched) {

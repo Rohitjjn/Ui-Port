@@ -60,6 +60,34 @@ export function loadThresholds(file) {
   };
 }
 
+/**
+ * Both dumps describe the same screen at different granularities.
+ *
+ * The DOM dump records every element that has text *or* is a role-bearing container, so a card
+ * appears as `<article>` → `<div>` → `<h3>Title</h3>` → `<p>Subtitle</p>`: 402 nodes for the
+ * home screen. Compose semantics is the opposite — text nodes are leaves and containers usually
+ * carry nothing — so the same screen yields ~300 nodes, none of them the `article` wrapper.
+ * Comparing the raw lists therefore reports hundreds of "missing" wrappers and a coverage of 0%,
+ * which reads exactly like an unported screen. It is not.
+ *
+ * Canonicalising both sides to *nodes that carry their own text* compares what a reader can see,
+ * and drops the wrapper chain that exists only because HTML needs it. Anchored nodes (test ids)
+ * are kept with no text: they are the only handle on an icon button.
+ */
+export function canonicalNodes(nodes = []) {
+  const list = Array.isArray(nodes) ? nodes : (nodes?.nodes ?? []);
+  return list
+    .filter((n) => {
+      const hasText = typeof n?.text === "string" && n.text.trim().length > 0;
+      const anchored = n?.testId != null && String(n.testId).length > 0;
+      return hasText || anchored;
+    })
+    .map((n) => ({
+      ...n,
+      text: typeof n?.text === "string" ? n.text.trim().replace(/\s+/g, " ") : null,
+    }));
+}
+
 export function compareGeometry(refNodes = [], candNodes = [], opts = {}) {
   // A dump can be the wrong shape: the web capture writes an array, but a semantics dump that
   // wrapped it (or an older report that stored `{ nodes: [...] }`) would otherwise be compared as
@@ -67,6 +95,14 @@ export function compareGeometry(refNodes = [], candNodes = [], opts = {}) {
   // looks like a ported-nothing screen instead of a reader bug.
   refNodes = Array.isArray(refNodes) ? refNodes : (refNodes?.nodes ?? []);
   candNodes = Array.isArray(candNodes) ? candNodes : (candNodes?.nodes ?? []);
+  const rawRef = refNodes.length;
+  const rawCand = candNodes.length;
+  // Opt-in, because the diff path's own fixtures are already leaf-level and a silent filter there
+  // would hide a genuinely dropped node. The real DOM-vs-semantics path turns it on.
+  if (opts.canonical) {
+    refNodes = canonicalNodes(refNodes);
+    candNodes = canonicalNodes(candNodes);
+  }
   const tolerance = opts.toleranceDp ?? 1.0;
   const matched = [];
   const mismatched = [];
@@ -100,6 +136,8 @@ export function compareGeometry(refNodes = [], candNodes = [], opts = {}) {
     toleranceDp: tolerance,
     refCount: refNodes.length,
     candCount: candNodes.length,
+    rawRefCount: rawRef,
+    rawCandCount: rawCand,
   };
 }
 

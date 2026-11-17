@@ -18,6 +18,7 @@ import {
   ssimScore,
   thresholdFloorFromNoise,
 } from "../../scripts/lib/diff.mjs";
+import { canonicalNodes } from "../../scripts/lib/geometry.mjs";
 
 describe("pixel diff", () => {
   test("identical images score exactly 100%", () => {
@@ -422,5 +423,34 @@ describe("geometry dump shape", () => {
     assert.equal(compareGeometry(ref, cand).coveragePct, 100);
     assert.equal(compareGeometry({ nodes: ref }, { nodes: cand }).coveragePct, 100);
     assert.equal(compareGeometry({ nodes: ref }, cand).coveragePct, 100);
+  });
+});
+
+describe("dump granularity", () => {
+  test("wrapper elements are not counted as missing nodes by the gate", () => {
+    // The web dump has `<article>` -> `<div>` -> `<h3>`; Compose has only the text leaf. Comparing
+    // the raw lists reports the wrappers as missing and the coverage as 0% for a correct layout —
+    // which is exactly what the first real 2x run showed (393 "missing" nodes, 0% coverage).
+    const dom = [
+      { text: null, role: "article", x: 0, y: 0, w: 200, h: 100 },
+      { text: null, role: "div", x: 0, y: 0, w: 200, h: 100 },
+      { text: "Album", role: "h3", x: 8, y: 8, w: 100, h: 20 },
+    ];
+    const cand = [{ text: "Album", role: "heading", x: 8, y: 8, w: 100, h: 20 }];
+    // Raw: one of the two wrappers happens to pair with the only candidate and "matches" at a
+    // different size, so the score is a misleading 33% rather than a telling 0%.
+    assert.equal(compareGeometry(dom, cand).coveragePct, 33.33, "the raw comparison is the trap");
+    const canonical = compareGeometry(dom, cand, { canonical: true });
+    assert.equal(canonical.coveragePct, 100);
+    assert.equal(canonical.refCount, 1);
+    assert.equal(canonical.rawRefCount, 3);
+  });
+
+  test("a node with no text and no test id is not an anchor", () => {
+    // Otherwise every layout div enters the comparison as an unmatched phantom.
+    const dom = [{ text: null, role: "presentation", x: 0, y: 0, w: 10, h: 10 }];
+    assert.equal(canonicalNodes(dom).length, 0);
+    assert.equal(canonicalNodes([{ text: null, testId: "play", x: 0, y: 0, w: 10, h: 10 }]).length, 1);
+    assert.equal(canonicalNodes([{ text: "  Hello   world ", role: "p" }])[0].text, "Hello world");
   });
 });
