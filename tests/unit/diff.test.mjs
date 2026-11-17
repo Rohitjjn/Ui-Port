@@ -492,6 +492,14 @@ describe("viewport clipping", () => {
     assert.match(source, /if \(\[\.\.\.el\.children\]\.some\(\(c\) => \(c\.innerText \?\? ""\)\.trim\(\)\)\) return null;/);
     // The block box still governs the vertical extent: the line box is what Compose reports.
     assert.match(source, /y: round\(r\.y\)/);
+    // A target keeps its hit area. The nav `<a>` is 64x65.94 with 56 dp of icon and label inside;
+    // measuring it as text collapsed the reference to 56 and unmatched all three nav rows, taking
+    // `home` from 33.33% back to 0 in run 44142920347.
+    assert.match(source, /if \(el\.matches\(SEMANTIC\)\) return null;/, "targets are boxes, not text runs");
+    assert.ok(
+      source.indexOf("const SEMANTIC") < source.indexOf("const textExtent"),
+      "SEMANTIC must be declared before the extent IIFE reads it, or the dump throws",
+    );
   });
 
   test("a container is not re-emitted as a copy of its own child", () => {

@@ -160,6 +160,10 @@ export const GEOMETRY_SCRIPT = () => {
     // measures only what is drawn. Only the horizontal extent is taken: the vertical box is the line
     // box, which is what Compose reports and what matched all along.
     const textExtent = (() => {
+      // A target is a box, not a text run: the nav `<a>` is a 64 dp tap area whose icon and label
+      // together span 56, and the "Log in" button is 36 dp tall with a 23 dp word inside. Measuring
+      // those as text shrank the reference below its own hit area and unmatched every one of them.
+      if (el.matches(SEMANTIC)) return null;
       if ([...el.children].some((c) => (c.innerText ?? "").trim())) return null;
       if (!(el.innerText ?? "").trim()) return null;
       const range = document.createRange();
