@@ -320,7 +320,10 @@ private fun CollectionSection(
                 text = title,
                 color = UiPortTokens.ink,
                 fontSize = UiPortTokens.sectionTitle,
-                lineHeight = 28.sp,
+                // `leading-tight` on 24px is 1.25em = 30px. At 28 the heading box is 2 dp short,
+                // which the gate reported as ref h=30 against cand h=32 and which also pushed
+                // every carousel 2 dp down.
+                lineHeight = 30.sp,
                 fontFamily = UiPortFonts.serif(),
             )
             if (action != null) {
@@ -333,6 +336,7 @@ private fun CollectionSection(
                 )
             }
         }
+        // `mb-3` on the header: 12 px between the heading block and the track.
         Spacer(Modifier.height(12.dp))
         content()
     }
