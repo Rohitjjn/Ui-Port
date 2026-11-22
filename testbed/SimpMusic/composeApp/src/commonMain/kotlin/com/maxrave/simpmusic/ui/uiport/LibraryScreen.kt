@@ -2,6 +2,7 @@ package com.maxrave.simpmusic.ui.uiport
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -52,6 +53,7 @@ import com.maxrave.simpmusic.ui.uiport.UiPortLayoutProbe.layoutProbe
 @Composable
 fun UiPortLibraryScreen(
     initialChip: String = "your_library",
+    onOpen: (String) -> Unit = {},
     tiles: List<UiPortFixtures.LibraryTile> = UiPortFixtures.libraryTiles,
     playlists: List<UiPortFixtures.Playlist> = UiPortFixtures.localPlaylists,
     savedAlbums: List<UiPortFixtures.Album> = UiPortFixtures.savedAlbums,
@@ -89,7 +91,7 @@ fun UiPortLibraryScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = UiPortTokens.pagePadding),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    items(playlists) { playlist -> PlaylistCard(playlist) }
+                    items(playlists) { playlist -> PlaylistCard(playlist, onOpen = onOpen) }
                     item { CreatePlaylistCard() }
                 }
             }
@@ -101,7 +103,7 @@ fun UiPortLibraryScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = UiPortTokens.pagePadding),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    items(savedAlbums) { album -> AlbumCard(album) }
+                    items(savedAlbums) { album -> AlbumCard(album, onOpen = onOpen) }
                 }
             }
 
@@ -112,7 +114,7 @@ fun UiPortLibraryScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = UiPortTokens.pagePadding),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    items(followedArtists) { artist -> ArtistCard(artist) }
+                    items(followedArtists) { artist -> ArtistCard(artist, onOpen = onOpen) }
                 }
             }
         }
@@ -357,10 +359,23 @@ private fun CreatePlaylistCard() {
     }
 }
 
-/** 150dp playlist card: cover, 14px medium title, 12px mute author (`mt-2.5`). */
+/**
+ * 150dp playlist card: cover, 14px medium title, 12px mute author (`mt-2.5`).
+ *
+ * The prototype's card is a `<button>` — `CardBase` — that navigates on click, and that matters to
+ * the comparison and not only to behaviour: the reference node for "Late Shift" is the whole
+ * 150x197.69 card, while a Column carrying no semantics produces only its 63.5x20 title run. The
+ * gate reported that as `d=(16,172,86.5,177.69)`, which reads as "the card is 172 dp too low" when
+ * the card was in the right place and the comparison simply had no card to compare against.
+ */
 @Composable
-private fun PlaylistCard(playlist: UiPortFixtures.Playlist) {
-    Column(modifier = Modifier.width(150.dp)) {
+private fun PlaylistCard(playlist: UiPortFixtures.Playlist, onOpen: (String) -> Unit = {}) {
+    Column(
+        modifier =
+            Modifier
+                .width(150.dp)
+                .clickable(role = Role.Button) { onOpen(playlist.id) },
+    ) {
         Box(
             modifier =
                 Modifier
@@ -392,8 +407,13 @@ private fun PlaylistCard(playlist: UiPortFixtures.Playlist) {
 }
 
 @Composable
-private fun AlbumCard(album: UiPortFixtures.Album) {
-    Column(modifier = Modifier.width(150.dp)) {
+private fun AlbumCard(album: UiPortFixtures.Album, onOpen: (String) -> Unit = {}) {
+    Column(
+        modifier =
+            Modifier
+                .width(150.dp)
+                .clickable(role = Role.Button) { onOpen(album.id) },
+    ) {
         Box(
             modifier =
                 Modifier
@@ -425,8 +445,14 @@ private fun AlbumCard(album: UiPortFixtures.Album) {
 
 /** `w-[128px]` card with a circular cover. */
 @Composable
-private fun ArtistCard(artist: UiPortFixtures.Artist) {
-    Column(modifier = Modifier.width(128.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+private fun ArtistCard(artist: UiPortFixtures.Artist, onOpen: (String) -> Unit = {}) {
+    Column(
+        modifier =
+            Modifier
+                .width(128.dp)
+                .clickable(role = Role.Button) { onOpen(artist.id) },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Box(
             modifier =
                 Modifier
