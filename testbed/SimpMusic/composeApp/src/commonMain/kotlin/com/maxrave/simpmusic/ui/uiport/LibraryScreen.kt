@@ -318,13 +318,16 @@ private fun CollectionSection(
         ) {
             Text(
                 text = title,
-                color = UiPortTokens.ink,
-                fontSize = UiPortTokens.sectionTitle,
-                // `leading-tight` on 24px is 1.25em = 30px. At 28 the heading box is 2 dp short,
-                // which the gate reported as ref h=30 against cand h=32 and which also pushed
-                // every carousel 2 dp down.
-                lineHeight = 30.sp,
-                fontFamily = UiPortFonts.serif(),
+                // `leading-tight` on 24px is 1.25em = 30px, and the style turns off Android's
+                // font padding: with it on, a 30 dp line measured 32 and every text row in the
+                // report carried a dh of about +2.
+                style =
+                    UiPortTextStyle(
+                        fontSize = UiPortTokens.sectionTitle,
+                        lineHeight = 30.sp,
+                        fontFamily = UiPortFonts.serif(),
+                        color = UiPortTokens.ink,
+                    ),
             )
             if (action != null) {
                 Text(

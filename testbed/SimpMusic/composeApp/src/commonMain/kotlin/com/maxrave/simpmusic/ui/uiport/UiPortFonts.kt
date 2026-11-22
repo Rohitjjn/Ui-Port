@@ -2,9 +2,13 @@ package com.maxrave.simpmusic.ui.uiport
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
 // org.jetbrains.compose.resources.Font, not androidx.compose.ui.text.font.Font: the
 // composeResources accessors (`Res.font.*`) are FontResource values and only this overload
 // accepts them. The androidx one takes a path + AssetManager and fails with "argument type
@@ -55,3 +59,36 @@ object UiPortFonts {
         return remember(regular, medium, semibold) { FontFamily(regular, medium, semibold) }
     }
 }
+
+/**
+ * Text style for the ported screens, with Android's legacy font padding turned off.
+ *
+ * This is a measured difference, not a preference. Compose's default `includeFontPadding = true`
+ * adds the font's ascent/descent slack above and below every line, so a 30 dp `lineHeight` measured
+ * 32 dp on screen and a 80 dp heading measured 82. The browser has no equivalent: Chromium's line
+ * box *is* the line-height, which is why every single text row in the report carried a `dh` of
+ * about +2 (home's "Good morning, Guest" 80 → 82, library's "Your playlists" 30 → 32, the chips'
+ * 17.39 → 17 on the short side). Turning the padding off is what makes a Compose line box
+ * comparable to a CSS one at all.
+ *
+ * Keeping it here rather than at 52 call sites means the next screen inherits it, and it is a single
+ * place to change if the assumption is ever wrong.
+ */
+@Composable
+fun UiPortTextStyle(
+    fontSize: TextUnit,
+    lineHeight: TextUnit,
+    fontFamily: FontFamily,
+    color: Color = Color.Unspecified,
+    fontWeight: FontWeight = FontWeight.Normal,
+    letterSpacing: TextUnit = TextUnit.Unspecified,
+): TextStyle =
+    TextStyle(
+        color = color,
+        fontSize = fontSize,
+        lineHeight = lineHeight,
+        fontFamily = fontFamily,
+        fontWeight = fontWeight,
+        letterSpacing = letterSpacing,
+        platformStyle = PlatformTextStyle(includeFontPadding = false),
+    )
