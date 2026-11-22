@@ -2,6 +2,7 @@ package com.maxrave.simpmusic.ui.uiport
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,12 +23,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.maxrave.simpmusic.ui.uiport.UiPortLayoutProbe.layoutProbe
@@ -45,13 +51,17 @@ import com.maxrave.simpmusic.ui.uiport.UiPortLayoutProbe.layoutProbe
  */
 @Composable
 fun UiPortLibraryScreen(
-    activeChip: String = "your_library",
+    initialChip: String = "your_library",
     tiles: List<UiPortFixtures.LibraryTile> = UiPortFixtures.libraryTiles,
     playlists: List<UiPortFixtures.Playlist> = UiPortFixtures.localPlaylists,
     savedAlbums: List<UiPortFixtures.Album> = UiPortFixtures.savedAlbums,
     followedArtists: List<UiPortFixtures.Artist> = UiPortFixtures.followedArtists,
     modifier: Modifier = Modifier,
 ) {
+    // The prototype's chips are `<button>`s that switch the filter; without state the parameter
+    // could never change, so the chips were inert boxes and the semantics dump emitted only the
+    // 19 dp text run inside them — reported against a 36 dp `h-9` reference as a 17 dp height error.
+    var activeChip by rememberSaveable { mutableStateOf(initialChip) }
     UiPortPhoneScaffold(activeRoute = "/library") {
         Column(
             modifier =
@@ -63,7 +73,7 @@ fun UiPortLibraryScreen(
             LibraryHeader()
 
             Spacer(Modifier.height(32.dp).layoutProbe("gap.chips"))
-            ChipRow(activeChip)
+            ChipRow(activeChip, onPick = { activeChip = it })
 
             // The chip row is `space-y-8` from the header and the grid is 32px below it.
             Spacer(Modifier.height(32.dp).layoutProbe("gap.tiles"))
@@ -177,7 +187,7 @@ private fun LibraryHeader() {
 
 /** `Chip`: h-9, px-4, 13px medium; active is ink on paper, inactive is charcoal on ivory. */
 @Composable
-private fun ChipRow(activeChip: String) {
+private fun ChipRow(activeChip: String, onPick: (String) -> Unit = {}) {
     LazyRow(
         modifier =
             Modifier
@@ -193,6 +203,7 @@ private fun ChipRow(activeChip: String) {
                         .height(36.dp)
                         .clip(RoundedCornerShape(percent = 50))
                         .background(if (active) UiPortTokens.ink else UiPortTokens.ivory)
+                        .selectable(selected = active, role = Role.Tab, onClick = { onPick(chip.id) })
                         .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center,
             ) {
