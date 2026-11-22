@@ -230,11 +230,22 @@ function bestBoxFor(ref, cand, tolerance) {
     Math.abs(box.w - refBox.w) <= tolerance &&
     Math.abs(box.h - refBox.h) <= tolerance;
   if (counts(own)) return own;
+  const boxes = [];
   for (const [i, box] of (cand.ancestors ?? []).entries()) {
     if (!box) continue;
-    const candidate = { x: box.x ?? 0, y: box.y ?? 0, w: box.w ?? 0, h: box.h ?? 0, source: `ancestor${i + 1}` };
-    if (counts(candidate)) return candidate;
+    boxes.push({ x: box.x ?? 0, y: box.y ?? 0, w: box.w ?? 0, h: box.h ?? 0, source: `ancestor${i + 1}` });
   }
+  for (const candidate of boxes) if (counts(candidate)) return candidate;
+  // Nothing matched, so report against the *closest* box rather than always the leaf.
+  //
+  // Returning `own` here made a correct shape look like a size error: the library chip is a 36 dp
+  // box with a 19 dp text run in it, and the chip sat 2.06 dp low. Measured as the text run that is
+  // "17 dp too short"; measured as the box it is "2 dp low". The first sends the next iteration
+  // after a height that is already right, and the second is the truth.
+  const deviation = (b) =>
+    Math.max(Math.abs(b.x - refBox.x), Math.abs(b.y - refBox.y), Math.abs(b.w - refBox.w), Math.abs(b.h - refBox.h));
+  const closest = boxes.reduce((best, b) => (best === null || deviation(b) < deviation(best) ? b : best), null);
+  if (closest && deviation(closest) < deviation(own)) return closest;
   return own;
 }
 

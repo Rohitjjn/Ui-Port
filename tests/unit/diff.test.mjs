@@ -576,3 +576,39 @@ describe("nested label matching", () => {
     assert.equal(compareGeometry(ref, cand, { canonical: true }).coveragePct, 0);
   });
 });
+
+describe("closest box, not always the leaf", () => {
+  test("a chip 2 dp low is not reported as 17 dp too short", () => {
+    // The library chip is a 36 dp box with a 19 dp text run inside it. The chip sat 2.06 dp low.
+    // Measured against the text run that is "17 dp too short", which sends the next iteration after
+    // a height that is already correct; measured against the box it is "2 dp low", which is true.
+    const ref = [{ text: "Your library", role: "button", x: 16, y: 107.94, w: 103.73, h: 36 }];
+    const cand = [
+      {
+        text: "Your library",
+        role: "node",
+        x: 32,
+        y: 118.5,
+        w: 73,
+        h: 19,
+        ancestors: [{ x: 16, y: 110, w: 105, h: 36 }],
+      },
+    ];
+    const c = compareGeometry(ref, cand, { toleranceDp: 1 });
+    assert.equal(c.mismatched.length, 1);
+    const row = c.mismatched[0];
+    assert.equal(row.matchedAgainst, "ancestor1", "the enclosing box is the honest comparison");
+    assert.equal(row.dy, 2.06);
+    assert.equal(row.dh, 0, "the height is right and must not be reported as an error");
+  });
+
+  test("an ancestor is not preferred when the leaf is genuinely closer", () => {
+    // Otherwise a label that is right would be dragged onto a container that is wrong.
+    const ref = [{ text: "Cached", role: "node", x: 85, y: 356.09, w: 51.61, h: 20.3 }];
+    const cand = [
+      { text: "Cached", role: "node", x: 85, y: 356.5, w: 51.5, h: 20, ancestors: [{ x: 16, y: 300, w: 174.5, h: 70 }] },
+    ];
+    const c = compareGeometry(ref, cand, { toleranceDp: 1 });
+    assert.equal(c.matched.length, 1, "the leaf matches within tolerance");
+  });
+});
