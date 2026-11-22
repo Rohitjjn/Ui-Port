@@ -83,12 +83,15 @@ fun UiPortLibraryScreen(
 
             Spacer(Modifier.height(UiPortTokens.sectionGap).layoutProbe("gap.playlists"))
             CollectionSection(title = "Your playlists", action = "See all", probe = "playlists") {
-                // The prototype's carousels are `-mx-4` + `px-4`: the track bleeds to the
-                // screen edge while the first card starts on the page inset, so the row is
-                // offset back by the page padding and then padded by it again.
+                // The prototype's carousels are `-mx-4` on the section and `px-4` on the track:
+                // the track bleeds to the screen edge and the padding restores the page inset
+                // *inside* it, so the first card starts at x=0 — flush with the screen edge, not
+                // with the page margin. Offsetting back by 16 and then padding by 16 cancels out
+                // and leaves the card at x=16, which the gate measured as a uniform `dx=16` on
+                // every card in all three carousels. The offset is the only part needed.
                 LazyRow(
                     modifier = Modifier.fillMaxWidth().offset(x = -UiPortTokens.pagePadding),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = UiPortTokens.pagePadding),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 0.dp, end = UiPortTokens.pagePadding),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     items(playlists) { playlist -> PlaylistCard(playlist, onOpen = onOpen) }
@@ -100,7 +103,7 @@ fun UiPortLibraryScreen(
             CollectionSection(title = "Saved albums", probe = "albums") {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth().offset(x = -UiPortTokens.pagePadding),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = UiPortTokens.pagePadding),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 0.dp, end = UiPortTokens.pagePadding),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     items(savedAlbums) { album -> AlbumCard(album, onOpen = onOpen) }
@@ -111,7 +114,7 @@ fun UiPortLibraryScreen(
             CollectionSection(title = "Followed artists", action = "See all", probe = "artists") {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth().offset(x = -UiPortTokens.pagePadding),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = UiPortTokens.pagePadding),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 0.dp, end = UiPortTokens.pagePadding),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     items(followedArtists) { artist -> ArtistCard(artist, onOpen = onOpen) }
