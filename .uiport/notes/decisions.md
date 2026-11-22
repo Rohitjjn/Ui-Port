@@ -218,3 +218,52 @@ this much work, and the honest reading is that most of it bought *diagnosis*, no
 remaining rows are now real port defects rather than the capture disagreeing with itself.
 
 **Status:** the capture is defensible for these three screens. `nowplaying` remains blocked on N-5.
+
+---
+
+## N-7. A thing you can click is a node — three times over
+
+**Asked** 2026-11-17, over `e64469e`..`0e141c8`.
+
+The same defect appeared three times on `library` and once on `home`, each time dressed differently:
+
+| Element | Prototype | Port had | Reported as |
+| --- | --- | --- | --- |
+| nav item | `<a>` 64x65.94 | bare `Text` 34.5x16 | `d dy=41.94 dh=49.94` |
+| filter chip | `<button class="h-9">` | inert 36 dp `Box` | `dh=17` on a correct height |
+| playlist card | `<button>` 150x197.69 | inert `Column` | `dy=172.06` on a correctly placed card |
+| album / artist card | `<button>` | inert `Column` | same |
+
+The dump emits a node only when it carries text, a content description or a testId, and an unmerged
+Compose tree does not fold a child's text into its parent. So a container with a role and a child
+`Text` produces *only the child*, and the comparator then measures a label against a card.
+
+**The lesson worth keeping:** in all four cases the port had made something inert that the prototype
+made clickable. A `clickable`/`selectable` is not a semantic nicety added to please the gate — it is
+the behaviour the screen was supposed to have, and the gate noticed its absence because a clickable
+target and a text run are different shapes.
+
+**Measured effect of the card fix alone:** `dy` on both playlist cards fell from 172.06 to 12.06 with
+`dw=dh≈0`, which finally made the 16 dp carousel offset visible. Fixing that offset (`0e141c8`) moved
+`library` pixel **87.6415 → 88.6675** (+1.026) and SSIM **0.5821 → 0.6075** — the largest single
+improvement in the whole port so far, and it came from a 1-line padding change that was invisible
+until the cards had a box to measure.
+
+## N-8. The +2 dp text box, and a failed first attempt
+
+Every text row carries `dh ≈ +2`: `"Good morning, Guest"` ref 80 / cand 82, `"Your playlists"` ref 30
+/ cand 32, `"Late Shift"` dh 0.69 on a 197.69 box. Compose's default `includeFontPadding = true` adds
+the font's ascent/descent slack; Chromium's line box is the line-height. That explains it, and it is
+worth fixing.
+
+**Attempted and reverted (`bfd00bc` → `449af33`).** A `UiPortTextStyle` helper setting
+`PlatformTextStyle(includeFontPadding = false)` compiled and then broke the renderer:
+`:uiPortRoborazzi:testDebugUnitTest` failed and all three screens reported `missing-candidate` — the
+port stopped being measured entirely. The exception could not be read, because the job's ten-notice
+budget is consumed by gradle output before the `What went wrong` block and `gh run view --log` returns
+empty here.
+
+**Status:** open, with the mechanism identified but unproven. The next attempt must be able to
+*confirm* the fix independently — dumping one known text box in a test assertion, so a
+`missing-candidate` cannot hide behind an unreadable log — before it is spread over 52 call sites.
+Reverting was the right call over iterating blind: an unmeasured screen is worse than a 2 dp one.
