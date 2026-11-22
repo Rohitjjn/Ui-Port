@@ -187,3 +187,34 @@ player is not.
 
 **Status:** open. `nowplaying` cannot be scored meaningfully until this is decided — its 0% is
 currently a measurement of the wrong screen, not a port defect.
+
+---
+
+## N-6. Seven ways the reference was wrong, and what each one cost
+
+**Asked** 2026-11-17, over `065737e`..`a8a905d`.
+
+Chasing `library`'s "nothing matches" turned into a list of defects on the *measuring* side. Each was
+found by a row that did not make sense, and each is now a test.
+
+| Defect | Effect on the reference | Found by |
+| --- | --- | --- |
+| Occluded nodes counted | `nowplaying` compared 55 nodes, 43 hidden under the overlay | 55 vs 14 with no way to pass |
+| Decorative wrapper is a node | `"Most played 10 items"` — one string from two spans | same text, no candidate, 22 of 44 rows |
+| Container re-announces its child | 11 of 33 nodes were duplicates of their own children | `ref=33` for a screen with 22 labels |
+| Semantic container named by concatenation | 8 tiles "missing" while all 8 rendered | `"Most played 10 items" ref[16,257.94 174.5x70]` |
+| Block box measured as text | every `<span class="block">` looked 40 dp too wide | `"4 items" ref w=83.97` vs `cand 42.5` |
+| ...then applied to targets | all three nav rows broke; `home` 33.33% → 0 | run `44142920347`, whole screen at 0 |
+| Leaf box used when no box matched | a 2 dp chip read as a 17 dp height error | `d=(17.27,10.56,30.47,17)` on a 36 dp chip |
+
+**The one that cost a run:** applying the text-extent rule to buttons and links collapsed the nav
+`<a>` from 64 to 56 dp and took all three screens to 0%. It was reverted within one commit. The rule
+that survives is the one the duplicate check already used — a target is a box, a text run is text —
+and the test now asserts `SEMANTIC` is declared *before* the extent IIFE reads it, because a
+temporal-dead-zone throw there would have taken the whole dump down silently.
+
+**Net effect on the numbers:** `library` 9.09% → 11.54%, `home` 33.33% held. That is a small move for
+this much work, and the honest reading is that most of it bought *diagnosis*, not score: the
+remaining rows are now real port defects rather than the capture disagreeing with itself.
+
+**Status:** the capture is defensible for these three screens. `nowplaying` remains blocked on N-5.
