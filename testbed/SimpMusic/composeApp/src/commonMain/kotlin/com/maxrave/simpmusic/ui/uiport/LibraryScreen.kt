@@ -81,7 +81,12 @@ fun UiPortLibraryScreen(
             Spacer(Modifier.height(32.dp).layoutProbe("gap.tiles"))
             TileGrid(tiles)
 
-            Spacer(Modifier.height(UiPortTokens.sectionGap).layoutProbe("gap.playlists"))
+            // `space-y-8` on the page wrapper: every gap between sections is 32 dp, not the 40 dp
+            // `sectionGap` token. The reference proves it arithmetically — three 70 dp tile rows
+            // with two 12 dp gaps end at y=409.94, and "Your playlists" starts at 441.94, which is
+            // exactly 32 later. The 8 dp excess plus the 2 dp font padding is the 10.06 the gate
+            // reported on the heading, and it propagated to every card below it.
+            Spacer(Modifier.height(32.dp).layoutProbe("gap.playlists"))
             CollectionSection(title = "Your playlists", action = "See all", probe = "playlists") {
                 // The prototype's carousels are `-mx-4` on the section and `px-4` on the track:
                 // the track bleeds to the screen edge and the padding restores the page inset
@@ -99,7 +104,7 @@ fun UiPortLibraryScreen(
                 }
             }
 
-            Spacer(Modifier.height(UiPortTokens.sectionGap).layoutProbe("gap.albums"))
+            Spacer(Modifier.height(32.dp).layoutProbe("gap.albums"))
             CollectionSection(title = "Saved albums", probe = "albums") {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth().offset(x = -UiPortTokens.pagePadding),
@@ -110,7 +115,7 @@ fun UiPortLibraryScreen(
                 }
             }
 
-            Spacer(Modifier.height(UiPortTokens.sectionGap).layoutProbe("gap.artists"))
+            Spacer(Modifier.height(32.dp).layoutProbe("gap.artists"))
             CollectionSection(title = "Followed artists", action = "See all", probe = "artists") {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth().offset(x = -UiPortTokens.pagePadding),
