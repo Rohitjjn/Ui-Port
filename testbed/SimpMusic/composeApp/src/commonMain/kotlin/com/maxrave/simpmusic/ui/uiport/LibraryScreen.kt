@@ -101,7 +101,7 @@ fun UiPortLibraryScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     items(playlists) { playlist -> PlaylistCard(playlist, onOpen = onOpen) }
-                    item { CreatePlaylistCard() }
+                    item { CreatePlaylistCard(onCreate = { onOpen("new-playlist") }) }
                 }
             }
 
@@ -367,13 +367,16 @@ private fun CollectionSection(
 
 /** `border border-dashed border-sand` placeholder at the end of the playlists carousel. */
 @Composable
-private fun CreatePlaylistCard() {
+private fun CreatePlaylistCard(onCreate: () -> Unit = {}) {
+    // A `<button>` in the prototype, like every other card: without a click its only node is the
+    // "Create" label, which the gate reported as missing while the card was on screen.
     Column(
         modifier =
             Modifier
                 .size(150.dp)
                 .clip(RoundedCornerShape(UiPortTokens.radiusSm))
-                .border(1.dp, UiPortTokens.sand, RoundedCornerShape(UiPortTokens.radiusSm)),
+                .border(1.dp, UiPortTokens.sand, RoundedCornerShape(UiPortTokens.radiusSm))
+                .clickable(role = Role.Button) { onCreate() },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
