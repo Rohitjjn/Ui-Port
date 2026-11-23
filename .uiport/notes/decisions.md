@@ -305,3 +305,41 @@ Also in this stretch:
 **Net:** `library` pixel 87.6415 -> 89.0727, SSIM 0.5821 -> 0.6307, geometry coverage 9.09% -> 11.54%
 over the whole stretch (nine commits). The pixel and SSIM gains are real; the coverage gain is small
 because most remaining rows are 2-5 dp out rather than 172 dp out, and the gate is a 1 dp threshold.
+
+---
+
+## N-10. The clip was real, and testing it cost one run
+
+**Asked** 2026-11-17, over `bab5daa`..`c0c9047`.
+
+N-9 ended with a theory about why the "Create" label was missing and an explicit statement that no run
+had tested it. This is the test.
+
+**Prediction, written into the commit:** the track's clip moves from 361 to 393 dp, so the label at
+386.55 gets drawn and library's candidate node count rises by one.
+
+**Result:** `cand` 29 → 30, `missing` → **0** (the first time any screen has reported zero missing), and
+the row appeared at `cand[386.5,594]` — `dx=0.05`, as close to exact as a 1 dp gate reports.
+
+The mechanism: `Modifier.offset` moves a box without widening it, so a track inside a 16 dp-padded
+Column stays 361 wide however far it is shifted, and its clip stays at 361. The prototype's `-mx-4`
+cancels the inset on the *section*, and `fillMaxWidth` then resolves against a full-width parent. The
+port now mirrors that: the scroll Column carries vertical padding only, the header/chips/tiles sit in
+an inner padded Column, and each carousel is a full-width track with the inset restored as content
+padding.
+
+## N-11. Clipped text: the reference measured what the screenshot does not contain
+
+**Asked** 2026-11-17, same run.
+
+With the label finally drawn it reported `dw=34.39` — 40.89 wide in the DOM against 6.5 on the
+candidate. The label starts at 386.55 and the viewport ends at 393, so only 6.45 dp of it is visible;
+Compose reports that sliver and Chromium's range rects report the full layout width regardless.
+
+The capture now clamps a text run's extent to the viewport as well as to its element box. `dw` fell
+from 34.39 to **0.05**. This is the third instance of one rule, and it is worth stating once:
+
+> Compare what the screenshot shows, not what the DOM contains.
+
+The viewport clip (below-fold nodes), the occlusion test (nodes under the player), and this clamp
+(nodes past the edge) are the same rule applied to height, depth and width.
