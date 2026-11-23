@@ -457,7 +457,7 @@ private fun ArtistCard(artist: UiPortFixtures.Artist) {
 
 /** `TrackRow`: 48px cover, `py-2`, title 15/13, duration in the subtitle line. */
 @Composable
-private fun TrackRow(
+internal fun TrackRow(
     index: Int,
     track: UiPortFixtures.Track,
 ) {

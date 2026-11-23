@@ -58,6 +58,7 @@ fun UiPortLibraryScreen(
     playlists: List<UiPortFixtures.Playlist> = UiPortFixtures.localPlaylists,
     savedAlbums: List<UiPortFixtures.Album> = UiPortFixtures.savedAlbums,
     followedArtists: List<UiPortFixtures.Artist> = UiPortFixtures.followedArtists,
+    recentlyAdded: List<UiPortFixtures.Track> = UiPortFixtures.recentlyAddedTracks,
     modifier: Modifier = Modifier,
 ) {
     // The prototype's chips are `<button>`s that switch the filter; without state the parameter
@@ -105,6 +106,18 @@ fun UiPortLibraryScreen(
             }
 
             Spacer(Modifier.height(32.dp).layoutProbe("gap.albums"))
+            // The prototype has four sections here, not three, and this was the missing one:
+            // `<section><SectionHeader title="Recently added"/>{recentlyAdded.slice(0,5)}</section>`
+            // between the playlists carousel and the saved albums. Its absence was reported for
+            // several runs as `"Recently added" ... has no candidate node` with a reference box at
+            // y=721.63 — the *tile* whose label happens to share the words, 500 dp away.
+            CollectionSection(title = "Recently added", probe = "recent") {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    recentlyAdded.take(5).forEachIndexed { index, track -> TrackRow(index = index, track = track) }
+                }
+            }
+
+            Spacer(Modifier.height(32.dp).layoutProbe("gap.savedAlbums"))
             CollectionSection(title = "Saved albums", probe = "albums") {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth().offset(x = -UiPortTokens.pagePadding),

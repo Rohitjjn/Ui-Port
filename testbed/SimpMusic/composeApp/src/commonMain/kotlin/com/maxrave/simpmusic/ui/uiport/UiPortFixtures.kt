@@ -92,6 +92,22 @@ object UiPortFixtures {
             Album("al10", "Postcard From Nowhere", listOf("Marlowe & Sons"), 2025, "Single", "A single.", 1),
         ).associateBy { it.id }
 
+    /**
+     * `recentlyAdded` as the prototype seeds it: `["t31", "t13", "t21"]` (`libraryStore.ts:62`).
+     *
+     * Taken from `mockData.ts` rather than invented — t31 "Evensong" 221s palette 12, t13 "Fragment
+     * VII" 182s palette 10, t21 "Sunday Hands" 215s palette 11. Note `tracks["t31"]` above says
+     * "Lantern Season" 191s, which is the drift N-2 records: the hand-written fixture map and the
+     * prototype's data disagree, and the map is wrong. This list uses the prototype's values, and
+     * that entry should be corrected to match when the fixture map is next regenerated.
+     */
+    val recentlyAddedTracks: List<Track> =
+        listOf(
+            Track("t31", "Evensong", "Wren Hollis", 221, 12),
+            Track("t13", "Fragment VII", "Ilse Varga", 182, 10),
+            Track("t21", "Sunday Hands", "Cassius Reed", 215, 11),
+        )
+
     val tracks: Map<String, Track> =
         listOf(
             Track("t18", "Velvet Hour", "Cassius Reed", 214, 4),
