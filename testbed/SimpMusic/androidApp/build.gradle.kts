@@ -104,6 +104,21 @@ android {
             isMinifyEnabled = false
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
+            // A universal APK as well as the per-ABI ones.
+            //
+            // The release block has always had this; debug did not, so the debug artifact a
+            // reviewer downloads is four files and the question "which one do I install" has no
+            // answer in the file names. A universal APK installs anywhere, and on a device without
+            // the referenced ABI it fails at install time with a clear reason rather than silently
+            // picking a 0-byte native library.
+            splits {
+                abi {
+                    isEnable = true
+                    reset()
+                    isUniversalApk = true
+                    include(*abis)
+                }
+            }
         }
     }
     compileOptions {

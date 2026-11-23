@@ -84,7 +84,16 @@ jobs:
         if: success()
         run: |
           set -e
-          apk=$(ls androidApp/build/outputs/apk/debug/*.apk | head -1)
+          ls -l androidApp/build/outputs/apk/debug/*.apk
+          # Prefer the universal APK: it is the one a person can install without knowing their
+          # device's ABI, so it is the one the deliverable points at.
+          apk=$(ls androidApp/build/outputs/apk/debug/*universal*.apk 2>/dev/null | head -1)
+          if [ -z "$apk" ]; then
+            echo "::warning title=apk::no universal APK was produced; verifying the first per-ABI APK instead"
+            apk=$(ls androidApp/build/outputs/apk/debug/*.apk | head -1)
+          else
+            echo "::notice title=apk::universal APK found: $(basename "$apk")"
+          fi
           echo "apk: $apk"
           ls -l "$apk"
           echo "sha256: $(sha256sum "$apk" | cut -d" " -f1)"
@@ -105,6 +114,7 @@ jobs:
             exit 1
           }
           echo "::notice title=apk verified::$(basename "$apk") contains the ported UI and its fonts"
+          echo "::notice title=apk files::$(basename -a androidApp/build/outputs/apk/debug/*.apk | tr '\n' ' ')"
 
       - name: Upload APK
         if: success()
