@@ -72,7 +72,7 @@ fun UiPortLibraryScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = UiPortTokens.pagePadding, vertical = UiPortTokens.mainPadding),
         ) {
-            LibraryHeader()
+            LibraryHeader(onCreatePlaylist = { onOpen("new-playlist") })
 
             Spacer(Modifier.height(32.dp).layoutProbe("gap.chips"))
             ChipRow(activeChip, onPick = { activeChip = it })
@@ -131,7 +131,7 @@ fun UiPortLibraryScreen(
 
 /** `header`: kicker + 32px serif title on the left, a `size="sm"` button on the right. */
 @Composable
-private fun LibraryHeader() {
+private fun LibraryHeader(onCreatePlaylist: () -> Unit = {}) {
     Row(
         modifier =
             Modifier
@@ -166,12 +166,17 @@ private fun LibraryHeader() {
                 fontFamily = UiPortFonts.serif(),
             )
         }
+        // `Button size="sm"`: `h-9 px-4 rounded-full`, and a `<button>` in the prototype. Without a
+        // click this is a 36 dp Row whose only emitted node is the 13px label, which the gate read
+        // as an inert 77x19 text run against a 131.5x36 button — the fourth instance of the
+        // clickable-is-a-node pattern (N-7).
         Row(
             modifier =
                 Modifier
                     .height(36.dp)
                     .clip(RoundedCornerShape(percent = 50))
                     .background(UiPortTokens.ivory)
+                    .clickable(role = Role.Button) { onCreatePlaylist() }
                     .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
