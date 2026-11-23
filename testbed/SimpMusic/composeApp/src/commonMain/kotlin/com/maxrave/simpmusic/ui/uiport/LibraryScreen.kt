@@ -370,10 +370,17 @@ private fun CollectionSection(
 private fun CreatePlaylistCard(onCreate: () -> Unit = {}) {
     // A `<button>` in the prototype, like every other card: without a click its only node is the
     // "Create" label, which the gate reported as missing while the card was on screen.
+    //
+    // Height is 197, not 150. The class list says `aspect-square`, but the button is a flex child of
+    // the carousel and the carousel's default `align-items: stretch` makes it as tall as the tallest
+    // sibling — the 150 + 10 + 20 + 17 = 197 dp playlist card. The reference proves it: its label
+    // sits at y=588.36, which is 483.94 + 74.43 + 30, i.e. vertically centred in a 197.69 box, not in
+    // a square. Compose's LazyRow does not stretch items, so the height has to be stated.
     Column(
         modifier =
             Modifier
-                .size(150.dp)
+                .width(150.dp)
+                .height(197.dp)
                 .clip(RoundedCornerShape(UiPortTokens.radiusSm))
                 .border(1.dp, UiPortTokens.sand, RoundedCornerShape(UiPortTokens.radiusSm))
                 .clickable(role = Role.Button) { onCreate() },
