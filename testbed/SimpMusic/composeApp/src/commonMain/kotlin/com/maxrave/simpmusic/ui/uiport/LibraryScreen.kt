@@ -95,8 +95,17 @@ fun UiPortLibraryScreen(
                 // with the page margin. Offsetting back by 16 and then padding by 16 cancels out
                 // and leaves the card at x=16, which the gate measured as a uniform `dx=16` on
                 // every card in all three carousels. The offset is the only part needed.
+                // `-mx-4` widens the track as well as shifting it: the section cancels the page's
+                // 16 dp inset on both sides, so the track is the full 393 dp viewport, not
+                // 393 - 32. `offset` alone only moves the box — its clip stays at 361 dp, and the
+                // "Create" card at 332..482 then had its label clipped away even though the card
+                // itself was laid out. `fillMaxWidth` inside a padded parent resolves to the
+                // parent's *content* width, so the width has to be stated.
                 LazyRow(
-                    modifier = Modifier.fillMaxWidth().offset(x = -UiPortTokens.pagePadding),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .offset(x = -UiPortTokens.pagePadding),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 0.dp, end = UiPortTokens.pagePadding),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
@@ -119,8 +128,17 @@ fun UiPortLibraryScreen(
 
             Spacer(Modifier.height(32.dp).layoutProbe("gap.savedAlbums"))
             CollectionSection(title = "Saved albums", probe = "albums") {
+                // `-mx-4` widens the track as well as shifting it: the section cancels the page's
+                // 16 dp inset on both sides, so the track is the full 393 dp viewport, not
+                // 393 - 32. `offset` alone only moves the box — its clip stays at 361 dp, and the
+                // "Create" card at 332..482 then had its label clipped away even though the card
+                // itself was laid out. `fillMaxWidth` inside a padded parent resolves to the
+                // parent's *content* width, so the width has to be stated.
                 LazyRow(
-                    modifier = Modifier.fillMaxWidth().offset(x = -UiPortTokens.pagePadding),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .offset(x = -UiPortTokens.pagePadding),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 0.dp, end = UiPortTokens.pagePadding),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
@@ -130,8 +148,17 @@ fun UiPortLibraryScreen(
 
             Spacer(Modifier.height(32.dp).layoutProbe("gap.artists"))
             CollectionSection(title = "Followed artists", action = "See all", probe = "artists") {
+                // `-mx-4` widens the track as well as shifting it: the section cancels the page's
+                // 16 dp inset on both sides, so the track is the full 393 dp viewport, not
+                // 393 - 32. `offset` alone only moves the box — its clip stays at 361 dp, and the
+                // "Create" card at 332..482 then had its label clipped away even though the card
+                // itself was laid out. `fillMaxWidth` inside a padded parent resolves to the
+                // parent's *content* width, so the width has to be stated.
                 LazyRow(
-                    modifier = Modifier.fillMaxWidth().offset(x = -UiPortTokens.pagePadding),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .offset(x = -UiPortTokens.pagePadding),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 0.dp, end = UiPortTokens.pagePadding),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
@@ -212,6 +239,7 @@ private fun LibraryHeader(onCreatePlaylist: () -> Unit = {}) {
         }
     }
 }
+
 
 /** `Chip`: h-9, px-4, 13px medium; active is ink on paper, inactive is charcoal on ivory. */
 @Composable
