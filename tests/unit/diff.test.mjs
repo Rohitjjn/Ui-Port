@@ -502,6 +502,16 @@ describe("viewport clipping", () => {
     );
   });
 
+  test("a text run is clamped to the viewport, like the candidate's is", () => {
+    // Chromium's range rects report a text run's full layout width even when the glyphs are cut off
+    // at the scroll container's edge; Compose reports only the visible sliver. The "Create" label
+    // is 40.89 dp wide in the DOM and 6.5 dp on the candidate — a 34 dp error on a label that is
+    // exactly where the reference puts it.
+    const source = GEOMETRY_SCRIPT.toString();
+    assert.match(source, /const left = Math\.max\(Math\.min\(\.\.\.rects\.map\(\(q\) => q\.left\)\), r\.left, 0\)/);
+    assert.match(source, /const right = Math\.min\(Math\.max\(\.\.\.rects\.map\(\(q\) => q\.right\)\), r\.right, vw\)/);
+  });
+
   test("a container is not re-emitted as a copy of its own child", () => {
     // `<button><span>Most played</span><span>10 items</span></button>` put "Most played" in the
     // reference twice — once as the 174.5x70 button, once as the 81.86x20.3 span — while the port

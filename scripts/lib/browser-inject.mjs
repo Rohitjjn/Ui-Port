@@ -170,8 +170,14 @@ export const GEOMETRY_SCRIPT = () => {
       range.selectNodeContents(el);
       const rects = [...range.getClientRects()].filter((q) => q.width > 0.5 && q.height > 0.5);
       if (!rects.length) return null;
-      const left = Math.max(Math.min(...rects.map((q) => q.left)), r.left);
-      const right = Math.min(Math.max(...rects.map((q) => q.right)), r.right);
+      // Clamp to the element's box *and* to the viewport. Compose clips a text run at the
+      // scroll container's edge and reports the visible sliver; Chromium's range rects report the
+      // full layout width even when the glyphs are cut off. Without the viewport clamp the two
+      // sides measure different things: the "Create" card's label is 40.89 dp wide in the DOM and
+      // 6.5 dp on the candidate, because 386.55 + 40.89 is past the 393 edge and only the last
+      // 6.45 dp is drawn. A 34 dp width error on a correctly placed label is worse than no row.
+      const left = Math.max(Math.min(...rects.map((q) => q.left)), r.left, 0);
+      const right = Math.min(Math.max(...rects.map((q) => q.right)), r.right, vw);
       return right - left > 0.5 ? { left, right } : null;
     })();
     const role = el.getAttribute("role") ?? el.tagName.toLowerCase();
