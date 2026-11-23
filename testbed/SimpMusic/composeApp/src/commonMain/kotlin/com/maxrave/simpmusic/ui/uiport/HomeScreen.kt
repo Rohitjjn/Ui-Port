@@ -58,9 +58,10 @@ fun UiPortHomeScreen(
     shelves: List<UiPortFixtures.Shelf> = UiPortFixtures.homeShelves,
     featured: UiPortFixtures.Album = UiPortFixtures.featuredAlbum,
     signedIn: Boolean = false,
+    onNavigate: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    UiPortPhoneScaffold(activeRoute = "/") {
+    UiPortPhoneScaffold(activeRoute = "/", onNavigate = onNavigate) {
         Column(
             modifier =
                 modifier

@@ -41,6 +41,7 @@ import com.maxrave.media3.di.setServiceActivitySession
 import com.maxrave.simpmusic.di.viewModelModule
 import com.maxrave.simpmusic.service.rss.RssFeedNotifyWork
 import com.maxrave.simpmusic.service.test.notification.NotifyWork
+import com.maxrave.simpmusic.ui.uiport.UiPortApp
 import com.maxrave.simpmusic.utils.ComposeResUtils
 import com.maxrave.simpmusic.utils.VersionManager
 import com.maxrave.simpmusic.viewModel.SharedViewModel
@@ -272,7 +273,16 @@ class MainActivity : AppCompatActivity() {
 
         if (!BuildConfig.DEBUG) viewModel.checkOfficialBuild(packageName, signingCertSha256())
         setContent {
-            App(viewModel)
+            // The ported UI is what a debug build opens, because that is the point of this
+            // test bed: the APK exists to see and judge the port. The original app is one
+            // intent extra away (`--ez uiport false`), which keeps the comparison honest -
+            // the port can be put beside the thing it is a port of, on the same device, from
+            // the same build. A release build is unchanged and never shows the port.
+            if (BuildConfig.DEBUG && intent?.getBooleanExtra("uiport", true) != false) {
+                UiPortApp()
+            } else {
+                App(viewModel)
+            }
         }
     }
 

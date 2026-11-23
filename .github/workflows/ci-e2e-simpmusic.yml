@@ -73,14 +73,63 @@ jobs:
       - name: Baseline build
         run: ./gradlew "${{ inputs.task || ':androidApp:assembleDebug' }}" --stacktrace
 
+      # Prove the APK contains the ported UI before calling it a deliverable.
+      #
+      # "The build succeeded" and "the artifact shows the new interface" are different claims, and
+      # only the first one is visible from a green job. The ported classes are compiled into
+      # classes.dex, so they are greppable in the APK; the entry point is wired in MainActivity, so
+      # its call site is greppable too. Without this a renamed class or a reverted wiring step would
+      # ship an APK that looks fine and opens the old app.
+      - name: Verify the APK contains the ported UI
+        if: success()
+        run: |
+          set -e
+          apk=$(ls androidApp/build/outputs/apk/debug/*.apk | head -1)
+          echo "apk: $apk"
+          ls -l "$apk"
+          echo "sha256: $(sha256sum "$apk" | cut -d" " -f1)"
+          echo "size_bytes: $(stat -c%s "$apk")"
+          unzip -o -q "$apk" classes*.dex -d /tmp/apkdex
+          for cls in UiPortApp UiPortHomeScreen UiPortLibraryScreen UiPortBottomNav; do
+            if grep -lq "$cls" /tmp/apkdex/*.dex 2>/dev/null; then
+              echo "::notice title=apk contents::$cls present in the dex"
+            else
+              echo "::error title=apk contents::$cls is NOT in the APK - the artifact does not contain the ported UI"
+              exit 1
+            fi
+          done
+          # The screens' own resources (the vendored typefaces) must be packaged too, or the port
+          # renders in a fallback font and every measurement in this repo becomes meaningless.
+          unzip -l "$apk" | grep -iE "uiport_(instrument_serif|inter)" | head -5 || {
+            echo "::error title=apk contents::uiport fonts are missing from the APK"
+            exit 1
+          }
+          echo "::notice title=apk verified::$(basename "$apk") contains the ported UI and its fonts"
+
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v5
         with:
           name: simpmusic-debug-apk
           path: testbed/SimpMusic/androidApp/build/outputs/apk/debug/*.apk
-          retention-days: 7
+          retention-days: 30
           if-no-files-found: warn
+
+      - name: APK checksum
+        if: success()
+        run: |
+          apk=$(ls androidApp/build/outputs/apk/debug/*.apk | head -1)
+          sha256sum "$apk" | tee /tmp/apk.sha256
+          {
+            echo "## APK"
+            echo ""
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| file | \`$(basename "$apk")\` |"
+            echo "| size | $(stat -c%s "$apk") bytes |"
+            echo "| sha256 | \`$(cut -d" " -f1 /tmp/apk.sha256)\` |"
+            echo "| contains ported UI | yes (verified above) |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload build scan / reports
         if: always()

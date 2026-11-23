@@ -201,10 +201,14 @@ fun UiPortLoginBanner(modifier: Modifier = Modifier) {
 @Composable
 fun UiPortPhoneScaffold(
     activeRoute: String = "/",
+    // Defaulted so every screenshot test keeps rendering a single screen exactly as before;
+    // the app passes a real router through it, which is what makes the bar navigate without
+    // the bar needing to know which screen it is standing on.
+    onNavigate: (String) -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().background(UiPortTokens.paper)) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) { content() }
-        UiPortBottomNav(activeRoute = activeRoute)
+        UiPortBottomNav(activeRoute = activeRoute, onNavigate = onNavigate)
     }
 }

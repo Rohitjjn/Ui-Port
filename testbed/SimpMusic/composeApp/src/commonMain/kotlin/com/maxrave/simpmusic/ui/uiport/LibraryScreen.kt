@@ -54,6 +54,7 @@ import com.maxrave.simpmusic.ui.uiport.UiPortLayoutProbe.layoutProbe
 fun UiPortLibraryScreen(
     initialChip: String = "your_library",
     onOpen: (String) -> Unit = {},
+    onNavigate: (String) -> Unit = {},
     tiles: List<UiPortFixtures.LibraryTile> = UiPortFixtures.libraryTiles,
     playlists: List<UiPortFixtures.Playlist> = UiPortFixtures.localPlaylists,
     savedAlbums: List<UiPortFixtures.Album> = UiPortFixtures.savedAlbums,
@@ -65,7 +66,7 @@ fun UiPortLibraryScreen(
     // could never change, so the chips were inert boxes and the semantics dump emitted only the
     // 19 dp text run inside them — reported against a 36 dp `h-9` reference as a 17 dp height error.
     var activeChip by rememberSaveable { mutableStateOf(initialChip) }
-    UiPortPhoneScaffold(activeRoute = "/library") {
+    UiPortPhoneScaffold(activeRoute = "/library", onNavigate = onNavigate) {
         // Horizontal padding is applied per section, not here.
         //
         // The prototype's carousels are `-mx-4` on the section and `px-4` on the track: the track
