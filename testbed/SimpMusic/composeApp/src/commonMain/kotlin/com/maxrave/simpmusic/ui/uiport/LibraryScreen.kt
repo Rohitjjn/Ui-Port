@@ -66,21 +66,31 @@ fun UiPortLibraryScreen(
     // 19 dp text run inside them — reported against a 36 dp `h-9` reference as a 17 dp height error.
     var activeChip by rememberSaveable { mutableStateOf(initialChip) }
     UiPortPhoneScaffold(activeRoute = "/library") {
+        // Horizontal padding is applied per section, not here.
+        //
+        // The prototype's carousels are `-mx-4` on the section and `px-4` on the track: the track
+        // spans the whole 393 dp viewport and restores the page inset *inside* itself, so the first
+        // card starts flush at x=0. Padding the scroll container instead makes every child resolve
+        // to a 361 dp content width, and no amount of `offset` widens it again — the clip stays at
+        // 361, which is what cut the "Create" card's label away at x=386.55 while the card itself
+        // sat at exactly the reference's position.
         Column(
             modifier =
                 modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = UiPortTokens.pagePadding, vertical = UiPortTokens.mainPadding),
+                    .padding(vertical = UiPortTokens.mainPadding),
         ) {
-            LibraryHeader(onCreatePlaylist = { onOpen("new-playlist") })
+            Column(modifier = Modifier.padding(horizontal = UiPortTokens.pagePadding)) {
+                LibraryHeader(onCreatePlaylist = { onOpen("new-playlist") })
 
-            Spacer(Modifier.height(32.dp).layoutProbe("gap.chips"))
-            ChipRow(activeChip, onPick = { activeChip = it })
+                Spacer(Modifier.height(32.dp).layoutProbe("gap.chips"))
+                ChipRow(activeChip, onPick = { activeChip = it })
 
-            // The chip row is `space-y-8` from the header and the grid is 32px below it.
-            Spacer(Modifier.height(32.dp).layoutProbe("gap.tiles"))
-            TileGrid(tiles)
+                // The chip row is `space-y-8` from the header and the grid is 32px below it.
+                Spacer(Modifier.height(32.dp).layoutProbe("gap.tiles"))
+                TileGrid(tiles)
+            }
 
             // `space-y-8` on the page wrapper: every gap between sections is 32 dp, not the 40 dp
             // `sectionGap` token. The reference proves it arithmetically — three 70 dp tile rows
@@ -89,23 +99,12 @@ fun UiPortLibraryScreen(
             // reported on the heading, and it propagated to every card below it.
             Spacer(Modifier.height(32.dp).layoutProbe("gap.playlists"))
             CollectionSection(title = "Your playlists", action = "See all", probe = "playlists") {
-                // The prototype's carousels are `-mx-4` on the section and `px-4` on the track:
-                // the track bleeds to the screen edge and the padding restores the page inset
-                // *inside* it, so the first card starts at x=0 — flush with the screen edge, not
-                // with the page margin. Offsetting back by 16 and then padding by 16 cancels out
-                // and leaves the card at x=16, which the gate measured as a uniform `dx=16` on
-                // every card in all three carousels. The offset is the only part needed.
-                // `-mx-4` widens the track as well as shifting it: the section cancels the page's
-                // 16 dp inset on both sides, so the track is the full 393 dp viewport, not
-                // 393 - 32. `offset` alone only moves the box — its clip stays at 361 dp, and the
-                // "Create" card at 332..482 then had its label clipped away even though the card
-                // itself was laid out. `fillMaxWidth` inside a padded parent resolves to the
-                // parent's *content* width, so the width has to be stated.
+                // The track is the full 393 dp viewport (`-mx-4` cancels the page inset on the
+                // section) with the inset restored as content padding, and the first card flush at
+                // x=0. Because the padding is now inside a full-width track rather than around it,
+                // the clip is at 393 and the "Create" card's label at 386.55 is drawn.
                 LazyRow(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .offset(x = -UiPortTokens.pagePadding),
+                    modifier = Modifier.fillMaxWidth(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 0.dp, end = UiPortTokens.pagePadding),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
@@ -121,24 +120,17 @@ fun UiPortLibraryScreen(
             // several runs as `"Recently added" ... has no candidate node` with a reference box at
             // y=721.63 — the *tile* whose label happens to share the words, 500 dp away.
             CollectionSection(title = "Recently added", probe = "recent") {
-                Column(modifier = Modifier.fillMaxWidth()) {
+                // Not a carousel: these rows scroll with the page, so they keep the page inset the
+                // prototype's `-mx-4 px-4` pair nets out to for a full-width block.
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = UiPortTokens.pagePadding)) {
                     recentlyAdded.take(5).forEachIndexed { index, track -> TrackRow(index = index, track = track) }
                 }
             }
 
             Spacer(Modifier.height(32.dp).layoutProbe("gap.savedAlbums"))
             CollectionSection(title = "Saved albums", probe = "albums") {
-                // `-mx-4` widens the track as well as shifting it: the section cancels the page's
-                // 16 dp inset on both sides, so the track is the full 393 dp viewport, not
-                // 393 - 32. `offset` alone only moves the box — its clip stays at 361 dp, and the
-                // "Create" card at 332..482 then had its label clipped away even though the card
-                // itself was laid out. `fillMaxWidth` inside a padded parent resolves to the
-                // parent's *content* width, so the width has to be stated.
                 LazyRow(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .offset(x = -UiPortTokens.pagePadding),
+                    modifier = Modifier.fillMaxWidth(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 0.dp, end = UiPortTokens.pagePadding),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
@@ -148,17 +140,8 @@ fun UiPortLibraryScreen(
 
             Spacer(Modifier.height(32.dp).layoutProbe("gap.artists"))
             CollectionSection(title = "Followed artists", action = "See all", probe = "artists") {
-                // `-mx-4` widens the track as well as shifting it: the section cancels the page's
-                // 16 dp inset on both sides, so the track is the full 393 dp viewport, not
-                // 393 - 32. `offset` alone only moves the box — its clip stays at 361 dp, and the
-                // "Create" card at 332..482 then had its label clipped away even though the card
-                // itself was laid out. `fillMaxWidth` inside a padded parent resolves to the
-                // parent's *content* width, so the width has to be stated.
                 LazyRow(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .offset(x = -UiPortTokens.pagePadding),
+                    modifier = Modifier.fillMaxWidth(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 0.dp, end = UiPortTokens.pagePadding),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
@@ -362,8 +345,13 @@ private fun CollectionSection(
     content: @Composable () -> Unit,
 ) {
     Column(modifier = Modifier.layoutProbe("section.$probe")) {
+        // The heading carries the page inset; the track below does not, because the prototype's
+        // `-mx-4` cancels it on the section and only the header's own `px-4` restores it.
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = UiPortTokens.pagePadding),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom,
         ) {
