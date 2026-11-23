@@ -68,13 +68,12 @@ the DOM has and what a navigation target should be regardless.
 
 ## 3. Where the port stands
 
-Run `44117410339`, commit `065737e`, provenance
-`screen sources aeff6f55f87653a3 | renders 3 d7d26cc2188f2c48`:
+Run `45107952954`, commit `e0b2bbc`. (`library` entered D at 87.6415 / 0.5821 / 9.09%.):
 
 | Screen | Pixel | SSIM (not gated) | Geometry coverage | Iter | Entering D |
 | --- | --- | --- | --- | --- | --- |
 | `home` | 95.95 | 0.7904 | **33.33%** | 0 | geom 0% |
-| `library` | 87.6415 | 0.5821 | **7.69%** | 0 | geom 0% |
+| `library` | 89.0727 | 0.6307 | **11.54%** | 0 | geom 0% |
 | `nowplaying` | 79.8252 | 0.5314 | 0% | 0 | geom 0% |
 
 None of the three is accepted, and all three are still `building`. `home` clears the pixel floor and

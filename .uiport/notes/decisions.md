@@ -267,3 +267,41 @@ empty here.
 *confirm* the fix independently — dumping one known text box in a test assertion, so a
 `missing-candidate` cannot hide behind an unreadable log — before it is spread over 52 call sites.
 Reverting was the right call over iterating blind: an unmeasured screen is worse than a 2 dp one.
+
+---
+
+## N-9. Reading the reference's numbers beat reading the CSS classes
+
+**Asked** 2026-11-17, over `02d49fb`..`e0b2bbc`.
+
+Three defects in this stretch were solved by arithmetic on the reference's boxes rather than by
+reading the prototype's class list, and in two of them the two sources disagreed:
+
+| Defect | What the class list said | What the browser laid out | Resolved by |
+| --- | --- | --- | --- |
+| section gaps | `space-y-8` was in the source but the port used `sectionGap`=40 | 32 | 409.94 + 32 = 441.94 |
+| "Create" card height | `aspect-square w-[150px]` | 197.69 (flex `stretch` to its tallest sibling) | 483.94 + 74.43 + 30 = 588.36 |
+| "Create" label x | centred in a 150 card | 386.55 | 332 + (150 - 40.89)/2 |
+
+The lesson is not "ignore the CSS" — it is that a class list describes intent and the captured box
+describes the result, and when they disagree the box wins, because the box is what the port has to
+match. Both times the discrepancy was a default the class list did not mention: `align-items: stretch`
+on a flex carousel, and a spacing token applied to the wrong page.
+
+Also in this stretch:
+
+- **"Recently added" was missing entirely.** Four sections in the prototype, three in the port. The
+  gate had reported it for runs as `has no candidate node`, with the *tile* that shares the words
+  offered as the nearest candidate — a hint that was actively misleading. Now `d=(16,4.63,3.66,2)`.
+- **A renderer failure that was a flake.** `daaa4cc` failed to render and reported `missing-candidate`
+  for all three screens; the identical commit rendered on the next run. That is the second time a
+  Roborazzi failure cost a cycle without saying why, and it is why the JUnit XML is now printed on
+  the failure path (verified against a sample report before being relied on).
+- **One experiment backed out.** Widening the carousel track to un-clip the "Create" label: the first
+  version cancelled itself out arithmetically, the second guessed at its parent's constraints. Both
+  were removed. The remaining fix is structural — the carousels need to sit outside the page's
+  horizontal padding, as the prototype's `-mx-4` section does — and that has not been done.
+
+**Net:** `library` pixel 87.6415 -> 89.0727, SSIM 0.5821 -> 0.6307, geometry coverage 9.09% -> 11.54%
+over the whole stretch (nine commits). The pixel and SSIM gains are real; the coverage gain is small
+because most remaining rows are 2-5 dp out rather than 172 dp out, and the gate is a 1 dp threshold.
