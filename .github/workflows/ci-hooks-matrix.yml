@@ -1,0 +1,55 @@
+# Hook behaviour across operating systems: path separators, quoting, line endings.
+name: ci-hooks-matrix
+
+on:
+  push:
+    paths:
+      - "hooks/**"
+      - "tests/unit/hooks.test.mjs"
+      - "scripts/lib/**"
+      - "scripts/ci-hook-probe.mjs"
+      - ".github/workflows/ci-hooks-matrix.yml"
+  pull_request:
+    paths:
+      - "hooks/**"
+      - "tests/unit/hooks.test.mjs"
+      - "scripts/lib/**"
+      - "scripts/ci-hook-probe.mjs"
+      - ".github/workflows/ci-hooks-matrix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-hooks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hooks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Hook tests
+        shell: bash
+        run: node --test tests/unit/hooks.test.mjs
+
+      # Runs the real hook binary the way Claude Code does (JSON on stdin, exit code as
+      # the answer), on every OS, with both separator styles. The previous version was a
+      # bash-only probe with a hard-coded /tmp path, so it could never pass on Windows.
+      - name: End-to-end hook probe
+        run: node scripts/ci-hook-probe.mjs

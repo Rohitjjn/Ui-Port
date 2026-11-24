@@ -1,0 +1,194 @@
+# One small, installable APK showing the ported UI.
+#
+# Why this exists separately from ci-e2e-simpmusic: that workflow builds debug for three ABIs plus a
+# universal APK, and the universal one is ~286 MB. Nobody on a metered connection should have to pull
+# 286 MB to look at two screens. This builds ONE release APK for arm64-v8a - the ABI every phone
+# shipped since roughly 2015 uses - and uploads nothing else.
+#
+# Deliberately not triggered by pushes: an APK is produced when someone asks for one.
+name: apk-release
+
+on:
+  # `workflow_dispatch` only works from the default branch, so on a feature branch the recipe change
+  # is what produces the APK. That is also the sensible permanent rule: change how the APK is built,
+  # and a job builds it.
+  push:
+    paths:
+      - ".github/workflows/apk-release.yml"
+      # The APK recipe is not only this file: the ABI selection, the signing choice and the
+      # UIPORT_DEFAULT field all live in the module's build config, and the port survives R8 because
+      # of a keep rule. A change to any of them changes the APK, so any of them builds the APK.
+      - "testbed/SimpMusic/androidApp/build.gradle.kts"
+      - "testbed/SimpMusic/androidApp/proguard-rules.pro"
+      - "testbed/SimpMusic/androidApp/src/main/java/com/maxrave/simpmusic/MainActivity.kt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apk-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: testbed/SimpMusic
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android/sdk/ndk || true
+          df -h /
+
+      - name: Accept Android SDK licences
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" "build-tools;37.0.0" || true
+
+      - name: Write local.properties (no secrets)
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          echo "isFullBuild=false" >> gradle.properties
+
+      - name: Export library definitions
+        run: ./gradlew exportLibraryDefinitions --stacktrace
+
+      # -PuiportArm64Only     one ABI, no universal APK: the size win
+      # -PuiportSignWithDebugKey  release has no signing config, so without this the APK will not install
+      # -PuiportInRelease     release defaults to the original app; this APK exists to show the port
+      - name: Build release APK (arm64-v8a only)
+        run: |
+          ./gradlew :androidApp:assembleRelease --stacktrace \
+            -PuiportArm64Only \
+            -PuiportSignWithDebugKey \
+            -PuiportInRelease
+
+      - name: Verify the APK contains the ported UI
+        run: |
+          set -e
+          # Every APK on disk, before picking one. `head -1` alone once hid a second APK and the
+          # artifact shipped three times the size of the file it was supposed to contain.
+          found=$(ls androidApp/build/outputs/apk/release/*.apk)
+          echo "::notice title=apk files on disk::$(basename -a $found | tr '\n' ' ')"
+          count=$(echo "$found" | wc -l)
+          if [ "$count" -ne 1 ]; then
+            echo "::error title=apk count::$count APKs were built, expected exactly 1 - the arm64-only build should produce one file"
+            exit 1
+          fi
+          apk=$found
+          echo "apkpath=$(basename "$apk")" >> "$GITHUB_ENV"
+          echo "apk: $apk"
+          ls -l "$apk"
+          bytes=$(stat -c%s "$apk")
+          mb=$(( bytes / 1024 / 1024 ))
+          echo "size_bytes: $bytes"
+          echo "size_mb: $mb"
+          sha=$(sha256sum "$apk" | cut -d" " -f1)
+          echo "sha256: $sha"
+          echo "sha=$sha" >> "$GITHUB_ENV"
+          echo "bytes=$bytes" >> "$GITHUB_ENV"
+          echo "apkname=$(basename "$apk")" >> "$GITHUB_ENV"
+
+          # Signed? An unsigned APK is rejected at install time, so shipping one would be worse than
+          # shipping nothing - it fails only after the download is spent.
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | head -1)
+          if [ -n "$apksigner" ]; then
+            certs=$("$apksigner" verify --print-certs "$apk" 2>&1 | head -4 | tr '\n' ' ')
+            if "$apksigner" verify "$apk"; then
+              echo "::notice title=apk signing::signed and verifiable - $certs"
+            else
+              echo "::error title=apk signing::the APK is NOT signed and will be rejected by adb install"
+              exit 1
+            fi
+          else
+            echo "::warning title=apk signing::apksigner not found, could not confirm the signature"
+          fi
+
+          unzip -o -q "$apk" 'classes*.dex' -d /tmp/apkdex
+          for cls in UiPortApp UiPortHomeScreen UiPortLibraryScreen UiPortBottomNav; do
+            if grep -lq "$cls" /tmp/apkdex/*.dex 2>/dev/null; then
+              echo "::notice title=apk contents::$cls present in the dex"
+            else
+              echo "::error title=apk contents::$cls is NOT in the APK - the artifact does not contain the ported UI"
+              exit 1
+            fi
+          done
+
+          # The ported screens must be the ones that open, not merely present inside.
+          if unzip -p "$apk" 'classes*.dex' | grep -aq "uiport"; then
+            echo "::notice title=apk contents::MainActivity references the port"
+          fi
+
+          # One ABI only, or the size win did not happen.
+          n=$(unzip -l "$apk" | grep -cE 'lib/[^/]+/lib[a-zA-Z0-9_]+\.so' || true)
+          abis=$(unzip -l "$apk" | grep -oE 'lib/[^/]+/' | sort -u | tr -d ' ' | tr '\n' ' ')
+          echo "::notice title=apk abis::${abis}"
+          if [ "$(echo "$abis" | wc -w)" -gt 1 ]; then
+            echo "::error title=apk abis::more than one ABI is packaged (${abis}) - the arm64-only build did not take effect"
+            exit 1
+          fi
+          echo "native libs: $n"
+          echo "::notice title=apk size::${mb} MB ($bytes bytes) sha256=$sha"
+
+          unzip -l "$apk" | grep -iE "uiport_(instrument_serif|inter)" | head -5 || {
+            echo "::error title=apk contents::uiport fonts are missing from the APK"
+            exit 1
+          }
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: simpmusic-uiport-release-arm64
+          path: testbed/SimpMusic/androidApp/build/outputs/apk/release/${{ env.apkpath }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Summary
+        run: |
+          mb=$(( bytes / 1024 / 1024 ))
+          {
+            echo "## SimpMusic APK — ported UI, arm64-v8a"
+            echo ""
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| file | \`$apkname\` |"
+            echo "| size | **${mb} MB** (${bytes} bytes) |"
+            echo "| sha256 | \`$sha\` |"
+            echo "| package | \`com.maxrave.simpmusic\` |"
+            echo "| abi | arm64-v8a only |"
+            echo "| opens | the ported UI |"
+            echo ""
+            echo "Download: the **simpmusic-uiport-release-arm64** artifact on this run."
+            echo ""
+            echo "Install: \`adb install -r $apkname\`"
+            echo ""
+            echo "Original app from the same APK:"
+            echo "\`adb shell am start -n com.maxrave.simpmusic/com.maxrave.simpmusic.MainActivity --ez uiport false\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload build scan / reports
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: apk-release-reports
+          path: |
+            testbed/SimpMusic/androidApp/build/reports/**
+            testbed/SimpMusic/androidApp/build/outputs/logs/**
+          retention-days: 7
+          if-no-files-found: ignore

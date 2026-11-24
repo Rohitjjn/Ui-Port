@@ -1,0 +1,55 @@
+# Unit tests for the plugin's scripts, libraries and hooks.
+name: ci-unit
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-unit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: ["22"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      # TAP is converted to annotations: a failing test's message then travels through
+      # the API, not only through the runner log blob.
+      - name: Unit tests
+        shell: bash
+        run: |
+          node --test --test-reporter=tap "tests/unit/*.test.mjs" > unit.tap 2>&1 || true
+          node scripts/ci-annotate-tap.mjs unit.tap
+
+      - name: Plugin validation
+        shell: bash
+        run: |
+          node scripts/validate-plugin.mjs > validate.log 2>&1 || {
+            cat validate.log
+            while IFS= read -r line; do
+              [ -n "$line" ] && echo "::error title=validate-plugin::$line"
+            done < validate.log
+            exit 1
+          }
+          cat validate.log

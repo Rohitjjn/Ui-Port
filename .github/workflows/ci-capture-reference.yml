@@ -1,0 +1,149 @@
+# Capture the web prototype as the visual reference.
+#
+# Runs the plugin's own capture path against the test-bed prototype: build, serve, plan,
+# capture every screen at every requested device, then measure the noise floor by
+# capturing the same screens twice and diffing the two runs against each other. That
+# number is what the acceptance thresholds are calibrated from — it is measured, never
+# assumed.
+#
+# Artifacts: reference PNGs + geometry dumps, the noise-floor report, heat maps.
+name: ci-capture-reference
+
+on:
+  workflow_dispatch:
+    inputs:
+      screens:
+        description: "Comma-separated screen ids (empty = all)"
+        default: "home,library,playlist--id,album--id"
+        type: string
+      devices:
+        description: "Comma-separated device targets"
+        default: "phone"
+        type: string
+      states:
+        description: "Comma-separated states"
+        default: "default"
+        type: string
+  pull_request:
+    paths:
+      - ".github/workflows/ci-capture-reference.yml"
+      - "scripts/capture-reference.mjs"
+      - "scripts/plan-capture.mjs"
+      - "scripts/lib/capture-spec.mjs"
+      - "scripts/lib/browser-inject.mjs"
+      - "testbed/prototype/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-capture-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SCREENS: ${{ inputs.screens || 'home,library,playlist--id,album--id' }}
+      DEVICES: ${{ inputs.devices || 'phone' }}
+      STATES: ${{ inputs.states || 'default' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            testbed/prototype/package-lock.json
+
+      # The browser is the one thing that cannot be installed on a locked-down machine,
+      # which is exactly why this job exists.
+      - name: Install plugin dependencies and Chromium
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          node -e "const {chromium}=require('playwright');console.log('chromium:',chromium.executablePath())"
+
+      - name: Build the prototype
+        working-directory: testbed/prototype
+        run: |
+          npm ci --no-audit --no-fund
+          npx vite build
+          ls -la dist/
+
+      - name: Serve the prototype
+        working-directory: testbed/prototype
+        run: |
+          nohup npx vite preview --port 4173 --host 127.0.0.1 > /tmp/preview.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:4173/ > /dev/null; then echo "preview up after ${i}s"; exit 0; fi
+            sleep 1
+          done
+          echo "::error title=preview::the prototype preview server did not come up"
+          cat /tmp/preview.log
+          exit 1
+
+      - name: Plan the capture
+        run: |
+          node scripts/plan-capture.mjs testbed/prototype \
+            --devices "$DEVICES" --states "$STATES" --screens "$SCREENS" \
+            --base-url http://127.0.0.1:4173 \
+            --out .uiport/capture-spec.json
+          node -e "const s=require('./.uiport/capture-spec.json');console.log(JSON.stringify(s.captures.map(c=>[c.id,c.route,c.device]),null,0))"
+
+      # Two independent runs of the same capture. Their difference is the renderer's own
+      # noise, which is subtracted from (and capped above) every acceptance threshold.
+      - name: Capture reference (run A)
+        run: |
+          node scripts/capture-reference.mjs --base-url http://127.0.0.1:4173 \
+            --spec .uiport/capture-spec.json --out .uiport/reference-a
+      - name: Capture reference (run B, for the noise floor)
+        run: |
+          node scripts/capture-reference.mjs --base-url http://127.0.0.1:4173 \
+            --spec .uiport/capture-spec.json --out .uiport/reference-b
+
+      - name: Measure the noise floor
+        run: |
+          node scripts/visual-diff.mjs --help > /dev/null 2>&1 || true
+          node scripts/noise-floor.mjs \
+            --a .uiport/reference-a --b .uiport/reference-b \
+            --spec .uiport/capture-spec.json \
+            --json .uiport/noise-floor.json --md .uiport/noise-floor.md
+          cat .uiport/noise-floor.md
+          # Artifact downloads are served from a blob host that not every environment can
+          # reach, so the numbers are also published as annotations, which travel through
+          # the API and are readable from anywhere.
+          node -e "
+            const r = require('./.uiport/noise-floor.json');
+            const msg = \`worst same-side match \${r.worstSameSideMatchPct}% (\${r.worstScreen.screen}/\${r.worstScreen.device}); noise \${r.noisePct}%; effective floor \${r.effectiveFloorPct}% (configured \${r.configuredFloorPct}%); deterministic: \${r.deterministic}\`;
+            console.log('::notice title=noise floor::' + msg);
+            for (const s of r.perScreen) console.log(\`::notice title=capture \${s.screen} (\${s.device})::match \${s.matchPct}% ssim \${s.ssim} geometry mismatches \${s.geometryMismatched ?? 'n/a'}\`);
+          "
+
+      - name: Promote run A to the reference set
+        run: |
+          cp -r .uiport/reference-a .uiport/reference
+          find .uiport/reference -name "*.png" | wc -l
+
+      - name: Upload reference screenshots
+        uses: actions/upload-artifact@v5
+        with:
+          name: uiport-reference-${{ github.run_id }}
+          path: |
+            .uiport/reference/**
+            .uiport/capture-spec.json
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload noise-floor report
+        uses: actions/upload-artifact@v5
+        with:
+          name: uiport-noise-floor-${{ github.run_id }}
+          path: |
+            .uiport/noise-floor.json
+            .uiport/noise-floor.md
+          retention-days: 30
+          if-no-files-found: error

@@ -1,0 +1,321 @@
+import java.util.Properties
+
+val isFullBuild: Boolean =
+    try {
+        extra["isFullBuild"] == "true"
+    } catch (e: Exception) {
+        false
+    }
+
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.sentry.gradle)
+    alias(libs.plugins.compose.compiler)
+}
+
+android {
+    // A single-ABI build on request.
+    //
+    // The universal APK is ~286 MB, almost all of it native libraries multiplied by three ABIs.
+    // A person on a metered connection does not need the other two: `-PuiportArm64Only` builds
+    // one APK for the ABI every phone shipped since roughly 2015 uses.
+    val abis =
+        if (project.hasProperty("uiportArm64Only")) {
+            arrayOf("arm64-v8a")
+        } else {
+            arrayOf("armeabi-v7a", "arm64-v8a", "x86_64")
+        }
+
+    namespace = "com.maxrave.simpmusic"
+    compileSdk = 37
+
+    defaultConfig {
+        applicationId = "com.maxrave.simpmusic"
+        minSdk = 26
+        targetSdk = 36
+        versionCode =
+            libs.versions.version.code
+                .get()
+                .toInt()
+        versionName =
+            libs.versions.version.name
+                .get()
+        vectorDrawables.useSupportLibrary = true
+        multiDexEnabled = true
+
+        @Suppress("UnstableApiUsage")
+        androidResources {
+            localeFilters +=
+                listOf(
+                    "en",
+                    "vi",
+                    "it",
+                    "de",
+                    "ru",
+                    "tr",
+                    "fi",
+                    "pl",
+                    "pt",
+                    "fr",
+                    "es",
+                    "zh-rCN",
+                    "id",
+                    "in",
+                    "ar",
+                    "ja",
+                    "zh-rTW",
+                    "uk",
+                    "iw",
+                    "az",
+                    "hi",
+                    "th",
+                    "nl",
+                    "ko",
+                    "ca",
+                    "fa",
+                    "bg",
+                    "sv",
+                    "hr",
+                )
+        }
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            // Restricted to `abis`, so a single-ABI build packages one set of native libraries
+            // instead of three sets of the same libraries.
+            abiFilters.clear()
+            abiFilters.addAll(abis.toList())
+        }
+    }
+
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+
+    // ABI splits are module-level configuration, not per-build-type.
+    //
+    // This was declared inside `buildTypes.release` and `buildTypes.debug`, which reads as though it
+    // could differ between them. It cannot: the first `splits` block configures the module for every
+    // variant, so adding one inside `debug` silently turned splits - and a universal APK - on for
+    // release too. That is why a build asking for a single arm64 APK kept producing
+    // `androidApp-universal-release.apk` next to it, and why three attempts to switch the APK off
+    // inside the release block changed nothing.
+    //
+    // Declared once here, which is the placement AGP documents.
+    // With `-PuiportArm64Only` the block is not configured at all: nothing to split, and
+    // `abiFilters` alone narrows the packaged native libraries.
+    if (!project.hasProperty("uiportArm64Only")) {
+        splits {
+            abi {
+                // `reset()` clears AGP's default ABI list - armeabi, mips, mips64, riscv64 and the
+                // rest - which `include` alone only adds to. Without it the debug build emitted eight
+                // APKs instead of four. It must come before the assignments below, because it
+                // restores the block to defaults and discards anything set earlier.
+                reset()
+                isEnable = true
+                isUniversalApk = true
+                include(*abis)
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+            // Release builds have never carried a signing config here, so `assembleRelease` on its
+            // own produces an unsigned APK that `adb install` rejects with INSTALL_PARSE_FAILED.
+            // That matters now that a release APK is the deliverable: an artifact nobody can install
+            // is not smaller, it is just unusable. `-PuiportSignWithDebugKey` signs with the debug
+            // keystore so the APK installs, and changes nothing for any other build.
+            if (project.hasProperty("uiportSignWithDebugKey")) {
+                signingConfig = signingConfigs.getByName("debug")
+            }
+            // The port is what this APK exists to show. It is off in release by default because a
+            // release build is meant to be the real app; `-PuiportInRelease` turns it on for the
+            // deliverable, and the intent extra can still override it on the device.
+            buildConfigField("boolean", "UIPORT_DEFAULT", project.hasProperty("uiportInRelease").toString())
+        }
+        debug {
+            isMinifyEnabled = false
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            buildConfigField("boolean", "UIPORT_DEFAULT", "true")
+        }
+    }
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+    // enable view binding
+    buildFeatures {
+        viewBinding = true
+        compose = true
+        buildConfig = true
+    }
+    packaging {
+        jniLibs.useLegacyPackaging = true
+        jniLibs.excludes +=
+            listOf(
+                "META-INF/META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/license.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "META-INF/notice.txt",
+                "META-INF/ASL2.0",
+                "META-INF/asm-license.txt",
+                "META-INF/notice",
+                "META-INF/*.kotlin_module",
+            )
+        resources {
+            excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+            // kuromoji ships the SAME META-INF/CONTRIBUTORS.md and META-INF/LICENSE.md in both
+            // kuromoji-ipadic and the kuromoji-core it depends on, and mergeDebugJavaResource
+            // refuses to pick between two files at one path. Excluded by pattern rather than by
+            // name: dropping only CONTRIBUTORS.md moves the failure to LICENSE.md on the next
+            // build. Nothing here is code — these are documentation files.
+            excludes += "META-INF/*.md"
+            // kuromoji's ipadic dictionary is ~13 MB of .bin resources — the whole reason the APK
+            // grew by 14.4 MB. Android fetches the same eight files on demand instead (see
+            // KuromojiDictionary in lyricsService androidMain), so the classpath copies are
+            // dropped here. Desktop is untouched: its jars keep the resources and kuromoji's
+            // default classpath resolver keeps working there.
+            excludes += "com/atilika/kuromoji/ipadic/*.bin"
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring(libs.desugaring)
+    val debugImplementation = "debugImplementation"
+    debugImplementation(libs.ui.tooling)
+    implementation(libs.activity.compose)
+
+    // Custom Activity On Crash
+    implementation(libs.customactivityoncrash)
+
+    // Easy Permissions
+    implementation(libs.easypermissions)
+
+    // Legacy Support
+    implementation(libs.legacy.support.v4)
+    // Coroutines
+    implementation(libs.coroutines.android)
+
+    // Glance
+    implementation(libs.glance)
+    implementation(libs.glance.appwidget)
+    implementation(libs.glance.material3)
+
+    implementation(projects.composeApp)
+    implementation(projects.data)
+
+    if (isFullBuild) {
+        implementation(projects.crashlytics)
+    } else {
+        implementation(projects.crashlyticsEmpty)
+    }
+}
+
+sentry {
+    org.set("simpmusic")
+    projectName.set("android")
+    ignoredFlavors.set(setOf("foss"))
+    ignoredBuildTypes.set(setOf("debug"))
+    autoInstallation.enabled = false
+    if (isFullBuild) {
+        val token =
+            try {
+                println("Full build detected, enabling Sentry Auth Token")
+                val properties = Properties()
+                properties.load(rootProject.file("local.properties").inputStream())
+                properties.getProperty("SENTRY_AUTH_TOKEN")
+            } catch (e: Exception) {
+                println("Failed to load SENTRY_AUTH_TOKEN from local.properties: ${e.message}")
+                null
+            }
+        authToken.set(token ?: "")
+        includeProguardMapping.set(true)
+        // Pull requests from forks get no secrets: build without uploading instead of failing on a 401.
+        autoUploadProguardMapping.set(!token.isNullOrBlank())
+    } else {
+        includeProguardMapping.set(false)
+        autoUploadProguardMapping.set(false)
+        uploadNativeSymbols.set(false)
+        includeDependenciesReport.set(false)
+        includeSourceContext.set(false)
+        includeNativeSources.set(false)
+        // FOSS ships no Sentry SDK: injected AppStartMetrics calls crash it at launch.
+        tracingInstrumentation.enabled.set(false)
+    }
+    telemetry.set(false)
+}
+
+if (!isFullBuild) {
+    abstract class CleanSentryMetaTask : DefaultTask() {
+        @get:InputFiles
+        abstract val assetDirectories: ConfigurableFileCollection
+
+        @get:Internal
+        abstract val buildDirectory: DirectoryProperty
+
+        @TaskAction
+        fun execute() {
+            assetDirectories.forEach { assetDir ->
+                val sentryFile = File(assetDir, "sentry-debug-meta.properties")
+                if (sentryFile.exists()) {
+                    sentryFile.delete()
+                    println("Deleted: ${sentryFile.absolutePath}")
+                }
+            }
+
+            val dirName = "release/mergeReleaseAssets"
+            val injectDirName = "release/injectSentryDebugMetaPropertiesIntoAssetsRelease"
+            println("Cleaning Sentry meta files in build directories")
+            println("Build directory: ${buildDirectory.asFile.get().absolutePath}")
+
+            val buildAssetsDir = File(buildDirectory.asFile.get(), "intermediates/assets/$dirName")
+            println("Checking directory buildAssetsDir: ${buildAssetsDir.absolutePath}")
+            val sentryFile = File(buildAssetsDir, "sentry-debug-meta.properties")
+            if (sentryFile.exists()) {
+                sentryFile.delete()
+                println("Deleted: ${sentryFile.absolutePath}")
+            }
+
+            val injectBuildAssetsDir = File(buildDirectory.asFile.get(), "intermediates/assets/$injectDirName")
+            println("Checking directory injectBuildAssetsDir: ${injectBuildAssetsDir.absolutePath}")
+            val injectSentryFile = File(injectBuildAssetsDir, "sentry-debug-meta.properties")
+            if (injectSentryFile.exists()) {
+                injectSentryFile.delete()
+                println("Deleted: ${injectSentryFile.absolutePath}")
+                val sentryFile = File(injectBuildAssetsDir, "sentry-debug-meta.properties")
+                sentryFile.writeText("")
+                println("✓ Overwritten: ${sentryFile.absolutePath}")
+            }
+        }
+    }
+
+    val cleanSentryMetaTask =
+        tasks.register<CleanSentryMetaTask>("cleanSentryMetaForRelease") {
+            assetDirectories.from(android.sourceSets.flatMap { it.assets.directories })
+            buildDirectory.set(layout.buildDirectory)
+        }
+    // Lazy on purpose: whenTaskAdded creates every task as it is registered, and AGP 9.5.0's
+    // Compose Preview task throws while it is created unless unit tests include Android resources.
+    tasks.named { it.contains("injectSentryDebugMetaPropertiesIntoAssetsRelease") }.configureEach {
+        finalizedBy(cleanSentryMetaTask)
+    }
+}

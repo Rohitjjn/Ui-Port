@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-15T00:00:00.000Z",
+  "prototypeRoot": "/path/to/prototype",
+  "baseUrl": "http://localhost:4173",
+  "viewports": {
+    "phone": { "width": 393, "height": 852, "dpr": 2, "windowSizeClass": "compact" },
+    "tablet": { "width": 834, "height": 1194, "dpr": 2, "windowSizeClass": "expanded" },
+    "desktop": { "width": 1440, "height": 900, "dpr": 1, "windowSizeClass": "expanded" }
+  },
+  "captures": [
+    {
+      "id": "home",
+      "route": "/",
+      "device": "phone",
+      "states": ["default", "overlay"],
+      "masks": []
+    },
+    {
+      "id": "home",
+      "route": "/",
+      "device": "desktop",
+      "states": ["default"],
+      "masks": [{ "preset": "scrollbar", "edge": "right", "width": 15 }]
+    },
+    {
+      "id": "settings",
+      "route": "settings",
+      "device": "phone",
+      "states": ["default"],
+      "masks": [{ "x": 0, "y": 700, "w": 393, "h": 60, "note": "sleep timer countdown changes every second" }]
+    }
+  ]
+}

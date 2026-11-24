@@ -1,0 +1,13 @@
+{
+  "name": "uiport-tooling",
+  "private": true,
+  "description": "Copy of the ui-port tooling dependencies, pinned. Place at tools/uiport/package.json in the target repository so the workflows can `npm ci` deterministically.",
+  "type": "module",
+  "devDependencies": {
+    "pixelmatch": "7.1.0",
+    "pngjs": "7.0.0",
+    "ssim.js": "3.5.0",
+    "playwright": "1.64.1",
+    "yaml": "2.8.1"
+  }
+}

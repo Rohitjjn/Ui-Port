@@ -1,0 +1,103 @@
+{
+  "$schema": "./thresholds.schema.json",
+  "schemaVersion": 1,
+  "visual": {
+    "goalPixelMatchPct": 99.0,
+    "acceptanceFloorPct": 95.0,
+    "maxIterationsPerScreenPerDevice": 5,
+    "pixelmatch": {
+      "threshold": 0.1,
+      "includeAA": false,
+      "alpha": 0.35,
+      "diffColor": [
+        255,
+        0,
+        90
+      ]
+    },
+    "ssim": {
+      "goal": 0.999,
+      "floor": 0.995,
+      "windowSize": 11,
+      "k1": 0.01,
+      "k2": 0.03,
+      "gate": false,
+      "note": "Reported and tracked on every run, but not a gate until the cross-engine noise floor is calibrated. A pixel floor plus a geometry gate can accept a screen that SSIM alone would reject for anti-aliasing, which is the correct trade here."
+    },
+    "geometry": {
+      "toleranceDp": 1.0,
+      "tolerancePct": 1.0,
+      "minNodeCoveragePct": 90.0,
+      "note": "Every text node and key container in the web geometry dump must have a matching Compose semantics node within tolerance."
+    },
+    "noiseFloor": {
+      "webVsWebMinPct": 99.5,
+      "composeVsComposeMinPct": 99.5,
+      "note": "Measured before any port work. If a re-render of the same side already scores below these numbers, the capture is not deterministic and must be fixed before diffing across platforms."
+    },
+    "masks": {
+      "regions": [
+        "system-bars",
+        "scrollbars",
+        "caret"
+      ],
+      "note": "Dynamic regions (clocks, progress timers, random ids) are masked per screen in the screen spec, never globally."
+    },
+    "acceptedWithNotes": {
+      "requiresAboveFloor": true,
+      "requiresExplainedResidual": true,
+      "allowedCategories": [
+        "font-rasterization",
+        "text-rendering",
+        "shadow-elevation",
+        "blur-unsupported",
+        "blend-mode-unsupported",
+        "filter-unsupported",
+        "subpixel-layout",
+        "scrollbar",
+        "platform-chrome"
+      ]
+    },
+    "acceptance": {
+      "requiresGeometry": true,
+      "requiresAll": true,
+      "criteria": [
+        "pixelMatchPct >= acceptanceFloorPct",
+        "geometry gate passes (key node positions and sizes within tolerance; % of nodes matched is reported)",
+        "every remaining residual pixel is explained by a declared residual category"
+      ],
+      "whyGeometry": "A 95% pixel match can hide a whole block in the wrong place: a 393x852 screen is ~335k pixels, so 5% is ~17k pixels, which is more than a title and a two-line paragraph. Position and size are therefore gated separately from colour.",
+      "note": "SSIM is deliberately excluded from the gate: it is a structural score that reacts to anti-aliasing and text rasterisation, which are engine differences rather than port defects."
+    },
+    "residualCategories": {
+      "required": true,
+      "categories": [
+        "font-rasterization",
+        "text-rendering",
+        "shadow-elevation",
+        "blur-unsupported",
+        "blend-mode-unsupported",
+        "filter-unsupported",
+        "subpixel-layout",
+        "scrollbar",
+        "platform-chrome",
+        "artwork-vector"
+      ],
+      "note": "A screen above the pixel floor with an unexplained residual is not accepted: it is `building` until the residual is named, because an unnamed residual is an unexamined defect."
+    }
+  },
+  "loops": {
+    "maxFixAttemptsPerFailure": 6,
+    "maxScreensPerRun": 64,
+    "note": "Hard caps. Hitting a cap marks the item blocked and asks the user instead of looping forever."
+  },
+  "hooks": {
+    "maxHookMs": 2000,
+    "syntaxCheckExtensions": [
+      ".kt",
+      ".kts",
+      ".ts",
+      ".tsx"
+    ]
+  }
+}

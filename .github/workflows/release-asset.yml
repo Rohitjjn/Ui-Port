@@ -1,0 +1,79 @@
+# Publish the delivery ZIP as a release asset.
+#
+# The build environment that authored this repository cannot reach uploads.github.com (its
+# egress allowlist covers api.github.com and codeload, but not the uploads host), so
+# `gh release upload` fails with a bare `EOF` there. A GitHub-hosted runner has no such
+# restriction, so the upload happens here instead — from the same commit, with the same
+# packager, and with a verification step that fails the job if the archive contains test-bed
+# build output.
+name: release-asset
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach the ZIP to"
+        default: "v0.1.0"
+        required: true
+      zip:
+        description: "Archive path produced by scripts/package-zip.mjs"
+        default: "dist/ui-port-v0.1.0.zip"
+        required: true
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build the archive
+        run: |
+          set -euo pipefail
+          npm ci --silent || npm install --silent
+          node scripts/package-zip.mjs --out "${{ inputs.zip || 'dist/ui-port-v0.1.0.zip' }}"
+
+      # A delivery archive that carries the test bed's build output is not a delivery
+      # archive. Verify before publishing, not after.
+      - name: Verify the archive
+        run: |
+          set -euo pipefail
+          ZIP="${{ inputs.zip || 'dist/ui-port-v0.1.0.zip' }}"
+          test -f "$ZIP"
+          entries=$(unzip -Z1 "$ZIP" | wc -l)
+          forbidden=$(unzip -Z1 "$ZIP" | grep -cE '^(testbed|node_modules|\.git|build|dist)/' || true)
+          echo "entries=$entries forbidden=$forbidden"
+          if [ "$forbidden" -ne 0 ]; then
+            echo "::error title=archive::the archive contains test-bed or build output ($forbidden entries)"
+            exit 1
+          fi
+          if [ "$entries" -lt 100 ]; then
+            echo "::error title=archive::only $entries entries — the archive looks truncated"
+            exit 1
+          fi
+          unzip -p "$ZIP" .claude-plugin/plugin.json | head -3
+          echo "::notice title=archive::$(basename "$ZIP") has $entries entries, 0 forbidden paths"
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ZIP="${{ inputs.zip || 'dist/ui-port-v0.1.0.zip' }}"
+          # `github.ref_name` on a branch push is the *branch*, which would create a release
+          # tagged with a branch name — exactly what happened on the first attempt and had to
+          # be deleted. The fallback is the documented release tag, never a ref.
+          TAG="${{ inputs.tag || 'v0.1.0' }}"
+          echo "::notice title=release::attaching $(basename "$ZIP") to $TAG (ref ${{ github.ref }})"
+          gh release view "$TAG" >/dev/null || gh release create "$TAG" --title "ui-port $TAG" --notes "Release $TAG"
+          gh release upload "$TAG" "$ZIP" --clobber
+          gh release view "$TAG" --json assets --jq '.assets[] | "::notice title=asset::" + .name + " (" + (.size|tostring) + " bytes) " + .url'

@@ -1,0 +1,29 @@
+{
+  "name": "ui-port",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Claude Code plugin that ports a React/TSX web prototype into Jetpack Compose inside an existing Android project",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "test": "node --test \"tests/unit/*.test.mjs\" \"tests/integration/*.test.mjs\"",
+    "test:unit": "node --test \"tests/unit/*.test.mjs\"",
+    "test:integration": "node --test \"tests/integration/*.test.mjs\"",
+    "validate:plugin": "node scripts/validate-plugin.mjs",
+    "validate:all": "node scripts/validate-plugin.mjs && node scripts/lint-markdown.mjs",
+    "lint:markdown": "node scripts/lint-markdown.mjs",
+    "scan:prototype": "node scripts/scan-prototype.mjs",
+    "scan:app": "node scripts/scan-app.mjs",
+    "resolve:versions": "node scripts/resolve-versions.mjs --check"
+  },
+  "devDependencies": {
+    "pixelmatch": "7.1.0",
+    "pngjs": "7.0.0",
+    "ssim.js": "3.5.0",
+    "playwright": "1.64.1",
+    "yaml": "2.8.1"
+  }
+}
