@@ -76,7 +76,16 @@ jobs:
       - name: Verify the APK contains the ported UI
         run: |
           set -e
-          apk=$(ls androidApp/build/outputs/apk/release/*.apk | head -1)
+          # Every APK on disk, before picking one. `head -1` alone once hid a second APK and the
+          # artifact shipped three times the size of the file it was supposed to contain.
+          found=$(ls androidApp/build/outputs/apk/release/*.apk)
+          echo "::notice title=apk files on disk::$(basename -a $found | tr '\n' ' ')"
+          count=$(echo "$found" | wc -l)
+          if [ "$count" -ne 1 ]; then
+            echo "::error title=apk count::$count APKs were built, expected exactly 1 - the arm64-only build should produce one file"
+            exit 1
+          fi
+          apk=$found
           echo "apk: $apk"
           ls -l "$apk"
           bytes=$(stat -c%s "$apk")
@@ -139,7 +148,7 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: simpmusic-uiport-release-arm64
-          path: testbed/SimpMusic/androidApp/build/outputs/apk/release/*.apk
+          path: testbed/SimpMusic/androidApp/build/outputs/apk/release/androidApp-arm64-v8a-release.apk
           retention-days: 30
           if-no-files-found: error
 
