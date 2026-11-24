@@ -9,19 +9,19 @@ Release, minified, **arm64-v8a only**, signed with the debug key, and set to ope
 
 | | |
 | --- | --- |
-| Workflow run | [`45349631878`](https://github.com/Rohitjjn/Ui-Port/actions/runs/45349631878) |
+| Workflow run | [`45353678178`](https://github.com/Rohitjjn/Ui-Port/actions/runs/45353678178) |
 | Artifact name | `simpmusic-uiport-release-arm64` |
 | File | **`androidApp-release.apk`** |
 | Size | **28,762,332 bytes (27 MB)** |
 | Artifact size | 27,508,532 bytes (one APK, nothing else) |
-| sha256 | `007188d54d8924a0e14eab8021933d98c884ee847aebb6d3750649059e03bfdc` |
+| sha256 | per run — see the run summary |
 | ABI | arm64-v8a only |
 | Package | `com.maxrave.simpmusic` |
 | Signed | yes — debug keystore, verifiable |
 | Retention | 30 days |
 
 ```
-gh run download 45349631878 --repo Rohitjjn/Ui-Port -n simpmusic-uiport-release-arm64
+gh run download 45353678178 --repo Rohitjjn/Ui-Port -n simpmusic-uiport-release-arm64
 adb install -r androidApp-release.apk
 ```
 
@@ -30,6 +30,10 @@ because release is minified and shrunken and ships one ABI's native libraries in
 
 **arm64-v8a** is the ABI of essentially every Android phone made since about 2015. On the rare 32-bit
 device this APK will refuse to install, which is a clear failure at install time rather than a crash.
+
+The sha256 changes every run: CI signs with a freshly generated debug keystore, so the bytes are
+not reproducible. The exact hash for any build is printed as an `apk size` annotation on that run and
+in its job summary — check it there rather than against a number written in this file.
 
 `arm64` only, and the package name has no `.dev` suffix, so it **replaces** an existing SimpMusic
 install of the same signature rather than sitting beside it. Uninstall first if you want to keep the
