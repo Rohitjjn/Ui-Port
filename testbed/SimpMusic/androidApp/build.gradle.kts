@@ -94,6 +94,28 @@ android {
         }
     }
 
+    // ABI splits are module-level configuration, not per-build-type.
+    //
+    // This was declared inside `buildTypes.release` and `buildTypes.debug`, which reads as though it
+    // could differ between them. It cannot: the first `splits` block configures the module for every
+    // variant, so adding one inside `debug` silently turned splits - and a universal APK - on for
+    // release too. That is why a build asking for a single arm64 APK kept producing
+    // `androidApp-universal-release.apk` next to it, and why three attempts to switch the APK off
+    // inside the release block changed nothing.
+    //
+    // Declared once here, which is the placement AGP documents.
+    // With `-PuiportArm64Only` the block is not configured at all: nothing to split, and
+    // `abiFilters` alone narrows the packaged native libraries.
+    if (!project.hasProperty("uiportArm64Only")) {
+        splits {
+            abi {
+                isEnable = true
+                isUniversalApk = true
+                include(*abis)
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -102,25 +124,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // For a single-ABI build the splits block is not configured at all.
-            //
-            // Three attempts to *disable* it failed: setting `isEnable = false` and
-            // `isUniversalApk = false` inside an enabled block still produced both a per-ABI APK and
-            // a universal one, so the artifact carried three copies of a file the job had verified
-            // once. Rather than reason further about the order AGP applies those flags - each attempt
-            // costs a 15-minute build - the block is simply absent for that build. With nothing
-            // configured there is nothing to split, and `abiFilters` alone narrows the native
-            // libraries, which is all that was ever needed.
-            if (!project.hasProperty("uiportArm64Only")) {
-                splits {
-                    abi {
-                        isEnable = true
-                        reset()
-                        isUniversalApk = true
-                        include(*abis)
-                    }
-                }
-            }
             // Release builds have never carried a signing config here, so `assembleRelease` on its
             // own produces an unsigned APK that `adb install` rejects with INSTALL_PARSE_FAILED.
             // That matters now that a release APK is the deliverable: an artifact nobody can install
@@ -139,21 +142,6 @@ android {
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
             buildConfigField("boolean", "UIPORT_DEFAULT", "true")
-            // A universal APK as well as the per-ABI ones.
-            //
-            // The release block has always had this; debug did not, so the debug artifact a
-            // reviewer downloads is four files and the question "which one do I install" has no
-            // answer in the file names. A universal APK installs anywhere, and on a device without
-            // the referenced ABI it fails at install time with a clear reason rather than silently
-            // picking a 0-byte native library.
-            splits {
-                abi {
-                    isEnable = true
-                    reset()
-                    isUniversalApk = true
-                    include(*abis)
-                }
-            }
         }
     }
     compileOptions {
