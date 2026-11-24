@@ -3,36 +3,50 @@
 The ported UI ships inside the real SimpMusic app, so it can be installed and judged on a device
 rather than only through screenshots.
 
-## Where it is
+## The small one: 27 MB
 
-The APK is built and verified by the `ci-e2e-simpmusic` workflow on every push that touches the test
-bed. The latest successful build for this branch:
+Release, minified, **arm64-v8a only**, signed with the debug key, and set to open the ported UI.
 
 | | |
 | --- | --- |
-| Workflow run | [`45187478380`](https://github.com/Rohitjjn/Ui-Port/actions/runs/45187478380) |
-| Artifact name | `simpmusic-debug-apk` |
-| File to install | **`androidApp-universal-debug.apk`** |
-| Download | <https://api.github.com/repos/Rohitjjn/Ui-Port/actions/artifacts/14823474052/zip> |
-| Archive size | 300,335,626 bytes |
-| Also in the archive | `androidApp-arm64-v8a-debug.apk`, `androidApp-armeabi-v7a-debug.apk`, `androidApp-x86_64-debug.apk` |
+| Workflow run | [`45349631878`](https://github.com/Rohitjjn/Ui-Port/actions/runs/45349631878) |
+| Artifact name | `simpmusic-uiport-release-arm64` |
+| File | **`androidApp-release.apk`** |
+| Size | **28,762,332 bytes (27 MB)** |
+| Artifact size | 27,508,532 bytes (one APK, nothing else) |
+| sha256 | `007188d54d8924a0e14eab8021933d98c884ee847aebb6d3750649059e03bfdc` |
+| ABI | arm64-v8a only |
+| Package | `com.maxrave.simpmusic` |
+| Signed | yes — debug keystore, verifiable |
 | Retention | 30 days |
 
-GitHub artifact downloads require an authenticated session — the URL works in a browser where you are
-signed in, or with `gh run download`:
-
 ```
-gh run download 45187478380 --repo Rohitjjn/Ui-Port -n simpmusic-debug-apk
+gh run download 45349631878 --repo Rohitjjn/Ui-Port -n simpmusic-uiport-release-arm64
+adb install -r androidApp-release.apk
 ```
 
-Then install the universal APK:
+This is the one to use on a metered connection: 27 MB against 286 MB for the debug universal APK,
+because release is minified and shrunken and ships one ABI's native libraries instead of four copies.
+
+**arm64-v8a** is the ABI of essentially every Android phone made since about 2015. On the rare 32-bit
+device this APK will refuse to install, which is a clear failure at install time rather than a crash.
+
+`arm64` only, and the package name has no `.dev` suffix, so it **replaces** an existing SimpMusic
+install of the same signature rather than sitting beside it. Uninstall first if you want to keep the
+original.
+
+## The original app, from the same APK
 
 ```
-adb install -r androidApp-universal-debug.apk
+adb shell am start -n com.maxrave.simpmusic/com.maxrave.simpmusic.MainActivity --ez uiport false
 ```
 
-The package is `com.maxrave.simpmusic.dev`, so it installs beside a normal SimpMusic build rather than
-replacing it.
+## The bigger debug artifact
+
+`ci-e2e-simpmusic` still builds debug for three ABIs plus a universal APK — ~286 MB — as a
+build-correctness check. It is not the thing to download to look at the port.
+
+Click **Run workflow** on `apk-release` to build the small APK on demand once this is on `main`.
 
 ## What it opens
 

@@ -8,7 +8,7 @@ not be measured, that is stated instead of estimated.
 
 | Deliverable | State | Evidence |
 | --- | --- | --- |
-| Installable APK with the ported UI | **delivered** | run [`45187478380`](https://github.com/Rohitjjn/Ui-Port/actions/runs/45187478380), `androidApp-universal-debug.apk`, verified to contain the ported classes and fonts — see [docs/APK.md](APK.md) |
+| Installable APK with the ported UI | **delivered, 27 MB** | run [`45349631878`](https://github.com/Rohitjjn/Ui-Port/actions/runs/45349631878), release / arm64-v8a / signed / port verified present — see [docs/APK.md](APK.md) |
 | Ported screens, measured against real captures | 3 screens, phone | `ci-port-diff` reports a score per screen per run |
 | Geometry gate (1 dp, ≥90% coverage) | **not met** — 33.33% / 11.54% / 0% | run `45187478236` |
 | Pixel floor 95 | met on `home` only (95.95) | run `45187478236` |
@@ -86,8 +86,10 @@ present.
 
 Before this change the APK was a deliverable in name only — the workflow built and uploaded it while
 nothing in the app called the ported screens, so it opened the original SimpMusic. Debug builds now
-open the port; `--ez uiport false` opens the original from the same build; release builds are
-untouched.
+open the port; `--ez uiport false` opens the original from the same build. Whether the port opens by
+default is now a build-time field (`UIPORT_DEFAULT`) rather than a `DEBUG` check, because the small
+deliverable is a *release* build that exists to show the port: a plain release still opens the
+original app, and the deliverable sets the field. The intent extra wins either way.
 
 ## What is still wrong
 
@@ -105,8 +107,8 @@ untouched.
 ## Reproducing
 
 ```
-gh run download 45187478380 --repo Rohitjjn/Ui-Port -n simpmusic-debug-apk
-adb install -r androidApp-universal-debug.apk
+gh run download 45349631878 --repo Rohitjjn/Ui-Port -n simpmusic-uiport-release-arm64
+adb install -r androidApp-release.apk
 ```
 
 Scores: open run `45187478236`, job `render-and-diff`, annotation `scores phone`. Per-node detail is
