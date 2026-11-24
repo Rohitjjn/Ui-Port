@@ -92,6 +92,7 @@ jobs:
             exit 1
           fi
           apk=$found
+          echo "apkpath=$(basename "$apk")" >> "$GITHUB_ENV"
           echo "apk: $apk"
           ls -l "$apk"
           bytes=$(stat -c%s "$apk")
@@ -154,7 +155,7 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: simpmusic-uiport-release-arm64
-          path: testbed/SimpMusic/androidApp/build/outputs/apk/release/androidApp-arm64-v8a-release.apk
+          path: testbed/SimpMusic/androidApp/build/outputs/apk/release/${{ env.apkpath }}
           retention-days: 30
           if-no-files-found: error
 

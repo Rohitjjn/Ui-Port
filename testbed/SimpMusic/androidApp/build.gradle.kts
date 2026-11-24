@@ -102,20 +102,23 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            splits {
-                abi {
-                    // Off for a single-ABI build. Turning ABI splits on and `isUniversalApk` off is
-                    // not enough: AGP still emitted a universal APK alongside the split, so the
-                    // "one small APK" build produced two and the artifact was three times the size
-                    // of the file that had been verified. With one ABI there is nothing to split -
-                    // `abiFilters` already narrowed the libraries - so splits are simply disabled.
-                    // `reset()` must come first: it restores this block to its defaults, so anything
-                    // assigned before it - `isEnable` included - is silently discarded. Having it
-                    // second is why the previous attempt still produced a universal APK.
-                    reset()
-                    isEnable = !project.hasProperty("uiportArm64Only")
-                    isUniversalApk = !project.hasProperty("uiportArm64Only")
-                    if (isEnable) include(*abis)
+            // For a single-ABI build the splits block is not configured at all.
+            //
+            // Three attempts to *disable* it failed: setting `isEnable = false` and
+            // `isUniversalApk = false` inside an enabled block still produced both a per-ABI APK and
+            // a universal one, so the artifact carried three copies of a file the job had verified
+            // once. Rather than reason further about the order AGP applies those flags - each attempt
+            // costs a 15-minute build - the block is simply absent for that build. With nothing
+            // configured there is nothing to split, and `abiFilters` alone narrows the native
+            // libraries, which is all that was ever needed.
+            if (!project.hasProperty("uiportArm64Only")) {
+                splits {
+                    abi {
+                        isEnable = true
+                        reset()
+                        isUniversalApk = true
+                        include(*abis)
+                    }
                 }
             }
             // Release builds have never carried a signing config here, so `assembleRelease` on its
