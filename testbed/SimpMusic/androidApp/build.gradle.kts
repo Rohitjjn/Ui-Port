@@ -109,6 +109,11 @@ android {
     if (!project.hasProperty("uiportArm64Only")) {
         splits {
             abi {
+                // `reset()` clears AGP's default ABI list - armeabi, mips, mips64, riscv64 and the
+                // rest - which `include` alone only adds to. Without it the debug build emitted eight
+                // APKs instead of four. It must come before the assignments below, because it
+                // restores the block to defaults and discards anything set earlier.
+                reset()
                 isEnable = true
                 isUniversalApk = true
                 include(*abis)
