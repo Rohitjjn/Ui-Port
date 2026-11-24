@@ -14,7 +14,17 @@ plugins {
 }
 
 android {
-    val abis = arrayOf("armeabi-v7a", "arm64-v8a", "x86_64")
+    // A single-ABI build on request.
+    //
+    // The universal APK is ~286 MB, almost all of it native libraries multiplied by three ABIs.
+    // A person on a metered connection does not need the other two: `-PuiportArm64Only` builds
+    // one APK for the ABI every phone shipped since roughly 2015 uses.
+    val abis =
+        if (project.hasProperty("uiportArm64Only")) {
+            arrayOf("arm64-v8a")
+        } else {
+            arrayOf("armeabi-v7a", "arm64-v8a", "x86_64")
+        }
 
     namespace = "com.maxrave.simpmusic"
     compileSdk = 37
@@ -95,15 +105,30 @@ android {
                 abi {
                     isEnable = true
                     reset()
-                    isUniversalApk = true
+                    // A universal APK is the release default, but pointless when a single ABI was
+                    // asked for: it would be a second copy of the same libraries.
+                    isUniversalApk = !project.hasProperty("uiportArm64Only")
                     include(*abis)
                 }
             }
+            // Release builds have never carried a signing config here, so `assembleRelease` on its
+            // own produces an unsigned APK that `adb install` rejects with INSTALL_PARSE_FAILED.
+            // That matters now that a release APK is the deliverable: an artifact nobody can install
+            // is not smaller, it is just unusable. `-PuiportSignWithDebugKey` signs with the debug
+            // keystore so the APK installs, and changes nothing for any other build.
+            if (project.hasProperty("uiportSignWithDebugKey")) {
+                signingConfig = signingConfigs.getByName("debug")
+            }
+            // The port is what this APK exists to show. It is off in release by default because a
+            // release build is meant to be the real app; `-PuiportInRelease` turns it on for the
+            // deliverable, and the intent extra can still override it on the device.
+            buildConfigField("boolean", "UIPORT_DEFAULT", project.hasProperty("uiportInRelease").toString())
         }
         debug {
             isMinifyEnabled = false
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
+            buildConfigField("boolean", "UIPORT_DEFAULT", "true")
             // A universal APK as well as the per-ABI ones.
             //
             // The release block has always had this; debug did not, so the debug artifact a

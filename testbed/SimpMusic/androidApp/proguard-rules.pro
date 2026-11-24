@@ -225,3 +225,9 @@
 -dontwarn io.sentry.instrumentation.file.SentryFileOutputStream$Factory
 -dontwarn io.sentry.okhttp.SentryOkHttpEventListener
 -dontwarn io.sentry.okhttp.SentryOkHttpInterceptor
+# Keep the ported screens' class names.
+#
+# R8 renames everything it is allowed to, which would make it impossible to answer "does this APK
+# contain the ported UI?" by looking inside the APK - and that question is the whole claim the
+# release artifact makes. One UI package costs a few kilobytes and keeps the verification honest.
+-keep class com.maxrave.simpmusic.ui.uiport.** { *; }

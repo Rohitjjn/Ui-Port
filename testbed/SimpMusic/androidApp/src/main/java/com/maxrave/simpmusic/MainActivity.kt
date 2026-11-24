@@ -273,12 +273,14 @@ class MainActivity : AppCompatActivity() {
 
         if (!BuildConfig.DEBUG) viewModel.checkOfficialBuild(packageName, signingCertSha256())
         setContent {
-            // The ported UI is what a debug build opens, because that is the point of this
-            // test bed: the APK exists to see and judge the port. The original app is one
-            // intent extra away (`--ez uiport false`), which keeps the comparison honest -
-            // the port can be put beside the thing it is a port of, on the same device, from
-            // the same build. A release build is unchanged and never shows the port.
-            if (BuildConfig.DEBUG && intent?.getBooleanExtra("uiport", true) != false) {
+            // Whether the port opens by default is a build-type decision, not a build-type constant.
+            //
+            // Debug defaults to the port because that is the point of this test bed. Release
+            // defaults to the original app because a release build is meant to be the real app -
+            // but the deliverable APK is a release build that exists to show the port, so it sets
+            // UIPORT_DEFAULT at build time. Either way the intent extra wins, which keeps the
+            // comparison honest: both UIs can be put side by side, on one device, from one build.
+            if (BuildConfig.UIPORT_DEFAULT && intent?.getBooleanExtra("uiport", true) != false) {
                 UiPortApp()
             } else {
                 App(viewModel)
