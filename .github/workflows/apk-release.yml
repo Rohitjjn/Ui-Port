@@ -9,6 +9,12 @@
 name: apk-release
 
 on:
+  # `workflow_dispatch` only works from the default branch, so on a feature branch the recipe change
+  # is what produces the APK. That is also the sensible permanent rule: change how the APK is built,
+  # and a job builds it.
+  push:
+    paths:
+      - ".github/workflows/apk-release.yml"
   workflow_dispatch:
 
 permissions:
