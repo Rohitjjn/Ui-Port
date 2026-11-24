@@ -81,9 +81,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters.add("x86_64")
-            abiFilters.add("armeabi-v7a")
-            abiFilters.add("arm64-v8a")
+            // Restricted to `abis`, so a single-ABI build packages one set of native libraries
+            // instead of three sets of the same libraries.
+            abiFilters.clear()
+            abiFilters.addAll(abis.toList())
         }
     }
 
@@ -103,12 +104,15 @@ android {
             )
             splits {
                 abi {
-                    isEnable = true
+                    // Off for a single-ABI build. Turning ABI splits on and `isUniversalApk` off is
+                    // not enough: AGP still emitted a universal APK alongside the split, so the
+                    // "one small APK" build produced two and the artifact was three times the size
+                    // of the file that had been verified. With one ABI there is nothing to split -
+                    // `abiFilters` already narrowed the libraries - so splits are simply disabled.
+                    isEnable = !project.hasProperty("uiportArm64Only")
                     reset()
-                    // A universal APK is the release default, but pointless when a single ABI was
-                    // asked for: it would be a second copy of the same libraries.
-                    isUniversalApk = !project.hasProperty("uiportArm64Only")
-                    include(*abis)
+                    isUniversalApk = true
+                    if (isEnable) include(*abis)
                 }
             }
             // Release builds have never carried a signing config here, so `assembleRelease` on its
