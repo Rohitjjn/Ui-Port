@@ -109,9 +109,12 @@ android {
                     // "one small APK" build produced two and the artifact was three times the size
                     // of the file that had been verified. With one ABI there is nothing to split -
                     // `abiFilters` already narrowed the libraries - so splits are simply disabled.
-                    isEnable = !project.hasProperty("uiportArm64Only")
+                    // `reset()` must come first: it restores this block to its defaults, so anything
+                    // assigned before it - `isEnable` included - is silently discarded. Having it
+                    // second is why the previous attempt still produced a universal APK.
                     reset()
-                    isUniversalApk = true
+                    isEnable = !project.hasProperty("uiportArm64Only")
+                    isUniversalApk = !project.hasProperty("uiportArm64Only")
                     if (isEnable) include(*abis)
                 }
             }
