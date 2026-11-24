@@ -15,6 +15,12 @@ on:
   push:
     paths:
       - ".github/workflows/apk-release.yml"
+      # The APK recipe is not only this file: the ABI selection, the signing choice and the
+      # UIPORT_DEFAULT field all live in the module's build config, and the port survives R8 because
+      # of a keep rule. A change to any of them changes the APK, so any of them builds the APK.
+      - "testbed/SimpMusic/androidApp/build.gradle.kts"
+      - "testbed/SimpMusic/androidApp/proguard-rules.pro"
+      - "testbed/SimpMusic/androidApp/src/main/java/com/maxrave/simpmusic/MainActivity.kt"
   workflow_dispatch:
 
 permissions:
