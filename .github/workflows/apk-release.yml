@@ -80,8 +80,9 @@ jobs:
           echo "apk: $apk"
           ls -l "$apk"
           bytes=$(stat -c%s "$apk")
+          mb=$(( bytes / 1024 / 1024 ))
           echo "size_bytes: $bytes"
-          echo "size_mb: $(( bytes / 1024 / 1024 ))"
+          echo "size_mb: $mb"
           sha=$(sha256sum "$apk" | cut -d" " -f1)
           echo "sha256: $sha"
           echo "sha=$sha" >> "$GITHUB_ENV"
@@ -92,9 +93,15 @@ jobs:
           # shipping nothing - it fails only after the download is spent.
           apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | head -1)
           if [ -n "$apksigner" ]; then
-            "$apksigner" verify --print-certs "$apk" | head -5
+            certs=$("$apksigner" verify --print-certs "$apk" 2>&1 | head -4 | tr '\n' ' ')
+            if "$apksigner" verify "$apk"; then
+              echo "::notice title=apk signing::signed and verifiable - $certs"
+            else
+              echo "::error title=apk signing::the APK is NOT signed and will be rejected by adb install"
+              exit 1
+            fi
           else
-            echo "::warning title=apk::apksigner not found, could not confirm the signature"
+            echo "::warning title=apk signing::apksigner not found, could not confirm the signature"
           fi
 
           unzip -o -q "$apk" 'classes*.dex' -d /tmp/apkdex
@@ -121,6 +128,7 @@ jobs:
             exit 1
           fi
           echo "native libs: $n"
+          echo "::notice title=apk size::${mb} MB ($bytes bytes) sha256=$sha"
 
           unzip -l "$apk" | grep -iE "uiport_(instrument_serif|inter)" | head -5 || {
             echo "::error title=apk contents::uiport fonts are missing from the APK"
